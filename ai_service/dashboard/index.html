@@ -145,6 +145,7 @@
     <div class="card-value" id="kbTotalDocs" style="color:var(--primary)">-</div>
     <div class="card-row"><span class="lbl">分类数</span><span class="val" id="kbCatCount">-</span></div>
     <div class="card-row"><span class="lbl">来源数</span><span class="val" id="kbSrcCount">-</span></div>
+    <div class="card-row"><span class="lbl">物理库</span><span class="val" id="kbColCount">-</span></div>
   </div>
   <div class="card">
     <div class="card-header"><span class="label">食物数据库</span><span class="icon">&#127814;</span></div>
@@ -187,6 +188,10 @@
       <div class="card-header"><span class="label">来源分布 (Top 15)</span><span class="icon">&#128196;</span></div>
       <div id="kbSourceChart"><div class="loading">加载中...</div></div>
     </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-header"><span class="label">五库物理分布</span><span class="icon">&#128193;</span></div>
+    <div id="kbCollectionChart"><div class="loading">加载中...</div></div>
   </div>
   <div class="card" style="margin-top:12px">
     <div class="card-header"><span class="label">人群标签分布</span><span class="icon">&#128101;</span></div>
@@ -248,6 +253,12 @@
           <option value="孕妇">孕妇</option>
           <option value="老年人">老年人</option>
           <option value="健身人群">健身人群</option>
+        </select>
+        <select id="docLevelSelect" style="flex:1;">
+          <option value="">不限粒度</option>
+          <option value="document">全文</option>
+          <option value="paragraph">段落</option>
+          <option value="fact">数据事实</option>
         </select>
         <button class="btn btn-primary" onclick="searchQuery()" id="searchBtn">检索</button>
       </div>
@@ -372,12 +383,17 @@ async function loadKnowledgeStats() {
     document.getElementById('kbTotalDocs').textContent = vb.total_docs||0;
     document.getElementById('kbCatCount').textContent = Object.keys(vb.categories||{}).length;
     document.getElementById('kbSrcCount').textContent = Object.keys(vb.sources||{}).length;
+    document.getElementById('kbColCount').textContent = Object.keys(vb.collections||{}).length;
 
     // 内容质量
     const cs = vb.content_stats||{};
     document.getElementById('contentAvgLen').textContent = cs.avg_len ? cs.avg_len+'字' : '-';
     document.getElementById('contentMinMax').textContent = (cs.min_len||'-')+' / '+(cs.max_len||'-');
     document.getElementById('contentMedian').textContent = cs.median_len ? cs.median_len+'字' : '-';
+
+    // 五库物理分布
+    const colLabels = {kb_food:'食物库',kb_guide:'膳食指南',kb_crowd:'人群建议',kb_literature:'文献库',kb_templates:'AI模板'};
+    renderBars('kbCollectionChart', vb.collections||{}, k=>colLabels[k]||k, 'primary');
 
     // 分类分布柱状图
     const catLabels = {
@@ -547,9 +563,11 @@ async function loadAgentStats() {
 }
 
 // ===== 检索试玩 =====
+const COL_NAMES = {kb_food:'食物库',kb_guide:'指南库',kb_crowd:'人群库',kb_literature:'文献库',kb_templates:'模板库'};
 async function searchQuery() {
   const q = document.getElementById('queryInput').value.trim();
   const crowd = document.getElementById('crowdSelect').value;
+  const docLevel = document.getElementById('docLevelSelect').value;
   const btn = document.getElementById('searchBtn');
   const result = document.getElementById('searchResult');
   if (!q) { result.textContent = '请输入检索关键词'; return; }
@@ -558,15 +576,15 @@ async function searchQuery() {
   try {
     const r = await fetch(API+'/api/v1/retrieve', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({query:q, top_k:3, target_crowd:crowd})
+      body:JSON.stringify({query:q, top_k:3, target_crowd:crowd, doc_level:docLevel})
     });
     const d = await r.json();
     if (!d.results?.length) { result.innerHTML = '<div style="color:var(--text-dim)">未找到相关结果</div>'; btn.disabled=false; btn.textContent='检索'; return; }
-    result.innerHTML = `<div style="color:var(--text-dim);margin-bottom:6px;font-size:11px">共 ${d.total} 条结果 | 检索模式: 向量+BM25混合</div>`+
+    result.innerHTML = `<div style="color:var(--text-dim);margin-bottom:6px;font-size:11px">共 ${d.total} 条结果 | 多库并行 + 向量/BM25混合 + 本地重排${docLevel?' | 粒度: '+docLevel:''}</div>`+
       d.results.map((r,i)=>`<div style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.02);border-radius:6px">
         <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px">
-          <span style="color:var(--primary)">#${i+1}</span>
-          <span style="color:var(--text-dim)">相似度: ${(r.similarity||r.score||0).toFixed(4)}</span>
+          <span style="color:var(--primary)">#${i+1} ${COL_NAMES[r._collection]?('<span class="tag" style="font-size:9px">'+COL_NAMES[r._collection]+'</span>'):''}</span>
+          <span style="color:var(--text-dim)">${r.rerank_score!=null?('重排 '+r.rerank_score.toFixed(3)+' | '):''}相似度 ${(r.similarity||r.score||0).toFixed(4)}</span>
         </div>
         <div style="font-size:11px;line-height:1.5">${r.content}</div>
         ${r.metadata?.source?`<div style="margin-top:3px;font-size:10px;color:var(--text-dim)">来源: ${r.metadata.source}</div>`:''}

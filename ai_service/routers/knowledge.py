@@ -115,6 +115,7 @@ async def knowledge_stats():
             "crowd_distribution": kb_stats["crowd_distribution"],
             "content_stats": kb_stats["content_stats"],
             "sample_entries": kb_stats["sample_entries"],
+            "collections": kb_stats.get("collections", {}),
         },
         food_db=food_stats,
         timestamp=datetime.now().isoformat(),
