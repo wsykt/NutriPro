@@ -332,7 +332,18 @@
 </div>
 
 <script>
-const API = window.location.origin;
+// API 地址解析：
+// - 通过 AI 服务 HTTP 访问（http://localhost:8002/dashboard/）→ 用当前 origin
+// - 直接双击打开（file://）→ 回退到默认 AI 服务地址，可被 localStorage['dashboard_api']
+//   或 URL 参数 ?api=http://host:port 覆盖
+const DEFAULT_API = 'http://localhost:8002';
+let API = window.location.origin;
+if (!API || API.startsWith('file') || API === 'null') {
+  API = localStorage.getItem('dashboard_api') || DEFAULT_API;
+} else {
+  const q = new URLSearchParams(window.location.search).get('api');
+  if (q) API = q;
+}
 
 // ===== 标签切换 =====
 function switchTab(name, btn) {
