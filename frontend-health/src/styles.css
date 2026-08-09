@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+  }
+  .gradient-bg {
+    background: linear-gradient(135deg, #f8fbf9 0%, #eff7f3 100%);
+  }
+  .page-fade-in {
+    animation: pageFade 0.8s ease-out forwards;
+  }
+  @keyframes pageFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ============ 全局滚动渐入动画 ============ */
+  .scroll-reveal,
+  .scroll-reveal-item {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .scroll-reveal.is-visible,
+  .scroll-reveal-item.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .scroll-reveal-delay-1 { transition-delay: 0.2s !important; }
+  .scroll-reveal-delay-2 { transition-delay: 0.4s !important; }
+  .scroll-reveal-delay-3 { transition-delay: 0.6s !important; }
+
+  /* ============ 全局悬浮外发光：卡片 ============ */
+  .glow-card {
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+  }
+  .glow-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 10px 30px rgba(16, 185, 129, 0.18),
+      0 0 0 1px rgba(16, 185, 129, 0.08);
+  }
+  .glow-card-hover {
+    transition: all 0.4s ease;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.08);
+  }
+  .glow-card-hover:hover {
+    box-shadow:
+      0 15px 40px rgba(16, 185, 129, 0.22),
+      0 0 0 1px rgba(16, 185, 129, 0.12),
+      0 0 30px rgba(16, 185, 129, 0.15);
+    transform: translateY(-3px);
+  }
+
+  /* ============ 全局悬浮外发光：按钮 ============ */
+  .glow-btn {
+    position: relative;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+    transition: all 0.3s ease;
+  }
+  .glow-btn:hover {
+    box-shadow:
+      0 6px 25px rgba(16, 185, 129, 0.45),
+      0 0 20px rgba(16, 185, 129, 0.25);
+    transform: translateY(-2px);
+  }
+  .glow-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    box-shadow: 0 0 30px 4px rgba(16, 185, 129, 0.4);
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .glow-btn:hover::after {
+    opacity: 1;
+  }
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}

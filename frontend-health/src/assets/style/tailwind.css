@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ 全局底层氛围背景 ============ */
+html, body, #app {
+  background: linear-gradient(135deg, #e8f5f0 0%, #e3f2fd 30%, #f0f9f4 60%, #ecf5fb 100%);
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+}
+
+/* ============ 全局呼吸柔光：固定在视口底层 ============ */
+.ambient-glow {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-glow-green {
+  top: -150px;
+  left: -150px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0) 70%);
+  animation: ambient-breathing-green 9s ease-in-out infinite;
+}
+
+.ambient-glow-blue {
+  bottom: -200px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0) 70%);
+  animation: ambient-breathing-blue 11s ease-in-out infinite reverse;
+}
+
+@keyframes ambient-breathing-green {
+  0%, 100% { opacity: 0.4; transform: scale(1) translate(0, 0); }
+  50% { opacity: 0.7; transform: scale(1.1) translate(20px, 10px); }
+}
+
+@keyframes ambient-breathing-blue {
+  0%, 100% { opacity: 0.35; transform: scale(1) translate(0, 0); }
+  50% { opacity: 0.65; transform: scale(1.15) translate(-15px, -20px); }
+}
+
+/* ============ 全局内容区：保证内容在柔光之上 ============ */
+.content-layer {
+  position: relative;
+  z-index: 1;
+}

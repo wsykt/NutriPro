@@ -1,0 +1,25 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:sqlite:./data/health.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.sqlite.hibernate.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    default-property-inclusion: non_null
+
+health:
+  jwt:
+    secret: ${JWT_SECRET:RkVCRUNBMDUyNzlDQjAzQkI0OUJBNjM4MjIxRjY3QUI=}
+    expiration: 86400000
+  ai-service:
+    url: http://localhost:8002
+    api-prefix: /api/v1

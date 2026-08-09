@@ -1,0 +1,87 @@
+# ============================================================
+# 个人健康助手 — Git 忽略规则
+# 仅上传项目代码；排除运行时数据、模型、向量库、日志、密钥
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+*.log
+# loguru 结构化日志目录
+logs/
+ai_service/logs/
+
+# ---------- 密钥与配置 ----------
+# AI 服务真实密钥（.env 含 DEEPSEEK_API_KEY，必须排除）
+.env
+.env.*
+!.env.template
+.ai_service.env
+
+# 前端本地敏感环境变量（保留 .env.development/.env.production 供构建用）
+.env.local
+.env.*.local
+
+# ---------- 依赖与构建产物 ----------
+node_modules/
+dist/
+target/
+*.class
+
+# ---------- 运行时数据（不提交，供本地重建） ----------
+# 后端业务库
+backend-health/data/*.db
+backend-health/data/*.db-*
+backend-health/data/*.bak*
+backend-health/data/server.err
+
+# AI 服务 SQLite 库
+ai_service/data/*.db
+ai_service/data/*.db-*
+
+# 向量库与原始素材
+knowledge/
+ai_service/knowledge/chroma_db_storage/
+ai_service/knowledge/pdf*/
+ai_service/knowledge_base/raw_crawled/
+
+# 本地模型（BGE / Ollama）
+ai_service/models/
+Modelfile.health_framework.tmp
+
+# ---------- 采集/生成中间产物 ----------
+ai_service/ckp_*.json
+ai_service/kb_out_*.json
+ai_service/kb_templates*.json
+ai_service/exported_*/
+ai_service/crawler/exported_*/
+ai_service/crawler/*.json
+ai_service/test_output/**/run_*.json
+ai_service/test_output/**/result_*.json
+ai_service/test_output/**/*.xlsx
+
+# 知识库构建数据（JSON 大文件）
+ai_service/knowledge_base/*.json
+
+# ---------- demo 数据与运行输出（不随项目上传） ----------
+# 食物成分原始数据（中国食物成分表 demo，用户明确不上传）
+china-food-data/
+# 批量模板生成过程输出
+ai_service/stdout_*.txt
+# 本地 14 用例运行报告（中间产物）
+ai_service/_local_mode_14cases_report.json
+
+# ---------- IDE / 系统 ----------
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ---------- 顶层残留文件 ----------
+3.0.0
+3.5.0

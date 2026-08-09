@@ -1,0 +1,463 @@
+﻿Status: 200, Length: 24392, Encoding: utf-8
+
+iframe 数量: 0
+
+总链接数: 110
+
+前 30 个链接（含 href）:
+  [] -> /
+  [中国疾病预防控制中心营养与健康所] -> #none
+  [食物营养成分查询平台] -> /fq
+  [蔬菜类及制品] -> foodlist_0_12_0_0_0_1.htm
+  [全部] -> foodlist_0_0_0_0_0_1.htm
+  [谷类及制品] -> foodlist_0_1_0_0_0_1.htm
+  [薯类、淀粉及制品] -> foodlist_0_10_0_0_0_1.htm
+  [干豆类及制品] -> foodlist_0_11_0_0_0_1.htm
+  [蔬菜类及制品] -> foodlist_0_0_0_0_0_1.htm
+  [菌藻类] -> foodlist_0_13_0_0_0_1.htm
+  [水果类及制品] -> foodlist_0_14_0_0_0_1.htm
+  [坚果、种子类] -> foodlist_0_15_0_0_0_1.htm
+  [畜肉类及制品] -> foodlist_0_16_0_0_0_1.htm
+  [禽肉类及制品] -> foodlist_0_17_0_0_0_1.htm
+  [乳类及制品] -> foodlist_0_18_0_0_0_1.htm
+  [蛋类及制品] -> foodlist_0_19_0_0_0_1.htm
+  [鱼虾蟹贝类] -> foodlist_0_20_0_0_0_1.htm
+  [婴幼儿食品] -> foodlist_0_21_0_0_0_1.htm
+  [小吃、甜饼] -> foodlist_0_22_0_0_0_1.htm
+  [速食食品] -> foodlist_0_23_0_0_0_1.htm
+  [饮料类] -> foodlist_0_24_0_0_0_1.htm
+  [含酒精饮料] -> foodlist_0_25_0_0_0_1.htm
+  [糖、果脯和蜜饯、蜂蜜] -> foodlist_0_26_0_0_0_1.htm
+  [油脂类] -> foodlist_0_27_0_0_0_1.htm
+  [调味品类] -> foodlist_0_28_0_0_0_1.htm
+  [其它] -> foodlist_0_29_0_0_0_1.htm
+  [全部] -> foodlist_0_12_0_0_0_1.htm
+  [根菜类] -> foodlist_0_12_45_0_0_1.htm
+  [鲜豆类] -> foodlist_0_12_46_0_0_1.htm
+  [茄果、瓜菜类] -> foodlist_0_12_47_0_0_1.htm
+
+--- 查找含食物名的元素 ---
+
+li 中找到 20 个候选食物:
+  <li> [谷类及制品] -> foodlist_0_1_0_0_0_1.htm
+  <li> [薯类、淀粉及制品] -> foodlist_0_10_0_0_0_1.htm
+  <li> [干豆类及制品] -> foodlist_0_11_0_0_0_1.htm
+  <li> [菌藻类] -> foodlist_0_13_0_0_0_1.htm
+  <li> [水果类及制品] -> foodlist_0_14_0_0_0_1.htm
+  <li> [坚果、种子类] -> foodlist_0_15_0_0_0_1.htm
+  <li> [畜肉类及制品] -> foodlist_0_16_0_0_0_1.htm
+  <li> [禽肉类及制品] -> foodlist_0_17_0_0_0_1.htm
+  <li> [乳类及制品] -> foodlist_0_18_0_0_0_1.htm
+  <li> [蛋类及制品] -> foodlist_0_19_0_0_0_1.htm
+
+form 数量: 0
+
+script 数量: 7
+
+=== script 6 (含关键词) ===
+  ...  queryFoodInfoList(12, 0, '0', '0', 0, 1);
+...
+  ...     $.ajax({
+...
+  ...  $(".ysq_loading").show();
+...
+  ...  queryFoodInfoList(12, 0, '0', '0', 0, 1);
+...
+  ...  queryFoodInfoList(12, 0, '0', '0', 0, 1);
+...
+  ...         url: "FoodInfoQueryAction!queryFoodInfoList.do",
+...
+
+
+=== HTML 前 3000 字符 ===
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!doctype html>
+
+<html>
+
+<head>
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<title>食物列表页-食物营养成分查询平台</title>
+
+<link rel="shortcut icon" href="/images/favarite_icon.png" type="image/x-icon">
+
+<link href="css/front.css" type="text/css" rel="stylesheet">
+
+<link href="css/easydialog.css" type="text/css" rel="stylesheet">
+
+<link href="css/compare.css" type="text/css" rel="stylesheet">
+
+<script src="scripts/button.js" type="text/javascript"></script>
+
+<script src="scripts/easydialog.min.js" type="text/javascript"></script>
+
+<script src="scripts/jquery.form.js" type="text/javascript"></script>
+
+<script type="text/javascript" src="scripts/jquery.cookie.js"></script>
+
+<script type="text/javascript" src="scripts/front.js"></script>
+
+<script type="text/javascript" src="scripts/compare.js?d=20250114"></script>
+
+
+
+<script type="text/javascript">
+
+$(document).ready(function(){
+
+  queryFoodInfoList(12, 0, '0', '0', 0, 1);
+
+  if ('0' != '0')$("#foodName").attr("value", "0");
+
+  changeSortTip();
+
+  $(".searchbtn").attr("onclick","searchFoodInfo_list(12,0,'0',0)");
+
+  
+
+});
+
+var foodInfoList = [];
+
+var page = 1;
+
+var currentPage = 1;
+
+function queryFoodInfoList(categoryOne, categoryTwo, foodName, field, sort, pageNum) {
+
+  $(".ysq_loading").show();
+
+  $("tr").not(".first_row").remove();
+
+     $.ajax({
+
+        type: "POST", 
+
+         url: "FoodInfoQueryAction!queryFoodInfoList.do",
+
+         data: "categoryOne=" + categoryOne + "&categoryTwo=" + categoryTwo + "&foodName=" + foodName + "&pageNum=" + pageNum + "&field=" + field + "&flag=" + sort,
+
+    dataType: "json",
+
+     success: function(msg){
+
+      var html = "";
+
+     if (msg != null && msg != '') {
+
+       if (msg.list.length > 0) {
+
+         foodInfoList = msg.list;
+
+           html += createFoodInfoHtml(msg.list, 1);
+
+        }
+
+      }
+
+      $(".ysq_loading").hide();
+
+      $(".first_row").after(html);
+
+      compareInit();
+
+      showReplyPageNum(msg.totalPages, msg.currentPage);
+
+      
+
+      if (1 != "") {
+
+        flipPage(1);
+
+      }
+
+      
+
+      $("tr").hover(function(){
+
+	      $(this).find("td").css("color","#ef6519");
+
+	      $(this).find("a").css("color","#ef6519");
+
+	    },function(){
+
+	      $(this).find("td").css("color","#000000");
+
+	      $(this).find("a").css("color","#000000");
+
+	    });
+
+    }
+
+  });
+
+}
+
+
+
+function changeSortTip() {
+
+  if ('0' != "0") {
+
+    $(".ysq_code_0").find(".unscreen").addClass("screened").removeClass("unscreen");
+
+    if ('0' == 1) $(".ysq_code_0").find(".screened a").eq(0).remove();
+
+    else $(".ysq_code_0").find(".screened a").eq(1).remove();
+
+  }
+
+}
+
+
+
+function createFoodInfoHtml(list, flag) {
+
+  var isHave = false;
+
+  var page = flag;
+
+  flag = (flag - 1) * 5;
+
+  var html = "";
+
+  for (var k = 0; k < list.length; k++) {
+
+    var obj = list[k];
+
+    if (obj.length > 0) {
+
+      for (var m = 2 + flag; m < obj.length; m++) {
+
+        var img = obj[1];
+
+        if (img == "") img = "images/imgSmallNone.png";
+
+     
+
+
+=== HTML 5000-9000 字符 ===
+ge(flag);
+
+}
+
+
+
+function showReplyPageNum(totalPages, currentPage) {
+
+  var html = '';
+
+  if (totalPages > 0) {
+
+    html += '<div class="pagination">';
+
+    if (parseInt(currentPage, 10) > 1) html += '<a href="javascript: gotoPage(' + (parseInt(currentPage, 10) - 1) + ')" >上一页</a>';
+
+    else html += '<a href="javascript: void(0)">上一页</a>';
+
+    var startPage = parseInt(currentPage, 10) - 5;
+
+    if (startPage <= 0) startPage = 1;
+
+    var endPage = startPage + 9;
+
+    if (endPage > parseInt(totalPages, 10)) {
+
+      startPage = startPage - (endPage - parseInt(totalPages, 10));
+
+      if (startPage <= 0) startPage = 1;
+
+      endPage = parseInt(totalPages, 10);
+
+    }
+
+    for (var i = startPage; i <= endPage; i++) {
+
+      var curClass = "";
+
+      if (i == parseInt(currentPage, 10)) curClass = "href='#none'  class='active'";
+
+      else curClass = "href='javascript: gotoPage(" + i + ")' ";
+
+      html += '<a  ' + curClass + '>' + i + '</a>';
+
+    }
+
+    if (parseInt(currentPage, 10) < parseInt(totalPages, 10) && parseInt(totalPages, 10) > 0) html += '<a href="javascript: gotoPage(' + (parseInt(currentPage, 10) + 1) + ')" class="next">下一页</a>';
+
+    else html += '<a href="javascript: void(0)" class="next">下一页</a>';
+
+  }
+
+  else {
+
+    /* html += '<span class="ysq_no_find">没有查询到数据！</span>'; */
+
+    html += '<span class="ysq_no_find1"></span>'; 
+
+  }
+
+  $("#pageList").html(html);
+
+}
+
+
+
+function gotoPage(pageNum) {
+
+  queryFoodInfoList(12, 0, '0','0','0', pageNum);
+
+}
+
+
+
+function refreshPage(categoryOne, categoryTwo, foodName, field, sort, pageNum) {
+
+  location.href="foodlist_" + foodName + "_" + categoryOne + "_" + categoryTwo + "_" + field + "_" + sort + "_" + pageNum + ".htm";
+
+  //queryFoodInfoList(categoryOne, categoryTwo, foodName,field,sort, pageNum);
+
+}
+
+</script>
+
+</head>
+
+<body>
+
+<div class="headerbox_sm">
+
+	<div class="header_bg">
+
+		<div class="header">
+
+			<a href="/"><h1></h1></a>
+
+			<div class="header_right">
+
+				<img src="/images/chapter.png">
+
+				<p class="p_sm"><a href="#none">中国疾病预防控制中心营养与健康所</a></p>
+
+				<p style="padding-top: 0px; *><a href="#none">中国营养学会</a></p> 
+
+			</div>
+
+		</div>
+
+	</div>
+
+	<div class="search_box">
+
+		<div class="search">
+
+			<input type="text" id="foodName" placeholder="请输入食物名称(Food Name)" autocomplete="off" onkeydown="javascript:if(event.keyCode==13) searchFoodInfo();">
+
+     <button type="button" onclick="searchFoodInfo()"  value="" class="searchbtn">搜  索Search</button>
+
+		</div>
+
+	</div>
+
+</div>
+
+<div class="food_list_box">
+
+  <div class="food_list_content">
+
+    <!--我的位置-->
+
+    <div class="myposition">
+
+      <ol class="breadcrumb">
+
+       <li>您现在的位置：</li>
+
+        <li><a href="/fq">食物营养成分查询平台</a></li>
+
+        <li><a href="foodlist_0_12_0_0_0_1.htm">蔬菜类及制品</a></li>
+
+        
+
+        
+
+      </ol>
+
+    </div>
+
+    <div class="food_list_left" style="display: none;">
+
+      <h3>食物分类：</h3>
+
+    </div>
+
+    <ul class="food_list_main" style="display: none;">
+
+      <li><a href="foodlist_0_0_0_0_0_1.htm"   >全部</a></li>
+
+      
+
+            <li><a href="foodlist_0_1_0_0_0_1.htm">谷类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_10_0_0_0_1.htm">薯类、淀粉及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_11_0_0_0_1.htm">干豆类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_0_0_0_0_1.htm"  class="active" >蔬菜类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_13_0_0_0_1.htm">菌藻类</a></li>
+
+          
+
+            <li><a href="foodlist_0_14_0_0_0_1.htm">水果类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_15_0_0_0_1.htm">坚果、种子类</a></li>
+
+          
+
+            <li><a href="foodlist_0_16_0_0_0_1.htm">畜肉类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_17_0_0_0_1.htm">禽肉类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_18_0_0_0_1.htm">乳类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_19_0_0_0_1.htm">蛋类及制品</a></li>
+
+          
+
+            <li><a href="foodlist_0_20_0_0_0_1.htm">鱼虾蟹贝类</a></li>
+
+

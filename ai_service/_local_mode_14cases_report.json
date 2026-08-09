@@ -1,0 +1,358 @@
+[
+  {
+    "case_id": "01_qa_老人_超高_减脂",
+    "label": "模板内-减脂",
+    "in_template_expected": true,
+    "func": "qa",
+    "route": "C_fallback",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [
+      "高血压建议缺少要点: 盐, 酒"
+    ],
+    "recall_sim": 0.36817502975463867,
+    "elapsed_sec": 55.7,
+    "timing_ms": {
+      "retrieve_ms": 81,
+      "local_rewrite_ms": 39783,
+      "validate_a_ms": 0,
+      "cloud_fallback_ms": 15801,
+      "validate_c_ms": 0,
+      "total_ms": 55665
+    },
+    "key_fields": {
+      "len": 2309,
+      "has_温馨提示": false
+    },
+    "error": null
+  },
+  {
+    "case_id": "02_qa_老人_超高_降血压",
+    "label": "新方向-降血压",
+    "in_template_expected": false,
+    "func": "qa",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.18690991401672363,
+    "elapsed_sec": 12.6,
+    "timing_ms": {
+      "retrieve_ms": 59,
+      "local_rewrite_ms": 12510,
+      "validate_a_ms": 0,
+      "total_ms": 12569
+    },
+    "key_fields": {
+      "len": 346,
+      "has_温馨提示": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "03_diet_糖尿病_正常_控糖",
+    "label": "模板内-控糖",
+    "in_template_expected": true,
+    "func": "diet_plan",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.42041945457458496,
+    "elapsed_sec": 16.3,
+    "timing_ms": {
+      "retrieve_ms": 70,
+      "local_rewrite_ms": 16216,
+      "validate_a_ms": 0,
+      "total_ms": 16286
+    },
+    "key_fields": {
+      "goal": "控制餐后血糖",
+      "total_calories": 1828,
+      "has_daily_plan": true,
+      "has_nutrition": true,
+      "tips_len": 2,
+      "avoided_len": 1
+    },
+    "error": null
+  },
+  {
+    "case_id": "04_diet_糖尿病_正常_升睾酮",
+    "label": "新方向-提升睾酮",
+    "in_template_expected": false,
+    "func": "diet_plan",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.32013046741485596,
+    "elapsed_sec": 15.1,
+    "timing_ms": {
+      "retrieve_ms": 82,
+      "local_rewrite_ms": 15023,
+      "validate_a_ms": 0,
+      "total_ms": 15105
+    },
+    "key_fields": {
+      "goal": "提升睾酮水平，增加男性活力，不升高血糖",
+      "total_calories": 1828,
+      "has_daily_plan": true,
+      "has_nutrition": true,
+      "tips_len": 2,
+      "avoided_len": 0
+    },
+    "error": null
+  },
+  {
+    "case_id": "05_food_健身_偏低_增肌",
+    "label": "模板内-增肌",
+    "in_template_expected": true,
+    "func": "food_recommend",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.36529797315597534,
+    "elapsed_sec": 25.1,
+    "timing_ms": {
+      "retrieve_ms": 66,
+      "local_rewrite_ms": 25016,
+      "validate_a_ms": 0,
+      "total_ms": 25082
+    },
+    "key_fields": {
+      "meals": 3,
+      "each_ingredients_ok": true,
+      "each_calories_ok": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "06_food_健身_偏低_备赛脱水",
+    "label": "新方向-赛前控盐脱水",
+    "in_template_expected": false,
+    "func": "food_recommend",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.2123367190361023,
+    "elapsed_sec": 21.0,
+    "timing_ms": {
+      "retrieve_ms": 62,
+      "local_rewrite_ms": 20916,
+      "validate_a_ms": 0,
+      "total_ms": 20978
+    },
+    "key_fields": {
+      "meals": 3,
+      "each_ingredients_ok": true,
+      "each_calories_ok": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "07_exercise_孕妇_偏低_保持健康",
+    "label": "模板内-保持健康",
+    "in_template_expected": true,
+    "func": "exercise",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.33032453060150146,
+    "elapsed_sec": 44.4,
+    "timing_ms": {
+      "retrieve_ms": 86,
+      "local_rewrite_ms": 44272,
+      "validate_a_ms": 0,
+      "total_ms": 44358
+    },
+    "key_fields": {
+      "days": 7,
+      "total_minutes": 220,
+      "has_warm/cool": true,
+      "precautions_len": 4,
+      "has_progression": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "08_exercise_孕妇_偏低_缓解水肿",
+    "label": "新方向-缓解孕期水肿",
+    "in_template_expected": false,
+    "func": "exercise",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.17972731590270996,
+    "elapsed_sec": 44.5,
+    "timing_ms": {
+      "retrieve_ms": 72,
+      "local_rewrite_ms": 44471,
+      "validate_a_ms": 0,
+      "total_ms": 44543
+    },
+    "key_fields": {
+      "days": 7,
+      "total_minutes": 215,
+      "has_warm/cool": true,
+      "precautions_len": 3,
+      "has_progression": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "09_diet_青少年_超高_减脂",
+    "label": "模板内-减脂",
+    "in_template_expected": true,
+    "func": "diet_plan",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.272894024848938,
+    "elapsed_sec": 19.5,
+    "timing_ms": {
+      "retrieve_ms": 81,
+      "local_rewrite_ms": 19407,
+      "validate_a_ms": 0,
+      "total_ms": 19489
+    },
+    "key_fields": {
+      "goal": "中考体育前3个月减脂到BMI正常，不影响学习",
+      "total_calories": 2000,
+      "has_daily_plan": true,
+      "has_nutrition": true,
+      "tips_len": 2,
+      "avoided_len": 0
+    },
+    "error": null
+  },
+  {
+    "case_id": "10_diet_青少年_超高_补脑冲刺",
+    "label": "新方向-高考补脑冲刺",
+    "in_template_expected": false,
+    "func": "diet_plan",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.21921873092651367,
+    "elapsed_sec": 19.1,
+    "timing_ms": {
+      "retrieve_ms": 83,
+      "local_rewrite_ms": 19055,
+      "validate_a_ms": 0,
+      "total_ms": 19138
+    },
+    "key_fields": {
+      "goal": "高三下学期备考，补脑+抗疲劳，同时控制体重不继续增长",
+      "total_calories": 1800,
+      "has_daily_plan": true,
+      "has_nutrition": true,
+      "tips_len": 2,
+      "avoided_len": 0
+    },
+    "error": null
+  },
+  {
+    "case_id": "11_qa_通用_正常_均衡营养",
+    "label": "模板内-均衡饮食",
+    "in_template_expected": true,
+    "func": "qa",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.465656578540802,
+    "elapsed_sec": 27.3,
+    "timing_ms": {
+      "retrieve_ms": 75,
+      "local_rewrite_ms": 27215,
+      "validate_a_ms": 0,
+      "total_ms": 27290
+    },
+    "key_fields": {
+      "len": 759,
+      "has_温馨提示": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "12_qa_通用_正常_倒班调睡眠",
+    "label": "新方向-三班倒调睡眠",
+    "in_template_expected": false,
+    "func": "qa",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.0,
+    "elapsed_sec": 0.1,
+    "timing_ms": {
+      "retrieve_ms": 71,
+      "local_rewrite_ms": 0,
+      "validate_a_ms": 0,
+      "total_ms": 71
+    },
+    "key_fields": {
+      "len": 132,
+      "has_温馨提示": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "13_exercise_普通_过低_增重",
+    "label": "模板内-增重",
+    "in_template_expected": true,
+    "func": "exercise",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.5038359761238098,
+    "elapsed_sec": 33.5,
+    "timing_ms": {
+      "retrieve_ms": 58,
+      "local_rewrite_ms": 33463,
+      "validate_a_ms": 0,
+      "total_ms": 33521
+    },
+    "key_fields": {
+      "days": 7,
+      "total_minutes": 285,
+      "has_warm/cool": true,
+      "precautions_len": 2,
+      "has_progression": true
+    },
+    "error": null
+  },
+  {
+    "case_id": "14_exercise_普通_过低_纠正圆肩驼背",
+    "label": "新方向-纠正圆肩驼背",
+    "in_template_expected": false,
+    "func": "exercise",
+    "route": "A_template_local",
+    "mode": "normal",
+    "valid_passed": true,
+    "valid_issues": [],
+    "recall_sim": 0.0,
+    "elapsed_sec": 38.6,
+    "timing_ms": {
+      "retrieve_ms": 62,
+      "local_rewrite_ms": 38562,
+      "validate_a_ms": 0,
+      "total_ms": 38624
+    },
+    "key_fields": {
+      "days": 7,
+      "total_minutes": 210,
+      "has_warm/cool": true,
+      "precautions_len": 2,
+      "has_progression": true
+    },
+    "error": null
+  }
+]
