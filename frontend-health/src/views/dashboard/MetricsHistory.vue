@@ -93,6 +93,36 @@
       </svg>
     </section>
 
+    <!-- 健康时序预测 -->
+    <section v-if="prediction && prediction.status === 'ok'" class="glass rounded-2xl p-6 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-semibold text-morandi-text">未来 {{ prediction.days }} 天体重预测</h3>
+        <span class="text-xs px-3 py-1 rounded-full" :class="prediction.trend === 'down' ? 'bg-green-100 text-green-700' : prediction.trend === 'up' ? 'bg-amber-100 text-amber-700' : 'bg-morandi-soft text-morandi-text'">
+          {{ prediction.trend === 'down' ? '下降趋势' : prediction.trend === 'up' ? '上升趋势' : '平稳' }}
+        </span>
+      </div>
+      <p class="text-sm text-morandi-lightText mb-4">{{ prediction.message }}</p>
+      <svg :viewBox="`0 0 ${svgW} 200`" class="w-full h-52">
+        <!-- 置信区间带 -->
+        <path :d="confidenceBandPath" fill="rgba(180,127,95,0.12)" stroke="none" />
+        <!-- 预测线（虚线） -->
+        <polyline :points="predictionLine" fill="none" :stroke="accentColor" stroke-width="2" stroke-dasharray="6 4" />
+        <g v-for="(p, i) in predictionPoints" :key="i">
+          <circle :cx="p.x" :cy="p.y" r="3" :fill="accentColor" />
+          <text :x="p.x" y="190" text-anchor="middle" font-size="10" fill="#555">{{ p.label }}</text>
+          <text :x="p.x" :y="p.y - 8" text-anchor="middle" font-size="10" :fill="accentColor">{{ p.value }}</text>
+        </g>
+      </svg>
+      <div class="flex items-center gap-2 mt-2">
+        <button @click="changePredictDays(-7)" class="px-2 py-1 rounded bg-morandi-soft text-morandi-text text-xs">-7天</button>
+        <button @click="changePredictDays(7)" class="px-2 py-1 rounded bg-morandi-soft text-morandi-text text-xs">+7天</button>
+        <span class="text-xs text-morandi-lightText ml-1">预测基于历史体重线性回归，置信区间随预测距离放宽，仅供参考。</span>
+      </div>
+    </section>
+    <section v-else-if="records.length > 1" class="glass rounded-2xl p-4 mb-6">
+      <p class="text-sm text-morandi-lightText">{{ prediction?.message || '暂无足够数据进行预测（至少 2 条体重记录）' }}</p>
+    </section>
+
     <!-- 身高折线图 -->
     <section v-if="recordsWithHeight > 1" class="glass rounded-2xl p-6 mb-6">
       <h3 class="text-lg font-semibold text-morandi-text mb-3">身高变化（cm）· 点击圆点修改当日数据</h3>
@@ -200,6 +230,8 @@ const startDate = ref('')
 const endDate = ref('')
 const records = ref<any[]>([])
 const hintMsg = ref('')
+const prediction = ref<any>(null)
+const predictDays = ref(7)
 
 const showManualForm = ref(false)
 const savingManual = ref(false)
@@ -281,6 +313,63 @@ const weightLine = computed(() => buildPoints('weight').line)
 const heightPoints = computed(() => buildPoints('height').points)
 const heightLine = computed(() => buildPoints('height').line)
 
+// ============ 健康时序预测展示 ============
+const predictionPoints = computed<{ x: number; y: number; label: string; value: string }[]>(() => {
+  const pts = prediction.value?.points || []
+  if (!pts.length) return []
+  const values = pts.map((p: any) => Number(p.predictedWeight)).filter(Number.isFinite)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  return pts.map((p: any, i: number) => ({
+    x: pts.length === 1 ? svgW / 2 : (svgW - 40) * (i / (pts.length - 1)) + 20,
+    y: 160 - ((Number(p.predictedWeight) - min) / span) * 120,
+    label: String(p.date).slice(5),
+    value: Number(p.predictedWeight).toFixed(1)
+  }))
+})
+const predictionLine = computed(() => predictionPoints.value.map((p) => `${p.x},${p.y}`).join(' '))
+const confidenceBandPath = computed(() => {
+  const pts = prediction.value?.points || []
+  const lps = predictionPoints.value
+  if (!pts.length || lps.length < 2) return ''
+  const values = pts.map((p: any) => Number(p.predictedWeight)).filter(Number.isFinite)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const upper = pts.map((p: any, i: number) => {
+    const x = lps[i].x
+    const y = 160 - ((Number(p.upper) - min) / span) * 120
+    return `${x},${Math.min(199, y)}`
+  })
+  const lower = [...pts].reverse().map((p: any, i: number) => {
+    const idx = pts.length - 1 - i
+    const x = lps[idx].x
+    const y = 160 - ((Number(p.lower) - min) / span) * 120
+    return `${x},${Math.max(1, y)}`
+  })
+  return `M ${upper.join(' L ')} L ${lower.join(' L ')} Z`
+})
+
+async function loadPredict() {
+  try {
+    const uid = userStore.activeUserId || userStore.user?.user_id
+    if (!uid) { prediction.value = null; return }
+    const resp: any = await api.metrics.predict(uid, predictDays.value)
+    prediction.value = resp?.data ?? resp ?? null
+  } catch (e: any) {
+    console.warn('加载预测失败', e)
+    prediction.value = null
+  }
+}
+
+function changePredictDays(delta: number) {
+  const next = Math.min(30, Math.max(7, predictDays.value + delta))
+  if (next === predictDays.value) return
+  predictDays.value = next
+  loadPredict()
+}
+
 async function loadData() {
   try {
     const uid = userStore.activeUserId || userStore.user?.user_id
@@ -299,6 +388,7 @@ async function loadData() {
       age: fixInt(r.age),
       crowdType: r.crowdType ?? r.crowd_type
     }))
+    loadPredict()
   } catch (e: any) {
     console.warn('加载指标失败', e)
     records.value = []

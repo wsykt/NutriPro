@@ -172,8 +172,8 @@ class TemplateStore:
         if retriever is None:
             return {"checked": False, "reason": "无 retriever"}
         try:
-            # 拉取 ChromaDB 中全部 ai_template 卡片
-            all_data = retriever.collection.get(
+            # 拉取 kb_templates 集合中全部 ai_template 卡片（物理隔离后从模板库读取）
+            all_data = retriever.collections["kb_templates"].get(
                 include=["documents", "metadatas"]
             )
             ids = all_data.get("ids", []) or []

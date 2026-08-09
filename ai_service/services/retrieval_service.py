@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime as dt
 from typing import Any, Dict, List, Optional, Tuple
 from vector.retriever import retriever
+from services.knowledge_router import knowledge_router
 
 
 # ============================================================
@@ -91,8 +92,9 @@ def build_kb_context(query: str, top_k: int = 3) -> str:
     return context
 
 
-def hybrid_kb_context(query: str, top_k: int = 5, target_crowd: str = "") -> Tuple[str, List[dict]]:
-    """混合检索构建知识库上下文（含 judge 判定）
+def hybrid_kb_context(query: str, top_k: int = 5, target_crowd: str = "",
+                      agent: str = "qa") -> Tuple[str, List[dict]]:
+    """混合检索构建知识库上下文（含 judge 判定，接入 KnowledgeRouter 多库并行）
 
     用于 orchestrator.chat() 的完整检索流程。
 
@@ -109,9 +111,11 @@ def hybrid_kb_context(query: str, top_k: int = 5, target_crowd: str = "") -> Tup
         if not judge_result.get("need_retrieve"):
             return "", []
 
-        results = retriever.hybrid_retrieve(
+        # 多库并行检索：按意图路由到多集合，ACL 限制 agent 可访问集合
+        results = knowledge_router.parallel_retrieve(
             query, top_k=top_k,
-            target_crowd=target_crowd if judge_result.get("need_retrieve") else None
+            target_crowd=target_crowd if judge_result.get("need_retrieve") else None,
+            agent=agent,
         )
 
         if results:
@@ -131,20 +135,26 @@ def hybrid_kb_context(query: str, top_k: int = 5, target_crowd: str = "") -> Tup
 # API 端点统一入口（消除 main.py 对 vector.retriever 的直接依赖）
 # ============================================================
 
-def retrieve_knowledge(query: str, persona: str = "", top_k: int = 5) -> List[dict]:
-    """混合检索知识（BM25 + 向量双路融合）
+def retrieve_knowledge(query: str, persona: str = "", top_k: int = 5,
+                       doc_level: str = "") -> List[dict]:
+    """混合检索知识（BM25 + 向量双路融合，多库并行路由）
 
     参数:
         query: 检索查询
         persona: 目标人群（如"糖尿病患者"、"孕妇"等）
         top_k: 返回条数
+        doc_level: 三级检索粒度（document/paragraph/fact，空则不限制）
 
     返回:
         检索结果列表，知识库为空时返回空列表
     """
     if retriever.count() == 0:
         return []
-    return retriever.hybrid_retrieve(query, top_k=top_k, target_crowd=persona)
+    # API 端统一走 KnowledgeRouter：意图路由 + 多库并行 + 默认 qa ACL
+    return knowledge_router.parallel_retrieve(
+        query, top_k=top_k, target_crowd=persona or None,
+        agent="qa", doc_level=doc_level or None,
+    )
 
 
 def get_knowledge_stats() -> dict:
@@ -213,7 +223,7 @@ def ingest_document(
 
 
 def list_documents(limit: int = 50) -> Dict[str, Any]:
-    """列出知识库中的文档（最近写入的）
+    """列出知识库中的文档（跨五库聚合，最近写入优先）
 
     参数:
         limit: 最大返回条数
@@ -222,13 +232,28 @@ def list_documents(limit: int = 50) -> Dict[str, Any]:
         {"total": int, "documents": [...], "metadatas": [...], "ids": [...]}
     """
     total = retriever.count()
-    all_data = retriever.collection.get(
-        limit=limit,
-        include=["documents", "metadatas"]
-    )
+
+    # 跨五库聚合：每个集合取 limit 条（Chroma 按内部序返回），合并后按 limit 截断
+    documents, metadatas, ids = [], [], []
+    for col_def in retriever.COLLECTION_DEFS:
+        col_name = col_def["name"]
+        col = retriever.collections[col_name]
+        if col.count() == 0:
+            continue
+        try:
+            data = col.get(
+                limit=limit,
+                include=["documents", "metadatas"]
+            )
+            documents.extend(data.get("documents", []) or [])
+            metadatas.extend(data.get("metadatas", []) or [])
+            ids.extend(data.get("ids", []) or [])
+        except Exception:
+            continue
+
     return {
         "total": total,
-        "documents": all_data.get("documents", []) or [],
-        "metadatas": all_data.get("metadatas", []) or [],
-        "ids": all_data.get("ids", []) or [],
+        "documents": documents[:limit],
+        "metadatas": metadatas[:limit],
+        "ids": ids[:limit],
     }

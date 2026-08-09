@@ -248,11 +248,12 @@ async def retrieve(data: dict):
     query = data.get("query", "")
     top_k = data.get("top_k", 3)
     target_crowd = data.get("target_crowd", "")
+    doc_level = data.get("doc_level", "")  # document/paragraph/fact 三级检索粒度
 
     if not query:
         return success_response(query=query, results=[], total=0)
 
-    results = retrieve_knowledge(query, persona=target_crowd, top_k=top_k)
+    results = retrieve_knowledge(query, persona=target_crowd, top_k=top_k, doc_level=doc_level)
 
     return success_response(query=query, results=results, total=len(results))
 

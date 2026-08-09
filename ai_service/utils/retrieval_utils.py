@@ -285,3 +285,73 @@ def hybrid_search(
     fused = truncate_context(fused)
 
     return fused
+
+
+# ============================================================
+# 多集合混合检索（五库物理隔离版）
+# ============================================================
+
+def hybrid_search_multi(
+    query: str,
+    vector_search_fn,
+    bm25_states: dict,
+    collections=None,
+    top_k: int = 5,
+    vector_weight: float = 0.6,
+    bm25_weight: float = 0.4,
+    deduplicate: bool = True,
+    doc_level: str = None,
+) -> List[Dict]:
+    """多集合混合检索入口：各集合 BM25 + 全库向量 双路融合
+
+    五库隔离后的统一调用：向量路为"全库并行"（vector_search_fn 内部已按
+    collections 参数并行检索各集合后合并），BM25 路按集合独立检索后合并。
+
+    参数:
+        query: 查询文本
+        vector_search_fn: 向量检索回调，入参 (query, top_k)，已支持 collections 参数
+        bm25_states: {collection_name: {"bm25": BM25Retriever, ...}} 多集合 BM25 状态
+        collections: 参与检索的集合名列表（None → 全部）
+        top_k: 各路 top_k
+        vector_weight / bm25_weight: 双路权重
+        deduplicate: 是否去重
+        doc_level: document/paragraph/fact 三级检索粒度过滤（None → 不限）
+    """
+    # 1. 向量路（全库/指定库并行）
+    vector_results = vector_search_fn(query, top_k=top_k) if vector_search_fn else []
+
+    # 2. BM25 路：逐集合独立检索后合并（按分数降序）
+    bm25_all = []
+    col_names = collections or list(bm25_states.keys())
+    for col_name in col_names:
+        state = bm25_states.get(col_name)
+        if not state or not state.get("bm25"):
+            continue
+        bm25_retriever = state["bm25"]
+        if bm25_retriever._is_indexed:
+            hits = bm25_retriever.search(query, top_k=top_k)
+            # 粒度过滤（BM25 路按 doc_level 剔除不匹配结果）
+            if doc_level in ("document", "paragraph", "fact"):
+                hits = [h for h in hits
+                        if (h.get("metadata") or {}).get("doc_level") == doc_level]
+            for h in hits:
+                h["_collection"] = col_name
+            bm25_all.extend(hits)
+    bm25_all.sort(key=lambda x: -x.get("score", 0))
+    bm25_results = bm25_all[: top_k * len(col_names)]
+
+    # 3. RRF 融合
+    weights = [vector_weight, bm25_weight]
+    fused = rrf_fuse(vector_results, bm25_results, weights=weights)
+
+    # 4. 去重
+    if deduplicate:
+        fused = deduplicate_results(fused)
+
+    # 5. 权威加权
+    fused = boost_authority_results(fused)
+
+    # 6. 截断
+    fused = truncate_context(fused)
+
+    return fused

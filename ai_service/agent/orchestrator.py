@@ -225,7 +225,7 @@ class AgentOrchestrator:
         return "\n\n".join(context_parts)
 
     def _get_knowledge_context(self, query: str, target_crowd: str = "") -> Tuple[str, List[dict]]:
-        """检索知识库并组装上下文
+        """检索知识库并组装上下文（接入 KnowledgeRouter 多库并行 + qa ACL）
 
         返回: (context_str, raw_results)
         """
@@ -239,11 +239,13 @@ class AgentOrchestrator:
             if not judge_result.get("need_retrieve"):
                 return "", []
 
-            # 使用动态 top_k 混合检索（按相似度分布分段取条数，降低 prompt 冗余）
-            kb_results = self._retriever.dynamic_retrieve(
+            # 多库并行检索：意图路由 + 人群库/食物库并行 + qa ACL
+            from services.knowledge_router import knowledge_router
+            kb_results = knowledge_router.parallel_retrieve(
                 query,
+                top_k=5,
                 target_crowd=target_crowd if judge_result.get("need_retrieve") else None,
-                default_top_k=5,
+                agent="qa",
             )
 
             if kb_results:

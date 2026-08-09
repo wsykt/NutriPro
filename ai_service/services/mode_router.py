@@ -621,8 +621,11 @@ class ModeRouter:
             return "", False
 
         try:
+            # 模板召回限定 kb_templates 集合（物理隔离后不再全库检索）
             # 多拉候选，按相似度过滤，命中不足返回空
-            results = self._retriever.search(query, top_k=5, target_crowd=kb_crowd)
+            results = self._retriever.search(
+                query, top_k=5, target_crowd=kb_crowd, collections=["kb_templates"]
+            )
             min_sim = settings.TEMPLATE_MIN_SIMILARITY
             skip_th = settings.TEMPLATE_MATCH_SKIP_LLM_THRESHOLD
             filtered = [r for r in results if r.get("similarity", 0) >= min_sim]
@@ -1268,7 +1271,8 @@ class ModeRouter:
         if not query or len(query.strip()) < 3:
             return
         try:
-            hits = self._retriever.search(query, top_k=1)
+            # 去重查询限定 kb_templates 集合（新生成结果只与模板库比对同主题）
+            hits = self._retriever.search(query, top_k=1, collections=["kb_templates"])
         except Exception as e:
             logger.debug(f"[去重查询失败] {e}")
             hits = []

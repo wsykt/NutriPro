@@ -145,7 +145,8 @@ export const api = {
     range: (userId: number, startDate: string, endDate: string) =>
       instance.get(`/metrics/history/${userId}/range`, { params: { startDate, endDate } }),
     save: (payload: any) => instance.post('/metrics/save', payload),
-    deleteByDate: (recordDate: string) => instance.delete('/metrics/delete', { params: { recordDate } })
+    deleteByDate: (recordDate: string) => instance.delete('/metrics/delete', { params: { recordDate } }),
+    predict: (userId: number, days = 7) => instance.get(`/metrics/predict/${userId}`, { params: { days } })
   },
   // AI 健康咨询
   ai: {

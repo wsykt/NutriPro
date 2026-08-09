@@ -90,6 +90,11 @@ class Settings:
     RAG_TOPK_LOW_COUNT = int(os.getenv("RAG_TOPK_LOW_COUNT", "3"))                  # 中相似段取条数
     RAG_TOPK_CANDIDATE_MULTIPLIER = int(os.getenv("RAG_TOPK_CANDIDATE_MULTIPLIER", "2"))  # 候选集倍数
 
+    # ---- 本地 reranker 重排序（bge-reranker 交叉编码精排） ----
+    RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+    RERANKER_MODEL_PATH = os.getenv("RERANKER_MODEL_PATH", "./models/bge-reranker-base")
+    RERANKER_CANDIDATE_MULTIPLIER = int(os.getenv("RERANKER_CANDIDATE_MULTIPLIER", "3"))  # 候选集 = top_k × 倍数
+
     # ---- 模板召回 ----
     TEMPLATE_MIN_SIMILARITY = float(os.getenv("TEMPLATE_MIN_SIMILARITY", "0.40"))   # 模板召回最低相似度（实际分布约 0.45，取低值保证命中）
     TEMPLATE_MATCH_SKIP_LLM_THRESHOLD = float(os.getenv("TEMPLATE_MATCH_SKIP_LLM_THRESHOLD", "0.95"))  # 极高匹配直接返回模板，跳过 LLM 改写

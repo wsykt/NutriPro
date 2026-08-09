@@ -71,6 +71,79 @@ public class BodyMetricsHistoryService {
         return historyRepository.findByUserIdAndRecordDateBetweenOrderByRecordDateDesc(userId, startDate, endDate);
     }
 
+    /**
+     * 健康时序预测：基于历史体重序列做简单线性回归，预测未来 days 天的体重趋势。
+     * 返回预测点（日期 + 预测体重 + 区间），以及趋势方向与说明。
+     */
+    public java.util.Map<String, Object> predictWeightTrend(Integer userId, int days) {
+        List<BodyMetricsHistory> desc = historyRepository.findByUserIdOrderByRecordDateDesc(userId);
+        List<BodyMetricsHistory> asc = new java.util.ArrayList<>(desc);
+        java.util.Collections.reverse(asc);
+
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        List<java.util.Map<String, Object>> points = new java.util.ArrayList<>();
+        result.put("metric", "weight");
+        result.put("unit", "kg");
+        result.put("days", days);
+        result.put("points", points);
+
+        // 提取有效体重序列（至少 2 个点才可回归）
+        List<Double> weights = new java.util.ArrayList<>();
+        for (BodyMetricsHistory h : asc) {
+            if (h.getWeight() != null) weights.add(h.getWeight());
+        }
+        int n = weights.size();
+        if (n < 2) {
+            result.put("status", "insufficient_data");
+            result.put("message", "至少需要 2 条带体重的历史记录才能预测");
+            return result;
+        }
+
+        // 简单线性回归 y = a + b*x（x = 相对首日的天数序号）
+        double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        for (int i = 0; i < n; i++) {
+            double x = i, y = weights.get(i);
+            sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+        }
+        double b = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        double a = (sumY - b * sumX) / n;
+
+        // 残差标准差（用于置信区间）
+        double sse = 0;
+        for (int i = 0; i < n; i++) {
+            double y = weights.get(i), pred = a + b * i;
+            sse += (y - pred) * (y - pred);
+        }
+        double sd = Math.sqrt(sse / Math.max(1, n - 2));
+
+        // 预测未来 days 天
+        LocalDate lastDate = LocalDate.parse(asc.get(asc.size() - 1).getRecordDate());
+        for (int d = 1; d <= days; d++) {
+            double x = n - 1 + d;
+            double pred = a + b * x;
+            double width = 1.96 * sd * (1 + d / 3.0); // 置信带随预测距离放宽
+            java.util.Map<String, Object> p = new java.util.LinkedHashMap<>();
+            p.put("date", lastDate.plusDays(d).toString());
+            p.put("predictedWeight", Math.round(pred * 10.0) / 10.0);
+            p.put("lower", Math.round((pred - width) * 10.0) / 10.0);
+            p.put("upper", Math.round((pred + width) * 10.0) / 10.0);
+            points.add(p);
+        }
+
+        // 趋势判断
+        double weeklyChange = b * 7;
+        String trend = Math.abs(weeklyChange) < 0.3 ? "stable"
+                : (weeklyChange < 0 ? "down" : "up");
+        String trendText = "stable".equals(trend) ? "体重趋于平稳"
+                : "down".equals(trend) ? "预计体重缓慢下降（周变化约 " + String.format("%.1f", weeklyChange) + " kg）"
+                : "预计体重缓慢上升（周变化约 " + String.format("%.1f", weeklyChange) + " kg）";
+        result.put("status", "ok");
+        result.put("trend", trend);
+        result.put("message", trendText);
+        result.put("sampleSize", n);
+        return result;
+    }
+
     @Transactional
     public boolean deleteByDate(Integer userId, String recordDate) {
         Optional<BodyMetricsHistory> existing = historyRepository.findByUserIdAndRecordDate(userId, recordDate);

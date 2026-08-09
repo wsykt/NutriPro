@@ -52,6 +52,23 @@ public class BodyMetricsHistoryController {
     }
 
     /**
+     * 健康时序预测：基于历史体重序列回归预测未来 days 天体重趋势。
+     */
+    @GetMapping("/predict/{userId}")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> predictWeightTrend(
+            Authentication authentication,
+            @PathVariable(name = "userId") Integer userId,
+            @RequestParam(name = "days", defaultValue = "7") Integer days) {
+        User user = extractUser(authentication);
+        if (user == null) return unauthorized();
+        if (!user.getUserId().equals(userId) && !relationService.isConfirmedGuardian(user.getUserId(), userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("无权查看该用户的数据"));
+        }
+        int d = (days == null || days < 1 || days > 30) ? 7 : days;
+        return ResponseEntity.ok(ApiResponse.success(metricsService.predictWeightTrend(userId, d)));
+    }
+
+    /**
      * 手动保存一条历史身体指标（身高、体重、年龄、人群类型），用于补充旧数据或新建趋势点。
      * body 示例：{ "recordDate": "2026-06-20", "height": 172, "weight": 68, "age": 32, "crowdType": "普通人" }
      */
