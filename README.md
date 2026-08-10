@@ -1,47 +1,41 @@
-# 个人健康助手 AI 系统
+# 个人健康助手
+
+基于 RAG + 双模型（本地 Ollama / 云端 DeepSeek）的个人健康管理平台，提供饮食记录、营养分析、食谱推荐、科普文章、AI 咨询与运动建议。
+
+## 项目结构
+
+```
+health/
+├─ frontend-health/   # Vue 3 + TypeScript + Vite 前端（:5173）
+├─ backend-health/    # Spring Boot 2.7 后端（:8082）
+├─ ai_service/        # FastAPI AI 服务（:8002）
+└─ 启动说明.md         # 四服务一键启动指南
+```
 
 ## 快速开始
 
-### 1. 启动 Ollama 服务
-```bash
-ollama serve
-```
+1. 启动 Ollama（本地模型服务，:11434）
+2. 拉取对话模型：`ollama pull qwen2.5:7b-instruct-q4_K_M`（BGE 嵌入/重排模型已内置在 `ai_service/models/`，无需拉取）
+3. 一键启动：`powershell -ExecutionPolicy Bypass -File start_all.ps1`
+4. 访问系统：
+   - 前端界面：http://localhost:5173
+   - 后端 API：http://localhost:8082
+   - AI 服务：http://localhost:8002
 
-### 2. 拉取所需模型
-```bash
-ollama pull qwen2.5:7b    # 对话模型
-ollama pull bge-m3        # 嵌入模型
-```
-
-### 3. 一键启动所有服务
-```powershell
-# Windows
-powershell -ExecutionPolicy Bypass -File "启动说明.md 同级的 start_all.ps1"
-```
-
-### 4. 访问系统
-- 前端界面: http://localhost:5173
-- 后端 API: http://localhost:8082
-- AI 服务: http://localhost:8002
-
-## 功能特性
-
-- **智能营养问答**: 基于 RAG 的专业营养咨询
-- **个性化膳食推荐**: 根据用户档案生成食谱
-- **科普文章生成**: AI 辅助生成健康科普内容
-- **运动营养指导**: 针对健身人群的专业建议
-- **多端数据同步**: 前后端实时数据交互
-
-## 技术栈
-
-- **前端**: Vue 3 + TypeScript + Pinia
-- **后端**: Spring Boot + JPA + SQLite
-- **AI**: FastAPI + ChromaDB + Ollama
+详细启动步骤与环境要求见 [启动说明.md](启动说明.md)。
 
 ## 文档
 
-详细技术文档请查看: AI系统技术文档与优化策略.md
+- [启动说明.md](启动说明.md) —— 启动流程与环境要求
+- [项目当前架构说明.md](项目当前架构说明.md) —— 当前代码实况架构
+- [优化后项目架构说明.md](优化后项目架构说明.md) —— 目标架构（v3.0）
+- [AI模块架构设计文档.md](AI模块架构设计文档.md) —— AI 服务设计
+- [前端应用架构设计文档.md](前端应用架构设计文档.md) —— 前端设计
+- [后端系统架构设计文档.md](后端系统架构设计文档.md) —— 后端设计
+- [数据库设计说明.md](数据库设计说明.md) —— 数据模型
 
-## 支持
+## 技术栈
 
-如有问题，请查看技术文档或联系开发团队。
+- 前端：Vue 3 + TypeScript + Pinia
+- 后端：Spring Boot 2.7 + JPA + SQLite + Caffeine
+- AI：FastAPI + ChromaDB + sentence-transformers（BGE）+ Ollama / DeepSeek

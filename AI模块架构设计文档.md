@@ -42,12 +42,12 @@ AI 服务（AICore v2.0）是个人健康管理系统的智能大脑，运行于
 ```mermaid
 graph TB
     subgraph "前端层"
-        A[微信小程序<br/>用户界面]
+        A[Vue 3 Web 前端<br/>用户界面]
     end
 
     subgraph "Java 后端 (Spring Boot)"
         B[AiConsultController<br/>REST API 端点]
-        B2[AiChatService<br/>AI 调用封装]
+        B2[AiChatClientService<br/>AI 调用封装]
         B3[RagVectorSearchUtil<br/>RAG 客户端]
     end
 
@@ -497,11 +497,11 @@ sequenceDiagram
 
 ### 4.1 与 Java 后端的交互
 
-Java 后端通过 HTTP REST 调用 AI 服务，主要交互类为 `AiChatService.java` 和 `RagVectorSearchUtil.java`。
+Java 后端通过 HTTP REST 调用 AI 服务，主要交互类为 `AiChatClientService.java`（HTTP 通信）、`AiChatContextBuilder.java`（上下文组装）和 `RagVectorSearchUtil.java`。咨询/营养/运动/文章按业务域拆分为 `AiConsultService` / `AiNutritionService` / `AiExerciseService` / `AiContentService`，熔断由独立组件 `CircuitBreaker`（@Component 单例，全局共享状态）统一管理。
 
 ```mermaid
 sequenceDiagram
-    participant FE as 微信小程序
+    participant FE as Vue 3 Web 前端
     participant BE as Java Backend
     participant AI as AI Service (FastAPI)
     participant DS as DeepSeek API
@@ -524,7 +524,7 @@ sequenceDiagram
 
 | Java 后端调用 | AI 服务端点 | HTTP Method | 说明 |
 |---------------|------------|-------------|------|
-| AiChatService | `/api/v1/chat` | POST | 多轮对话（核心入口） |
+| AiChatClientService / AiConsultService | `/api/v1/chat` | POST | 多轮对话（核心入口） |
 | 饮食记录 | `/api/v1/meal/parse` | POST | NLU 饮食解析 |
 | 营养分析 | `/api/v1/nutrition/analyze` | POST | 日营养分析 |
 | 食材审核 | `/api/v1/food/audit` | POST | 食材热量评估 |
@@ -716,7 +716,7 @@ flowchart LR
 |--------|-----|------|
 | **Python 版本** | 3.12 | 运行 AI 服务 |
 | **Java 版本** | 17+ | 运行 Spring Boot 后端 |
-| **端口** | **8002** | AI 服务 FastAPI 监听端口（`.env` 中配置 `AI_SERVICE_PORT`，默认 8003，实际部署设为 8002） |
+| **端口** | **8002** | AI 服务 FastAPI 监听端口（`.env` 中配置 `AI_SERVICE_PORT = 8002`） |
 | **启动方式** | `start_ai.bat` → `uvicorn main:app --host 0.0.0.0 --port 8002` | 生产模式启动 |
 | **进程管理** | 独立 Python 进程 | 与 Java 后端解耦 |
 
