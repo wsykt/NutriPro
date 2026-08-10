@@ -126,16 +126,19 @@ public class CommunityService {
         }
 
         PostLike existingLike = postLikeRepository.findByPostIdAndUserId(postId, userId).orElse(null);
+        // 兼容历史数据 likes_count 为 NULL 的情况
+        Integer lc = post.getLikesCount();
+        int base = lc == null ? 0 : lc;
         if (existingLike != null) {
             postLikeRepository.delete(existingLike);
-            post.setLikesCount(post.getLikesCount() - 1);
+            post.setLikesCount(Math.max(0, base - 1));
             result.put("liked", false);
         } else {
             PostLike like = new PostLike();
             like.setPost(post);
             like.setUserId(userId);
             postLikeRepository.save(like);
-            post.setLikesCount(post.getLikesCount() + 1);
+            post.setLikesCount(base + 1);
             result.put("liked", true);
         }
 

@@ -4,6 +4,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
+        sans: [
+          'Inter', '-apple-system', 'BlinkMacSystemFont',
+          'Segoe UI', 'Roboto',
+          'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Microsoft YaHei UI',
+          'Source Han Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
+          'Helvetica Neue', 'Arial', 'sans-serif'
+        ],
         inter: ['Inter', 'sans-serif'],
       },
       colors: {

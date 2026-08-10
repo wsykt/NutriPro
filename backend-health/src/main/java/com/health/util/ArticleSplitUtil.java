@@ -119,19 +119,22 @@ public class ArticleSplitUtil {
         SplitResult result = new SplitResult();
 
         // 没有共识或引言则拆分失败
-        String common = blocks.getOrDefault("COMMON", "");
-        String intro = blocks.getOrDefault("ALL_INTRO", "");
+        String common = cleanTemplateLines(blocks.getOrDefault("COMMON", ""));
+        String intro = cleanTemplateLines(blocks.getOrDefault("ALL_INTRO", ""));
         if (common.isEmpty() && intro.isEmpty()) {
             return null;
         }
 
-        String deepPlus = blocks.getOrDefault("DEEP_PLUS", "");
-        String debate = blocks.getOrDefault("DEBATE_ZONE", "");
+        String deepPlus = cleanTemplateLines(blocks.getOrDefault("DEEP_PLUS", ""));
+        String debate = cleanTemplateLines(blocks.getOrDefault("DEBATE_ZONE", ""));
+        String concludeFast = cleanTemplateLines(blocks.getOrDefault("CONCLUDE_FAST", ""));
+        String concludeDeep = cleanTemplateLines(blocks.getOrDefault("CONCLUDE_DEEP", ""));
+        String concludeAll = cleanTemplateLines(blocks.getOrDefault("CONCLUDE_ALL", ""));
 
         // 三版拼装
-        String shortRaw = joinNonEmpty("\n\n", intro, common, blocks.getOrDefault("CONCLUDE_FAST", ""));
-        String medium = joinNonEmpty("\n\n", intro, common, deepPlus, blocks.getOrDefault("CONCLUDE_DEEP", ""));
-        String longText = joinNonEmpty("\n\n", intro, common, deepPlus, debate, blocks.getOrDefault("CONCLUDE_ALL", ""));
+        String shortRaw = joinNonEmpty("\n\n", intro, common, concludeFast);
+        String medium = joinNonEmpty("\n\n", intro, common, deepPlus, concludeDeep);
+        String longText = joinNonEmpty("\n\n", intro, common, deepPlus, debate, concludeAll);
 
         // 速读版清洗
         result.shortText = cleanShortContent(shortRaw);
@@ -147,11 +150,66 @@ public class ArticleSplitUtil {
         result.summaries.put("medium", blocks.getOrDefault("SUMMARY_DEEP", ""));
         result.summaries.put("long", blocks.getOrDefault("SUMMARY_ALL", ""));
 
-        result.conclusions.put("short", blocks.getOrDefault("CONCLUDE_FAST", ""));
-        result.conclusions.put("medium", blocks.getOrDefault("CONCLUDE_DEEP", ""));
-        result.conclusions.put("long", blocks.getOrDefault("CONCLUDE_ALL", ""));
+        result.conclusions.put("short", concludeFast);
+        result.conclusions.put("medium", concludeDeep);
+        result.conclusions.put("long", concludeAll);
 
         return result;
+    }
+
+    // ======================== 3.5 模板占位行清洗 ========================
+
+    /**
+     * 清洗模型误写入正文的模板占位说明行（与前端 articleRendering.ts 兜底逻辑对齐）。
+     * 模型不严格遵守提示词【总则】，会把 build_mother_format 中的占位说明行原样写入正文，例如：
+     *   "通用引言（2~3句话）：点明健身人士人群核心痛点+1条流行病学数据"
+     *   "共识基础内容（400~900字，参考约600字）：底层原理、每日营养素需求量、食物来源清单、通用行动清单"
+     *   "一级标题：一、增肌期蛋白质摄入的重要性；二级标题：（一）肌肉合成与分解的平衡"
+     *   "深度拓展（600~1350字，参考约900字）：特殊人群、细分场景深度拓展"
+     *   "深度文结论：内容总结+核心膳食建议"
+     * 处理规则：
+     *   1) 纯占位说明行（通用引言/共识基础内容/摘要类/板块标题格式说明）→ 整行删除
+     *   2) 板块说明行（结论/深度拓展/学术争议/参考文献）→ 规范化为 "## 板块名" 独立标题
+     *   3) "一级标题：一、xxx；二级标题：（一）yyy" → 提取真实一级标题恢复 "## 一、xxx"
+     */
+    public static String cleanTemplateLines(String text) {
+        if (text == null) return "";
+        String s = text;
+        // 注意：行级正则一律用 [ \t] 与 [^\n] 限定，避免 \s* 跨行吞掉正文
+        // 1) 纯占位说明行删除（须带冒号）
+        s = s.replaceAll("(?m)^[ \\t]*通用引言[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "");
+        s = s.replaceAll("(?m)^[ \\t]*共识基础内容[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "");
+        s = s.replaceAll("(?m)^[ \\t]*板块标题单独一行[^\\n]*$", "");
+        s = s.replaceAll("(?m)^[ \\t]*(?:速读卡摘要|深度文摘要|综述摘要)[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "");
+        // 2) 板块说明行 → ## 标题
+        s = s.replaceAll("(?m)^[ \\t]*(?:速读卡结论|深度文结论|综述结论|核心结论|研究结论|总结)[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "\n## 结论\n");
+        s = s.replaceAll("(?m)^[ \\t]*细分场景深度拓展[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "\n## 细分场景深度拓展\n");
+        s = s.replaceAll("(?m)^[ \\t]*深度拓展[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "\n## 深度拓展\n");
+        s = s.replaceAll("(?m)^[ \\t]*学术争议[ \\t]*(?:（[^\\n）]*）)?[ \\t]*[:：][^\\n]*$", "\n## 学术争议\n");
+        s = s.replaceAll("(?m)^[ \\t]*参考文献[ \\t]*[0-9]*~?[0-9]*条?[ \\t]*[:：][^\\n]*$", "\n## 参考文献\n");
+        // 3) "一级标题：一、xxx；二级标题：…" → 提取真实一级标题；纯编号序列（"一级标题：一、二、三"）→ 整行删除
+        Pattern h1Pat = Pattern.compile("(?m)^[ \\t]*一级标题[ \\t]*[:：][ \\t]*([一二三四五六七八九十百]+、[^\\n；;]*?)[ \\t]*(?:[；;][^\\n；;]*)?$");
+        Matcher h1M = h1Pat.matcher(s);
+        StringBuffer h1Sb = new StringBuffer();
+        while (h1M.find()) {
+            String cand = h1M.group(1).trim();
+            String rest = cand.replaceFirst("^[一二三四五六七八九十百]+、", "").trim();
+            if (rest.isEmpty() || rest.matches("^[一二三四五六七八九十百]+、.*")) {
+                h1M.appendReplacement(h1Sb, "");
+            } else {
+                h1M.appendReplacement(h1Sb, Matcher.quoteReplacement("\n## " + cand + "\n"));
+            }
+        }
+        h1M.appendTail(h1Sb);
+        s = h1Sb.toString();
+        // 3.5) 兜底删除：多分号「一级标题：一、A；二、B；三、C」说明行（正文已含真实标题）→ 整行删除
+        s = s.replaceAll("(?m)^[ \\t]*一级标题[ \\t]*[:：][ \\t]*[^\\n]*$", "");
+        // 4) 裸标题兜底删除
+        s = s.replaceAll("(?m)^[ \\t]*通用引言[ \\t]*$", "");
+        s = s.replaceAll("(?m)^[ \\t]*共识基础内容[ \\t]*$", "");
+        // 清理连续 3+ 换行
+        s = s.replaceAll("\\n{3,}", "\n\n").trim();
+        return s;
     }
 
     // ======================== 4. 速读版清洗 ========================
@@ -220,20 +278,36 @@ public class ArticleSplitUtil {
         int shortLen = countChinese(split.shortText);
         int mediumLen = countChinese(split.mediumText);
         int longLen = countChinese(split.longText);
-        if (shortLen < 50 || shortLen > 500) { errors.add("速读字数" + shortLen + "异常"); score -= 15; }
-        if (mediumLen < 300 || mediumLen > 1500) { errors.add("深度文字数" + mediumLen + "异常"); score -= 15; }
-        if (longLen < 500 || longLen > 3000) { errors.add("综述文字数" + longLen + "异常"); score -= 15; }
+        // 字数上限与母稿模板对齐：
+        // 速读=引言+COMMON(400~900)+速读结论；深度文=+DEEP(600~1350)+深度结论；综述文=+DEBATE(≤800)+综述结论
+        if (shortLen < 50 || shortLen > 900) { errors.add("速读字数" + shortLen + "异常"); score -= 15; }
+        if (mediumLen < 300 || mediumLen > 2500) { errors.add("深度文字数" + mediumLen + "异常"); score -= 15; }
+        if (longLen < 500 || longLen > 4000) { errors.add("综述文字数" + longLen + "异常"); score -= 15; }
 
         // ② 参考文献
         if (split.refs.size() < 3) { errors.add("参考文献不足3条"); score -= 15; }
 
-        // ③ 营养数值异常（4位以上数值+单位）
+        // ③ 营养数值异常（超出合理剂量范围的数值+单位）
+        // 注：孕期钙推荐量 1200mg、每日能量 2000kcal 等为正常值，按单位设置合理阈值避免误伤
         String allText = split.shortText + split.mediumText + split.longText;
-        Pattern suspiciousPattern = Pattern.compile("(\\d{4,})\\s*(mg|g|kcal|IU|微克|毫克|克)");
+        Pattern suspiciousPattern = Pattern.compile("(\\d{3,})\\s*(mg|毫克|g|克|kcal|IU|微克)");
         Matcher sm = suspiciousPattern.matcher(allText);
         List<String> suspicious = new ArrayList<>();
         while (sm.find() && suspicious.size() < 3) {
-            suspicious.add(sm.group());
+            double num = Double.parseDouble(sm.group(1));
+            String unit = sm.group(2);
+            boolean abnormal;
+            switch (unit) {
+                case "mg":
+                case "毫克": abnormal = num > 4000; break;   // 钙/钾等推荐量可达1200~2000mg
+                case "g":
+                case "克":   abnormal = num >= 1000; break;  // 食物重量/蛋白质以百克计
+                case "kcal": abnormal = num > 99999; break;  // 每日能量2000kcal正常
+                case "IU":   abnormal = num > 200000; break; // 维D大剂量才达20万IU
+                case "微克": abnormal = num > 5000; break;   // 叶酸/维D μg 正常≤1000
+                default:     abnormal = false;
+            }
+            if (abnormal) suspicious.add(sm.group());
         }
         if (!suspicious.isEmpty()) { errors.add("异常数值：" + String.join(", ", suspicious)); score -= 10; }
 

@@ -397,7 +397,6 @@ async function resetDemo() {
   try {
     const { api } = await import('@/api')
     await api.article.generate('钙与骨骼健康', '老年人')
-    await api.article.generate('高血压科学控盐', '高血压')
     await api.article.generate('健身蛋白质摄入指南', '健身')
     await articleStore.fetchArticles()
   } catch (e: any) {

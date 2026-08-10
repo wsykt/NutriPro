@@ -102,7 +102,9 @@ public class ArticleService {
     public Article getArticleByIdWithView(Integer id) {
         Optional<Article> article = articleRepository.findById(id);
         article.ifPresent(a -> {
-            a.setViewsCount(a.getViewsCount() + 1);
+            // 兼容历史数据 views_count 为 NULL 的情况
+            Integer vc = a.getViewsCount();
+            a.setViewsCount(vc == null ? 1 : vc + 1);
             articleRepository.save(a);
         });
         return article.orElse(null);
@@ -194,7 +196,8 @@ public class ArticleService {
     @Transactional
     public Article likeArticle(Integer id) {
         return articleRepository.findById(id).map(article -> {
-            article.setLikesCount(article.getLikesCount() + 1);
+            Integer lc = article.getLikesCount();
+            article.setLikesCount(lc == null ? 1 : lc + 1);
             return articleRepository.save(article);
         }).orElse(null);
     }
@@ -241,19 +244,10 @@ public class ArticleService {
             persona = "普通人群";
         }
 
-        // ⓪ 自纠错进化：收集同主题历史文章的质量问题反馈（限最近3条，防提示词过载）
-        String correctionFeedback = collectCorrectionFeedback(topic);
-
-        // ⓪·2 RAG 向量检索：文章生成强制检索知识库，作为创作事实依据
-        // v2.2：使用主题 Query 扩写提升召回精度
-        String expandedQuery = expandTopicQuery(topic, persona);
-        String ragReference = ragSearchUtil.search(expandedQuery, 5, persona);
-
-        // ① 构建 Prompt（携带 RAG 参考素材 + 历史纠错反馈）
-        String prompt = buildMotherDraftPrompt(topic, persona, correctionFeedback, ragReference);
-
-        // ② 调用 AI 生成母稿
-        String motherDraft = aiChatClientService.generateArticleMotherDraft(prompt);
+        // ⓪ B方案：母稿由 AI 服务内双模型流水线生成
+        // 本地 Ollama 出框架 → 云端 DeepSeek 外扩 → 本地格式校验，
+        // 含知识库检索/联网搜索/PMID校验等五道质量闸门。后端不再拼接 Prompt、不再重复 RAG 检索。
+        String motherDraft = aiChatClientService.generateArticleMotherDraftB(topic, persona);
         if (motherDraft == null || motherDraft.trim().isEmpty()) {
             throw new RuntimeException("AI 返回母稿为空");
         }
@@ -299,14 +293,10 @@ public class ArticleService {
         result.put("errors", validation.errors);
         result.put("topicGroupId", topicGroupId);
         result.put("articles", saved);
-        result.put("correctionApplied", correctionFeedback != null);
-        result.put("ragUsed", !ragReference.isEmpty());
-
-        // ⑩ RAG 素材热度统计：记录本次检索命中的知识库片段（不自动入库，仅统计使用频率）
-        // 向量库只存放原始权威资料，AI 生成的文章不入库，防止幻觉闭环
-        if (!ragReference.isEmpty()) {
-            ragSearchUtil.logRagUsage(topic, "article_generation", persona);
-        }
+        // B方案固定含知识库检索/联网搜索，无需前端拼接纠错反馈；此处仅做使用热度统计
+        result.put("correctionApplied", false);
+        result.put("ragUsed", true);
+        ragSearchUtil.logRagUsage(topic, "article_generation", persona);
 
         return result;
     }
@@ -395,161 +385,10 @@ public class ArticleService {
      */
     @Transactional
     public Map<String, Object> generateAndSaveHybrid(String topic, String persona) {
-        log.info("开始混合架构生成文章, topic={}, persona={}", topic, persona);
-        if (topic == null || topic.trim().isEmpty()) {
-            throw new RuntimeException("主题不能为空");
-        }
-        if (persona == null || persona.trim().isEmpty()) {
-            persona = "普通人群";
-        }
-
-        int maxRetries = 3;
-        int retryCount = 0;
-        String lastDefects = "";
-
-        // ① 前置RAG预检索（S1）
-        String expandedQuery = expandTopicQuery(topic, persona);
-        String s1 = ragSearchUtil.search(expandedQuery, 5, persona);
-        if (s1 == null) s1 = "";
-
-        // ② 资料搜集Agent（S2）
-        Map<String, Object> searchResult = ragSearchUtil.searchMaterialsAgent(
-                topic, s1, 3, persona);
-        List<Map<String, Object>> s2Materials = new ArrayList<>();
-        if (Boolean.TRUE.equals(searchResult.get("success"))) {
-            Object materialsObj = searchResult.get("new_materials");
-            if (materialsObj instanceof List) {
-                s2Materials = (List<Map<String, Object>>) materialsObj;
-            }
-        }
-        String s2 = formatS2Materials(s2Materials);
-
-        // ③ 合并素材 S = S1 + S2
-        StringBuilder mergedMaterials = new StringBuilder();
-        if (!s1.isEmpty()) {
-            mergedMaterials.append("=====本地RAG素材 S1=====\n").append(s1).append("\n\n");
-        }
-        if (!s2.isEmpty()) {
-            mergedMaterials.append("=====Agent联网搜集素材 S2=====\n").append(s2).append("\n\n");
-        }
-        String mergedS = mergedMaterials.toString();
-
-        // 纠错反馈
-        String correctionFeedback = collectCorrectionFeedback(topic);
-
-        // ④⑤⑥ 撰写 → 校验 → 重试循环
-        String motherDraft = null;
-        Map<String, Object> factCheckResult = null;
-        boolean passed = false;
-
-        while (retryCount <= maxRetries && !passed) {
-            // 构建Prompt（包含合并素材 + 纠错反馈 + 校验缺陷反馈）
-            String prompt = buildHybridPrompt(topic, persona, mergedS, correctionFeedback, lastDefects);
-
-            // 生成母稿
-            motherDraft = aiChatClientService.generateArticleMotherDraft(prompt);
-            if (motherDraft == null || motherDraft.trim().isEmpty()) {
-                retryCount++;
-                lastDefects = "AI 返回母稿为空，请确保输出完整内容。";
-                continue;
-            }
-
-            // 事实校验
-            factCheckResult = ragSearchUtil.factCheckAgent(motherDraft, mergedS);
-            passed = Boolean.TRUE.equals(factCheckResult.get("passed"));
-
-            if (!passed) {
-                retryCount++;
-                // 提取缺陷信息，注入下一轮提示词
-                Object defectsObj = factCheckResult.get("defects");
-                if (defectsObj instanceof List) {
-                    StringBuilder defectSb = new StringBuilder();
-                    for (Object d : (List<?>) defectsObj) {
-                        if (d instanceof Map) {
-                            Map<?, ?> defect = (Map<?, ?>) d;
-                            defectSb.append("- [")
-                                    .append(defect.get("type"))
-                                    .append("] ")
-                                    .append(defect.get("description"))
-                                    .append("（严重度：")
-                                    .append(defect.get("severity"))
-                                    .append("）\n");
-                        }
-                    }
-                    lastDefects = defectSb.toString();
-                }
-                if (retryCount <= maxRetries) {
-                    // 继续重试
-                }
-            }
-        }
-
-        // ⑦ 拆分三版入库
-        ArticleSplitUtil.SplitResult split = ArticleSplitUtil.splitMotherDraft(motherDraft, persona);
-        if (split == null) {
-            throw new RuntimeException("母稿拆分失败：缺少 COMMON 或 ALL_INTRO 区块");
-        }
-        ArticleSplitUtil.ValidationResult validation = ArticleSplitUtil.validate(split);
-
-        String topicGroupId = "tg-hybrid-" + System.currentTimeMillis();
-        String title = split.meta.getOrDefault("标题", topic);
-        String audience = split.meta.getOrDefault("人群标签", persona);
-        String category = split.meta.getOrDefault("分类", inferCategory(topic));
-        String sourcesJson = serializeRefs(split.refs);
-
-        List<Article> saved = new ArrayList<>();
-        saved.add(saveOneVersion(title, topic, topicGroupId, "short",
-                split.shortText, split.summaries.get("short"),
-                sourcesJson, category, audience, validation.score));
-        saved.add(saveOneVersion(title, topic, topicGroupId, "medium",
-                split.mediumText, split.summaries.get("medium"),
-                sourcesJson, category, audience, validation.score));
-        saved.add(saveOneVersion(title, topic, topicGroupId, "long",
-                split.longText, split.summaries.get("long"),
-                sourcesJson, category, audience, validation.score));
-
-        // ⑧ S2 原始素材沉淀入库RAG（AI文章不入库，仅入库Agent搜集的原始权威资料）
-        int s2IngestedChunks = 0;
-        for (Map<String, Object> material : s2Materials) {
-            String content = String.valueOf(material.getOrDefault("content", ""));
-            String source = String.valueOf(material.getOrDefault("source", "Agent搜集"));
-            if (content.length() > 50) {
-                Map<String, Object> ingestResult = ragSearchUtil.ingestDocument(
-                        content, source, "web_acquired", persona);
-                if (Boolean.TRUE.equals(ingestResult.get("success"))) {
-                    Object chunks = ingestResult.get("chunks_added");
-                    if (chunks instanceof Number) {
-                        s2IngestedChunks += ((Number) chunks).intValue();
-                    }
-                }
-            }
-        }
-
-        // 记录RAG使用热度
-        if (!mergedS.isEmpty()) {
-            ragSearchUtil.logRagUsage(topic, "hybrid_generation", persona);
-        }
-
-        // ⑨ 返回结果（含完整溯源信息）
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("code", 200);
-        result.put("mode", "hybrid");
-        result.put("message", passed ? "混合架构生成成功（事实校验通过）"
-                : "生成完成，但事实校验未通过（重试" + retryCount + "次），需人工复核");
-        result.put("qualityScore", validation.score);
-        result.put("factCheckPassed", passed);
-        result.put("factCheckScore", factCheckResult != null ? factCheckResult.get("score") : 0);
-        result.put("factCheckDefects", factCheckResult != null ? factCheckResult.get("defects") : new ArrayList<>());
-        result.put("retryCount", retryCount);
-        result.put("topicGroupId", topicGroupId);
-        result.put("articles", saved);
-        result.put("sourceTraceability", buildSourceTraceability(s2Materials));
-        result.put("s1Used", !s1.isEmpty());
-        result.put("s2Used", !s2.isEmpty());
-        result.put("s2IngestedChunks", s2IngestedChunks);
-        result.put("correctionApplied", correctionFeedback != null);
-        log.info("混合架构文章生成完成, topic={}, passed={}, retryCount={}", topic, passed, retryCount);
-        return result;
+        // 统一到 B方案双模型流水线（本地Ollama框架→云端外扩→本地校验，含知识库检索/联网PubMed搜索/五道闸门）。
+        // 原方案C的 S1+S2 素材搜集与 factCheck 重试均由 pipeline 内实现，此处不再重复。
+        log.info("混合架构入口统一至B方案流水线, topic={}, persona={}", topic, persona);
+        return generateAndSave(topic, persona);
     }
 
     /** 格式化 S2 素材为带编号的文本块 */
@@ -806,17 +645,8 @@ public class ArticleService {
         String topic = original.getTopic();
         String persona = original.getAudience() != null ? original.getAudience() : "普通人群";
 
-        // 收集该文章自身的质量分析问题
-        String correctionFeedback = collectSingleArticleFeedback(articleId);
-
-        // RAG 向量检索：重新生成同样强制检索知识库
-        String ragReference = ragSearchUtil.search(topic, 5, persona);
-
-        // 构建带 RAG 素材 + 纠错反馈的提示词
-        String prompt = buildMotherDraftPrompt(topic, persona, correctionFeedback, ragReference);
-
-        // 重新生成母稿
-        String motherDraft = aiChatClientService.generateArticleMotherDraft(prompt);
+        // 重新生成母稿（B方案双模型流水线：本地框架→云端外扩→本地校验，含知识库检索/联网搜索/五道闸门）
+        String motherDraft = aiChatClientService.generateArticleMotherDraftB(topic, persona);
         if (motherDraft == null || motherDraft.trim().isEmpty()) {
             throw new RuntimeException("AI 返回母稿为空");
         }
@@ -868,7 +698,7 @@ public class ArticleService {
         result.put("qualityScore", validation.score);
         result.put("passed", validation.passed);
         result.put("errors", validation.errors);
-        result.put("correctionApplied", correctionFeedback != null);
+        result.put("correctionApplied", false);
         result.put("articles", updated);
         return result;
     }

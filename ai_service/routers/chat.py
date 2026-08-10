@@ -33,6 +33,10 @@ from utils.response_utils import success_response, error_response
 # 异步任务服务：长任务线程池卸载
 from services.async_task_service import run_in_thread
 
+# 配置与 LLM 单例（透传通道使用）
+from config.settings import settings
+from llm.router import llm
+
 router = APIRouter()
 
 
@@ -51,6 +55,38 @@ async def chat(data: dict):
 
     if not message:
         return error_response(message="缺少 message 参数", code=400, detail="MISSING_MESSAGE")
+
+    # 透传通道：文章母稿等带标记的完整 prompt 直接交 LLM，不经健康咨询管线
+    # （qa 管线会用 CLOUD_PROMPTS 重新包装 message，导致标记格式丢失）
+    if data.get("_raw_prompt", False):
+        _lp = get_logger("raw_prompt")
+        _lp.info(f"[透传] prompt_full={message!r}")
+        messages = [
+            {"role": "system", "content": "你是营养学科普写作专家，严格按用户要求输出文章母稿。必须完整保留并遵循用户给出的全部【#标记#】与格式要求，直接输出正文，不要添加额外说明。"},
+            {"role": "user", "content": message},
+        ]
+        try:
+            text = await run_in_thread(
+                llm.chat, messages, max_retries=1,
+                timeout=settings.LLM_TIMEOUT_HIGH_PERF,
+                temperature=0.5,
+            )
+        except Exception as e:
+            return error_response(message=f"LLM 调用失败: {e}", code=502, detail="RAW_PROMPT_LLM_ERROR")
+        # 临时诊断：打印母稿标记完整性
+        _logger = get_logger("raw_prompt")
+        _missing = [t for t in ("META", "ALL_INTRO", "SUMMARY_FAST", "SUMMARY_DEEP", "SUMMARY_ALL",
+                                "COMMON_BEGIN", "COMMON_END", "DEEP_PLUS_BEGIN", "DEEP_PLUS_END",
+                                "DEBATE_ZONE_BEGIN", "DEBATE_ZONE_END", "CONCLUDE_FAST",
+                                "CONCLUDE_DEEP", "CONCLUDE_ALL") if ("【#%s#】" % t) not in text]
+        _logger.info(f"[透传母稿] len={len(text)} missing={_missing} head={text[:120]!r}")
+        return success_response(data={
+            "response": text,
+            "provider": "raw",
+            "mode": "raw",
+            "route": "raw_prompt",
+            "high_performance": False,
+        })
 
     result = await run_in_thread(
         orchestrator.chat,
@@ -303,6 +339,66 @@ async def article_generate(data: dict):
     if not topic:
         return error_response(message="缺少 topic 参数", code=400, detail="MISSING_TOPIC")
     return await run_in_thread(orchestrator.process, "article", topic, target_crowd)
+
+
+# ============================================================
+# 科普文章母稿（B方案：本地Ollama框架 → 云端API外扩 → 本地格式校验）
+# ============================================================
+
+def _generate_mother_draft_v32(topic, group, persona, keywords):
+    """B方案双模型流水线（pipeline_v32）：Stage1 本地Ollama出框架 → Stage2 DeepSeek外扩 → Stage3 本地格式校验，
+    外加五道质量闸门（知识库预处理/主题过滤/PMID校验/截断检测/引用自检）。
+
+    延迟导入 pipeline_v32 并恢复 cwd：该模块顶层有 os.chdir 副作用，不应影响整个 AI 服务进程。
+    """
+    import os as _os
+    _cwd = _os.getcwd()
+    try:
+        from pipeline_v32 import run_pipeline
+        result = run_pipeline(group, persona, topic, keywords or [])
+        if not result:
+            return {"error": "流水线未返回结果（Stage 1 本地框架生成失败）"}
+        article = (result.get("article") or "").strip()
+        if not article:
+            return {"error": "流水线返回空母稿"}
+        return {
+            "article": article,
+            "validation": result.get("validation"),
+            "tracker": result.get("tracker"),
+            "output_file": result.get("output_file"),
+        }
+    except Exception as e:
+        return {"error": "流水线异常: %s" % e}
+    finally:
+        _os.chdir(_cwd)
+
+
+@router.post("/api/v1/articles/mother-draft")
+async def article_mother_draft(data: dict):
+    """科普文章母稿生成（B方案）：本地出框架 → 云端外扩 → 本地校验。
+
+    Body: {topic 必填, target_crowd/group 二选一(默认普通人), persona, keywords[]}
+    keywords 为 PubMed 检索关键词列表，缺省按人群默认映射。
+    """
+    topic = (data.get("topic") or "").strip()
+    if not topic:
+        return error_response(message="缺少 topic 参数", code=400, detail="MISSING_TOPIC")
+    group = (data.get("target_crowd") or data.get("group") or data.get("persona") or "普通人").strip()
+    persona = (data.get("persona") or group).strip()
+    keywords = data.get("keywords") or data.get("pubmed_keywords") or None
+    if isinstance(keywords, str):
+        keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+
+    result = await run_in_thread(_generate_mother_draft_v32, topic, group, persona, keywords)
+    if "error" in result:
+        return error_response(message=result["error"], code=502, detail="MOTHER_DRAFT_PIPELINE_ERROR")
+    return success_response(data={
+        "response": result["article"],
+        "provider": "pipeline_v32",
+        "mode": "B方案（本地框架→云端外扩→本地校验）",
+        "route": "pipeline_v32",
+        "validation": result.get("validation"),
+    })
 
 
 @router.post("/api/v1/diet/plan")

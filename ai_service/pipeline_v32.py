@@ -269,52 +269,227 @@ def retrieve_from_kb(query, group, top_n=10):
         return []
 
 
-# ======================== PubMed联网搜索 ========================
-def search_pubmed_online(keyword, max_results=4, exclude_ids=None):
-    """PubMed联网搜索（所有PMID均来自PubMed官方API，确保真实可溯源）"""
-    exclude_ids = exclude_ids or set()
+# ======================== 文献联网搜索（多源回退） ========================
+# 搜索链：PubMed → Europe-PMC → Semantic Scholar → Crossref
+#   - 任一源请求失败（国内网络对 NCBI 常超时，且旧代码 except: return [] 静默吞异常）
+#     自动切换到下一源，避免"联网文献恒为 0"导致 Stage2 无 PMID 白名单可用
+#   - 每个源返回 (items, ok, error)：ok=False=网络不可达可切源；ok=True=API已响应
+#   - 统一文献结构含 pmid/doi 字段：有 PMID 用 PMID 溯源；无 PMID 保留 DOI，禁止模型编造 PMID
+_LIT_TIMEOUT = 10          # 单源单请求超时（秒），快速失败以切源
+_LIT_HEADERS = {"User-Agent": "HealthAssistant/1.0 (mailto:health-assistant@local)"}
+LITERATURE_SOURCES = ["PubMed", "Europe-PMC", "Semantic Scholar", "Crossref"]
+
+
+def _fetch_json(url, params, timeout=_LIT_TIMEOUT, headers=None):
+    """GET 请求并解析 JSON。返回 (data, error)；error=None 表示成功。"""
     try:
-        resp = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-                          params={"db": "pubmed", "term": keyword, "retmax": max_results,
-                                  "retmode": "json", "sort": "relevance"}, timeout=15)
-        pmids = resp.json().get("esearchresult", {}).get("idlist", [])
-        if not pmids:
-            return []
-        results = []
-        for pmid in pmids:
-            pid = f"PMID_{pmid}"
-            if pid in exclude_ids:
+        resp = requests.get(url, params=params, timeout=timeout,
+                            headers=headers or _LIT_HEADERS)
+        if resp.status_code != 200:
+            return None, f"HTTP {resp.status_code}"
+        return resp.json(), None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _normalize_literature(id_, title, authors, journal, pubdate, content,
+                          source_api, pmid="", doi="", url=""):
+    """统一文献素材结构，补齐 pmid/doi 字段便于 PMID 白名单与溯源。"""
+    if not pmid and id_.startswith("PMID_"):
+        pmid = id_[5:]
+    if not doi and id_.startswith("DOI_"):
+        doi = id_[4:]
+    return {
+        "id": id_, "pmid": pmid, "doi": doi,
+        "title": title or "", "authors": authors or "",
+        "journal": journal or "", "pubdate": str(pubdate or ""),
+        "content": content or "", "source_api": source_api,
+        "source_channel": source_api, "url": url or "",
+    }
+
+
+def search_pubmed_online(keyword, max_results=4, exclude_ids=None):
+    """PubMed E-utilities（主源）：esearch + esummary 两跳即返回。
+    不做 efetch 摘要二次拉取（NCBI 国内常超时，摘要非白名单机制必需）。"""
+    data, err = _fetch_json(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+        {"db": "pubmed", "term": keyword, "retmax": max_results,
+         "retmode": "json", "sort": "relevance"})
+    if err:
+        return [], False, f"PubMed不可达（{err}）"
+    pmids = data.get("esearchresult", {}).get("idlist", []) or []
+    if not pmids:
+        return [], True, "无结果"
+    sdata, serr = _fetch_json(
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+        {"db": "pubmed", "id": ",".join(pmids), "retmode": "json"})
+    if serr:
+        return [], False, f"PubMed esummary失败（{serr}）"
+    result = sdata.get("result", {}) or {}
+    items = []
+    for pmid in pmids:
+        a = result.get(pmid, {}) or {}
+        title = a.get("title", "")
+        if not title:
+            continue
+        authors = ", ".join([x.get("name", "") for x in (a.get("authors") or [])[:3]])
+        items.append(_normalize_literature(
+            id_=f"PMID_{pmid}", pmid=pmid, title=title, authors=authors,
+            journal=a.get("fulljournalname", ""),
+            pubdate=(a.get("pubdate") or "")[:4],
+            content=f"研究探讨{title}的相关内容",
+            source_api="PubMed",
+            url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"))
+    return items, True, None
+
+
+def search_europepmc_online(keyword, max_results=4, exclude_ids=None):
+    """Europe-PMC REST API（回退源1）：单请求即返回摘要+期刊，命中即含真实 PMID。"""
+    data, err = _fetch_json(
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        {"query": keyword, "format": "json", "pageSize": max_results,
+         "resultType": "core", "sort": "P_PDATE_D desc"})
+    if err:
+        return [], False, f"Europe-PMC不可达（{err}）"
+    hits = data.get("resultList", {}).get("result", []) or []
+    items = []
+    for r in hits:
+        pmid = r.get("pmid") or (r.get("id", "") if r.get("source") == "MED" else "")
+        if not pmid:
+            continue
+        jinfo = r.get("journalInfo", {}) or {}
+        journal = (jinfo.get("journal", {}) or {}).get("title", "")
+        abstract = r.get("abstractText", "") or ""
+        if len(abstract) < 100:
+            abstract = f"研究探讨{r.get('title', '')}的相关内容"
+        items.append(_normalize_literature(
+            id_=f"PMID_{pmid}", pmid=pmid, title=r.get("title", ""),
+            authors=r.get("authorString", "")[:150], journal=journal,
+            pubdate=str(r.get("pubYear", "") or ""), content=abstract[:1000],
+            source_api="Europe-PMC", url=f"https://europepmc.org/article/MED/{pmid}"))
+    return items, True, None
+
+
+def search_semanticscholar_online(keyword, max_results=4, exclude_ids=None):
+    """Semantic Scholar Graph API（回退源2）：externalIds 含 PubMed 编号时直接作为 PMID。"""
+    data, err = _fetch_json(
+        "https://api.semanticscholar.org/graph/v1/paper/search",
+        {"query": keyword, "limit": max_results,
+         "fields": "title,year,venue,authors,abstract,externalIds,tldr"},
+        timeout=12)
+    if err:
+        return [], False, f"Semantic Scholar不可达（{err}）"
+    items = []
+    for p in data.get("data", []) or []:
+        title = p.get("title", "") or ""
+        if not title:
+            continue
+        ext = p.get("externalIds", {}) or {}
+        pmid, doi = ext.get("PubMed", "") or "", ext.get("DOI", "") or ""
+        if not pmid and not doi:
+            continue  # 无 PMID/DOI 的文献无法溯源，丢弃
+        tldr = p.get("tldr") or {}
+        abstract = tldr.get("text") or p.get("abstract") or ""
+        if len(abstract) < 100:
+            abstract = f"研究探讨{title}的相关内容"
+        authors = ", ".join([a.get("name", "") for a in (p.get("authors") or [])[:3]])
+        if pmid:
+            lid, url = f"PMID_{pmid}", f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        else:
+            lid, url = f"DOI_{doi}", f"https://doi.org/{doi}"
+        items.append(_normalize_literature(
+            id_=lid, pmid=pmid, doi=doi, title=title, authors=authors,
+            journal=p.get("venue", "") or "", pubdate=str(p.get("year", "") or ""),
+            content=abstract[:1000], source_api="Semantic Scholar", url=url))
+    return items, True, None
+
+
+def _doi_to_pmid(doi):
+    """用 Europe-PMC 将 Crossref 的 DOI 解析为 PMID（解析失败返回空串，保留 DOI 溯源）。"""
+    data, err = _fetch_json(
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        {"query": f'DOI:"{doi}" AND SRC:MED', "format": "json", "pageSize": 1},
+        timeout=8)
+    if err:
+        return ""
+    hits = data.get("resultList", {}).get("result", []) or []
+    return (hits[0].get("pmid", "") or "") if hits else ""
+
+
+def search_crossref_online(keyword, max_results=4, exclude_ids=None):
+    """Crossref REST API（回退源3）：仅含 DOI，逐条尝试解析为 PMID，失败保留 DOI 溯源。"""
+    data, err = _fetch_json(
+        "https://api.crossref.org/works",
+        {"query": keyword, "rows": max_results,
+         "select": "DOI,title,author,container-title,issued,abstract,type"})
+    if err:
+        return [], False, f"Crossref不可达（{err}）"
+    items = []
+    for it in data.get("message", {}).get("items", []) or []:
+        title = (it.get("title") or [""])[0]
+        doi = it.get("DOI", "") or ""
+        if not title or not doi:
+            continue
+        journal = (it.get("container-title") or [""])[0]
+        year = ""
+        dp = ((it.get("issued", {}) or {}).get("date-parts") or [])
+        if dp and dp[0]:
+            year = str(dp[0][0])
+        authors = ", ".join([
+            " ".join(x for x in (a.get("given", ""), a.get("family", "")) if x)
+            for a in (it.get("author") or [])[:3]])
+        abstract = re.sub(r"<[^>]+>", " ", it.get("abstract", "") or "").strip()
+        if len(abstract) < 100:
+            abstract = f"研究探讨{title}的相关内容"
+        pmid = _doi_to_pmid(doi)
+        items.append(_normalize_literature(
+            id_=f"PMID_{pmid}" if pmid else f"DOI_{doi}", pmid=pmid, doi=doi,
+            title=title, authors=authors, journal=journal, pubdate=year,
+            content=abstract[:1000], source_api="Crossref",
+            url=f"https://doi.org/{doi}"))
+        time.sleep(0.3)
+    return items, True, None
+
+
+def search_literature_online(keyword, max_results=3, exclude_ids=None):
+    """多源回退联网搜索（PubMed → Europe-PMC → Semantic Scholar → Crossref）。
+    任一源网络不可达即切下一源；首个命中的源返回其文献（避免多源噪声）。
+    返回 (results, used_source)；used_source 为空表示全部不可达/无结果。"""
+    exclude_ids = exclude_ids or set()
+    chain = [
+        ("PubMed", search_pubmed_online),
+        ("Europe-PMC", search_europepmc_online),
+        ("Semantic Scholar", search_semanticscholar_online),
+        ("Crossref", search_crossref_online),
+    ]
+    results, seen_pmids, seen_dois, seen_titles = [], set(), set(), set()
+    for src_name, fn in chain:
+        items, ok, error = fn(keyword, max_results=max_results, exclude_ids=exclude_ids)
+        if not ok:
+            print(f"    ⚠ [{src_name}] {error}，切换下一源")
+            continue
+        if not items:
+            print(f"    - [{src_name}] 无相关文献")
+            continue
+        print(f"    ✓ [{src_name}] 命中 {len(items)} 篇")
+        added = 0
+        for it in items:
+            pmid, doi, title = it.get("pmid", ""), it.get("doi", ""), (it.get("title") or "").strip()
+            if (pmid and pmid in seen_pmids) or (not pmid and doi and doi in seen_dois) \
+               or (not pmid and not doi and title and title in seen_titles):
                 continue
-            try:
-                sresp = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
-                                   params={"db": "pubmed", "id": pmid, "retmode": "json"}, timeout=15)
-                article = sresp.json().get("result", {}).get(pmid, {})
-                title = article.get("title", "")
-                journal = article.get("fulljournalname", "")
-                pubdate = article.get("pubdate", "")[:4]
-                authors = ", ".join([a.get("name", "") for a in article.get("authors", [])[:3]])
-                abstract = ""
-                try:
-                    from bs4 import BeautifulSoup
-                    fresp = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
-                                        params={"db": "pubmed", "id": pmid, "retmode": "xml", "rettype": "abstract"},
-                                        timeout=15)
-                    soup = BeautifulSoup(fresp.text, "xml")
-                    elem = soup.find("Abstract")
-                    if elem:
-                        abstract = " ".join([t.get_text(strip=True) for t in elem.find_all("AbstractText")])
-                except:
-                    pass
-                if title:
-                    results.append({"id": pid, "title": title, "authors": authors,
-                                   "journal": journal, "pubdate": pubdate,
-                                   "content": abstract[:600] if abstract else f"研究关于{title}"})
-                time.sleep(0.4)
-            except:
-                continue
-        return results
-    except:
-        return []
+            if pmid:
+                seen_pmids.add(pmid)
+            if doi:
+                seen_dois.add(doi)
+            if title:
+                seen_titles.add(title)
+            results.append(it)
+            added += 1
+        if added > 0:
+            return results, src_name
+        time.sleep(0.5)
+    return results, ""
 
 
 # ======================== Europe-PMC PMID二次校验（医学专项第二层校验）========================
@@ -428,16 +603,25 @@ def standardize_references(article, web_materials):
             ref_items.append(line)
 
     # 补充联网文献的标准引用格式（APA医学格式）
+    # 有 PMID 用 PMID 溯源；无 PMID（如 Crossref 仅 DOI）用 DOI 溯源，不再错误地写成 PMID:DOI_xxx
     for m in web_materials:
-        pmid_num = m.get("id", "").replace("PMID_", "").replace("PMID:", "")
+        pmid_num = m.get("pmid", "")
+        doi = m.get("doi", "")
         authors = m.get("authors", "Unknown")
         title = m.get("title", "")
         journal = m.get("journal", "")
         pubdate = m.get("pubdate", "")
-        ref_line = f"[{len(ref_items)+1}] {authors}. {title}. {journal}. {pubdate}. PMID:{pmid_num}"
+        if pmid_num:
+            ref_line = f"[{len(ref_items)+1}] {authors}. {title}. {journal}. {pubdate}. PMID:{pmid_num}"
+            dup_key = f"PMID:{pmid_num}"
+        elif doi:
+            ref_line = f"[{len(ref_items)+1}] {authors}. {title}. {journal}. {pubdate}. DOI:{doi}"
+            dup_key = f"DOI:{doi}"
+        else:
+            continue
 
-        # 检查是否已存在相同PMID
-        if not any(f"PMID:{pmid_num}" in r or f"PMID_{pmid_num}" in r for r in ref_items):
+        # 检查是否已存在相同PMID/DOI
+        if not any(dup_key in r for r in ref_items):
             ref_items.append(ref_line)
 
     # 重建参考文献区块
@@ -541,13 +725,17 @@ def gate3_kb_preprocess(kb_cards, group):
             seen_titles[title] = c
     deduped = list(seen_titles.values())
 
-    # ② 内容筛查：排除遗传病/综合征/孕妇/中老年无关卡片
+    # ② 内容筛查：排除遗传病/综合征/婴儿等无关卡片
+    # 人群自适应：目标人群自身的营养主题不剔除（孕妇保留孕期/哺乳，老年人保留老年/绝经）
     screened = []
     dropped_titles = []
-    exclude_words = ["遗传病", "基因突变", "综合征", "孕期", "孕妇", "哺乳",
-                     "老年", "绝经", "新生儿", "婴儿"]
+    exclude_words = ["遗传病", "基因突变", "综合征", "新生儿", "婴儿"]
     if cfg["exclude_topics"]:
         exclude_words.extend(cfg["exclude_topics"])
+    if group in ("孕妇", "孕早期", "孕中期", "孕晚期"):
+        exclude_words = [w for w in exclude_words if w not in ("孕期", "孕妇", "哺乳")]
+    if group in ("老年人", "老年"):
+        exclude_words = [w for w in exclude_words if w not in ("老年", "绝经")]
     for c in deduped:
         title = c.get("title", "") or ""
         content = c.get("content", "") or ""
@@ -812,10 +1000,11 @@ SYSTEM_STAGE2 = """你是营养学文献检索专家，仅负责补充外文文�
 SYSTEM_STAGE3 = """你是格式校验专家。检查文章的母稿格式是否合规。"""
 
 
-def build_mother_format(persona):
+def build_mother_format(persona, topic):
     return f"""板块清单（顺序不可调换）：
+【总则】下方"板块清单"中的板块定位文字（如"通用引言""共识基础内容""深度拓展""学术争议"等）仅用于说明各【#标记#】之间应写什么内容；正文中仅"深度拓展""学术争议""综述结论"可作为独立标题行（不编号），其余定位文字（尤其"通用引言""共识基础内容"）严禁原样写入正文。
 【#META#】
-标题：直击{persona}人群痛点
+标题：{topic}
 人群标签：{persona}
 分类：慢病管理/运动营养/消化健康/母婴营养/老年营养/青少年营养
 阅读时长_速读：约1分钟
@@ -838,6 +1027,7 @@ def build_mother_format(persona):
 【#COMMON_END#】
 
 【#DEEP_PLUS_BEGIN#】深度拓展（600~1350字，参考约900字）：特殊人群、细分场景深度拓展
+格式（务必遵守，防止编号冲突）：板块标题单独一行写"深度拓展"（不编号）；其下仅用二级标题"（一）特殊人群"、"（二）细分场景深度拓展"；细分人群/场景条目用加粗短句或直接段落（禁止再用"一、""二、"一级编号，避免与前面共识板块编号重复）
 【#DEEP_PLUS_END#】
 
 【#DEBATE_ZONE_BEGIN#】学术争议（200~600字，参考约300字）：未统一的争议点，分点罗列分歧双方观点
@@ -883,7 +1073,7 @@ def stage1_build_framework(kb_cards, persona, topic, use_ollama, ollama_model, t
     prompt = f"""请根据以下本地知识库素材，为「{topic}」生成一篇完整的科普文章正文。
 目标人群：{persona}。
 文章定位：以{persona}整体为写作对象，主题覆盖全人群通用要点；细分人群（如素材中标注"细分人群"的卡片）不作为独立文章主题，而是在文章【#DEEP_PLUS_BEGIN#】板块的特殊人群章节内按细分人群逐一展开。
-{persona}常见细分人群（若素材中有对应内容则必须覆盖）：体育特长生、素食人群、乳糖不耐受、肥胖青少年等。
+{persona}常见细分人群（仅展开素材中实际出现的细分人群，禁止凭空杜撰与{persona}无关的人群）：严格按上方知识库素材中标注"细分人群"的卡片逐一展开。
 
 {materials}
 
@@ -897,7 +1087,7 @@ def stage1_build_framework(kb_cards, persona, topic, use_ollama, ollama_model, t
 7. 参考文献只列知识库中真实存在的资料
 8. 涉及细化知识点（如菠菜草酸焯水、负重运动清单、尿钙流失机制等）要充分展开
 
-{build_mother_format(persona)}"""
+{build_mother_format(persona, topic)}"""
     
     if use_ollama:
         framework = call_ollama(prompt, SYSTEM_STAGE1, ollama_model, tracker,
@@ -917,14 +1107,20 @@ def stage2_expand(framework, web_materials, persona, topic, tracker):
     print("\n--- Stage 2: 云端外扩 ---")
     
     # 构建联网素材文本 + 明确列出可用文献清单（防止云端编造）
+    # 有 PMID 用 PMID 标注；无 PMID（如 Crossref 仅 DOI）用 DOI 标注，禁止模型为其编造 PMID
     web_text = "【联网搜索新素材（仅限以下文献，禁止添加其他任何文献）】\n"
     for i, m in enumerate(web_materials):
-        pmid_num = m.get("id", "").replace("PMID_", "").replace("PMID:", "")
-        web_text += f"\n[{i+1}] PMID:{pmid_num}\n标题：{m.get('title','')}\n作者：{m.get('authors','')}\n期刊：{m.get('journal','')}\n年份：{m.get('pubdate','')}\n内容：{m.get('content','')[:300]}\n"
+        if m.get("pmid"):
+            ref_id = f"PMID:{m['pmid']}"
+        elif m.get("doi"):
+            ref_id = f"DOI:{m['doi']}"
+        else:
+            ref_id = m.get("id", "")
+        web_text += f"\n[{i+1}] {ref_id}\n标题：{m.get('title','')}\n作者：{m.get('authors','')}\n期刊：{m.get('journal','')}\n年份：{m.get('pubdate','')}\n内容：{m.get('content','')[:300]}\n"
 
-    # 明确列出允许引用的PMID清单
-    allowed_pmids = [m.get("id", "").replace("PMID_", "").replace("PMID:", "") for m in web_materials]
-    allowed_pmids_str = ", ".join([f"PMID:{p}" for p in allowed_pmids if p])
+    # 明确列出允许引用的PMID白名单（无PMID的文献仅以DOI标注，不允许为其编造PMID）
+    allowed_pmids = [m.get("pmid", "") for m in web_materials if m.get("pmid")]
+    allowed_pmids_str = ", ".join([f"PMID:{p}" for p in allowed_pmids]) if allowed_pmids else "（无，仅可引用上方以 DOI 标注的文献）"
     
     prompt = f"""以下是一篇关于「{topic}」的科普文章初稿（基于本地知识库生成）。
 请仅使用下方提供的真实联网文献，对文章进行外文素材补充。
@@ -942,7 +1138,7 @@ def stage2_expand(framework, web_materials, persona, topic, tracker):
 2. 所有【#标记名#】必须保持原样，独占完整一行
 3. 必须确保输出包含全部15个母稿标签：【#META#】【#ALL_INTRO#】【#SUMMARY_FAST#】【#SUMMARY_DEEP#】【#SUMMARY_ALL#】【#COMMON_BEGIN#】【#COMMON_END#】【#DEEP_PLUS_BEGIN#】【#DEEP_PLUS_END#】【#DEBATE_ZONE_BEGIN#】【#DEBATE_ZONE_END#】【#CONCLUDE_FAST#】【#CONCLUDE_DEEP#】【#CONCLUDE_ALL#】【#REF_LIST#】
 4. 如果初稿中缺失某些标签（可能被截断），必须补全这些标签及其内容
-5. 只能使用上方白名单中的PMID，严禁编造任何不在白名单中的PMID编号
+5. 只能使用上方白名单中的PMID，严禁编造任何不在白名单中的PMID编号；无PMID的文献以DOI标注（引用其[序号]即可），禁止为它们编造PMID
 6. 参考文献列表中只能出现上方提供的联网文献，禁止自行添加任何其他文献
 7. 将联网文献的试验数据、权威声明放入综述层级和进阶拓展板块
 8. 生活化实操建议保留在基础正文和速读板块，不添加外文试验到速读卡
@@ -960,6 +1156,40 @@ def stage2_expand(framework, web_materials, persona, topic, tracker):
 
 
 # ======================== Stage 3: 格式校验 ========================
+def _structure_check(article):
+    """结构校验：模板标记残留 + 一级编号重复 + DEEP_PLUS 板块编号冲突
+    防止出现历史问题：『通用引言/共识基础内容』残留正文、『特殊人群』用一、二、一级编号与前面板块冲突"""
+    errors = []
+
+    # 1. 模板标记残留：这些是模板内部描述文字，严禁出现在正文标题
+    for label in ["通用引言", "共识基础内容"]:
+        for line in article.split('\n'):
+            if line.strip() == label:
+                errors.append(f"正文包含模板标记残留『{label}』（该行应删除，禁止写入正文标题）")
+
+    # 2. 提取 DEEP_PLUS 板块
+    m = re.search(r"【#DEEP_PLUS_BEGIN#】(.*?)【#DEEP_PLUS_END#】", article, re.S)
+    dp = m.group(1) if m else ""
+
+    # 3. DEEP_PLUS 板块内禁止使用"一、""二、"一级编号（应使用（一）（二）二级编号或直接段落）
+    if dp:
+        h1_in_dp = re.findall(r"^[一二三四五六七八九十百]+、", dp, re.M)
+        if h1_in_dp:
+            errors.append(f"DEEP_PLUS 板块内使用了{len(h1_in_dp)}个一级编号{h1_in_dp[:4]}，应改用二级编号（一）（二），避免与前面共识板块编号冲突")
+
+    # 4. 全篇一级编号重复检测
+    all_h1 = re.findall(r"^([一二三四五六七八九十百]+)、", article, re.M)
+    if len(all_h1) != len(set(all_h1)):
+        errors.append(f"全篇一级编号重复: {all_h1}")
+
+    # 5. 深度拓展板块：若存在裸标题（特殊人群/细分场景/深度拓展），应能匹配板块标题规范
+    for lbl in ["深度拓展", "特殊人群", "细分场景"]:
+        if dp and lbl not in dp:
+            pass  # 板块内部结构灵活，不强校验标题必须存在
+
+    return errors
+
+
 def stage3_validate(article, use_ollama, ollama_model, tracker):
     """Stage 3: 格式校验"""
     print("\n--- Stage 3: 格式校验 ---")
@@ -979,16 +1209,23 @@ def stage3_validate(article, use_ollama, ollama_model, tracker):
     missing = [tag for tag in required_tags if tag not in article]
     order_ok = all(article.find(required_tags[i]) < article.find(required_tags[i+1])
                    for i in range(len(required_tags)-1) if required_tags[i] in article and required_tags[i+1] in article)
+
+    # 结构校验（模板残留 / 编号冲突）
+    structure_errors = _structure_check(article)
+    if structure_errors:
+        for e in structure_errors:
+            print(f"  ⚠ {e}")
+
+    if not missing and order_ok and not structure_errors:
+        print(f"  ✓ 格式校验通过（15个标签齐全，顺序正确，结构合规）")
+        return {"pass": True, "missing": [], "order_ok": True, "structure_errors": []}
     
-    if not missing and order_ok:
-        print(f"  ✓ 格式校验通过（15个标签齐全，顺序正确）")
-        return {"pass": True, "missing": [], "order_ok": True}
-    
-    print(f"  ⚠ 格式问题：缺失{len(missing)}个标签，顺序{'正确' if order_ok else '错误'}")
+    print(f"  ⚠ 格式问题：缺失{len(missing)}个标签，顺序{'正确' if order_ok else '错误'}"
+          + (f"，结构问题{len(structure_errors)}处" if structure_errors else ""))
     if missing:
         print(f"    缺失：{missing}")
     
-    return {"pass": False, "missing": missing, "order_ok": order_ok}
+    return {"pass": False, "missing": missing, "order_ok": order_ok, "structure_errors": structure_errors}
 
 
 # ======================== 主流程 ========================
@@ -1020,21 +1257,24 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
     if gate3_report["dropped"]:
         print(f"  剔除无关卡片{len(gate3_report['dropped'])}张：{gate3_report['dropped'][:3]}")
     
-    # Stage 0.5: 联网搜索（去重）
-    print("\n--- Stage 0.5: 联网搜索 ---")
+    # Stage 0.5: 联网搜索（多源回退：PubMed → Europe-PMC → Semantic Scholar → Crossref）
+    print("\n--- Stage 0.5: 联网搜索（多源回退） ---")
     existing_ids = {c.get("card_id", "") for c in kb_cards}
     web_materials = []
-    verified_pmids = set()  # 记录所有从PubMed API真实获取的PMID
+    verified_pmids = set()  # 记录所有真实获取的PMID（白名单，用于幻觉检测）
+    literature_sources = []  # 记录命中的文献来源
     for kw in pubmed_keywords:
-        print(f"  [PubMed] {kw}")
-        results = search_pubmed_online(kw, max_results=3, exclude_ids=existing_ids)
+        print(f"  [检索] {kw}")
+        results, used_source = search_literature_online(kw, max_results=3, exclude_ids=existing_ids)
+        if used_source and used_source not in literature_sources:
+            literature_sources.append(used_source)
         for r in results:
-            pmid_num = r.get("id", "").replace("PMID_", "").replace("PMID:", "")
+            pmid_num = r.get("pmid", "")
             if pmid_num:
                 verified_pmids.add(pmid_num)
         web_materials.extend(results)
         time.sleep(1)
-    print(f"  联网新文献：{len(web_materials)}篇（去重后）")
+    print(f"  联网新文献：{len(web_materials)}篇（来源：{literature_sources or '全部网络不可达，本次无外文素材'}）")
 
     # 闸门2：主题相关性强制过滤（人群+关键词+主题黑名单）
     print("\n--- 闸门2: 文献主题相关性过滤 ---")
@@ -1045,7 +1285,7 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
     # 同步更新已验证PMID集合（只保留通过过滤的文献）
     verified_pmids = set()
     for r in web_materials:
-        pmid_num = r.get("id", "").replace("PMID_", "").replace("PMID:", "")
+        pmid_num = r.get("pmid", "")
         if pmid_num:
             verified_pmids.add(pmid_num)
     print(f"  闸门2通过后已验证PMID集合：{len(verified_pmids)}个（用于后续幻觉检测）")
@@ -1101,8 +1341,11 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
         print(f"  ⚠ 正文引用了但参考文献缺失的编号：{gate5_report['missing_citations']}")
     print(f"  自检后参考文献{gate5_report['ref_final']}条（已按 指南>立场声明>RCT>综述 排序）")
     
-    # 保存结果
-    output_file = os.path.join(OUTPUT_DIR, f"{group}_v32_pipeline.txt")
+    # 保存结果（文件名必须安全化：Windows 禁止 ?*:<>|" 等字符，且中文人群名可能混入非法字符）
+    safe_group = re.sub(r'[\\/:*?"<>|\r\n\t]', '_', group or "default").strip()
+    if not safe_group:
+        safe_group = "default"
+    output_file = os.path.join(OUTPUT_DIR, f"{safe_group}_v32_pipeline.txt")
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(f"{'='*70}\n")
         f.write(f"v3.2 双模型流水线生成（五道质量闸门）\n")
@@ -1110,7 +1353,7 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
         f.write(f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Ollama：{'✓ '+ollama_model if use_ollama else '✗ 降级云端'}\n")
         f.write(f"知识库卡片：{gate3_report['original']}张 → 闸门3预处理后{gate3_report['after_screen']}张\n")
-        f.write(f"联网文献：闸门2过滤后{len(web_materials)}篇（剔除{len(gate2_report)}篇无关文献）\n")
+        f.write(f"联网文献：闸门2过滤后{len(web_materials)}篇（来源：{literature_sources or '网络不可达'}；剔除{len(gate2_report)}篇无关文献）\n")
         f.write(f"Token估算：{tracker['total']}（本地{tracker['local_calls']}次+云端{tracker['cloud_calls']}次）\n")
         f.write(f"闸门1 PMID校验：共{pmid_report['total']}个，真实{pmid_report['verified']}个，剔除虚假{len(pmid_report['fake'])}个\n")
         if pmid_report.get("second_check", 0) > 0:
@@ -1146,7 +1389,13 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
             f.write(line + "\n")
         f.write(f"\n【联网新文献】\n")
         for i, m in enumerate(web_materials):
-            f.write(f"[{i+1}] {m.get('title','')}（{m.get('id','')}）\n")
+            if m.get("pmid"):
+                display_id = f"PMID:{m['pmid']}"
+            elif m.get("doi"):
+                display_id = f"DOI:{m['doi']}"
+            else:
+                display_id = m.get("id", "")
+            f.write(f"[{i+1}] {m.get('title','')}（{display_id}｜来源：{m.get('source_api','')}）\n")
     
     # 汇总
     print(f"\n{'='*70}")

@@ -36,6 +36,15 @@ $JAR = "$PROJECT_ROOT\backend-health\target\health-backend-1.0.0.jar"
 $MVN = "C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd"
 $AI_DIR = "$PROJECT_ROOT\ai_service"
 $FE_DIR = "$PROJECT_ROOT\frontend-health"
+# npm 必须用 .cmd 绝对路径（Start-Process 无法直接运行不带扩展名的 npm 脚本文件）
+$NPM = "C:\Program Files\nodejs\npm.cmd"
+if (-not (Test-Path $NPM)) {
+    $NPM = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+}
+if (-not $NPM) { Write-Host "  ERROR 未找到 npm.cmd，请先安装 Node.js" -ForegroundColor Red; exit 1 }
+# Ollama 可执行文件探测（Start-Process 需要 .exe 绝对路径）
+$OLLAMA_EXE = (Get-Command ollama.exe -ErrorAction SilentlyContinue).Source
+if (-not $OLLAMA_EXE) { $OLLAMA_EXE = "C:\Program Files\Ollama\ollama.exe" }
 
 # ======================== 工具函数 ========================
 function Wait-Port([int]$Port, [int]$Seconds) {
@@ -56,7 +65,7 @@ function Start-Ollama {
     if (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue) {
         Write-Host "  Ollama 已在运行（端口11434已监听）" -ForegroundColor Green
     } else {
-        $p = Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle NewWindow -PassThru
+        $p = Start-Process -FilePath $OLLAMA_EXE -ArgumentList "serve" -WindowStyle Minimized -PassThru
         Start-Sleep -Seconds 3
         if (Wait-Port 11434 5) { Write-Host "  OK Ollama 已启动（PID: $($p.Id)）" -ForegroundColor Green }
         else { Write-Host "  WARN Ollama 可能未就绪，请检查" -ForegroundColor Red }
@@ -101,7 +110,7 @@ function Start-Backend {
     }
     $java8 = "$JDK8\bin\java.exe"
     $p = Start-Process -FilePath $java8 -ArgumentList "-jar", "`"$JAR`"" `
-        -WorkingDirectory "$PROJECT_ROOT\backend-health" -WindowStyle NewWindow -PassThru
+        -WorkingDirectory "$PROJECT_ROOT\backend-health" -WindowStyle Minimized -PassThru
     Start-Sleep -Seconds 15
     if (Wait-Port 8082 20) { Write-Host "  OK 后端已就绪（PID: $($p.Id)） http://localhost:8082" -ForegroundColor Green }
     else { Write-Host "  WARN 后端尚未就绪，请查看新窗口日志" -ForegroundColor Red }
@@ -117,7 +126,7 @@ function Start-AIService {
     if (-not (Test-Path $PyPath)) { $PyPath = "python" }
     Write-Host "  使用 Python: $PyPath" -ForegroundColor Gray
     $p = Start-Process -FilePath $PyPath -ArgumentList "main.py" `
-        -WorkingDirectory $AI_DIR -WindowStyle NewWindow -PassThru
+        -WorkingDirectory $AI_DIR -WindowStyle Minimized -PassThru
     Start-Sleep -Seconds 8
     if (Wait-Port 8002 40) { Write-Host "  OK AI服务已就绪（PID: $($p.Id)） http://localhost:8002" -ForegroundColor Green }
     else { Write-Host "  WARN AI服务加载中（向量模型较慢），请稍后访问" -ForegroundColor Red }
@@ -128,8 +137,8 @@ function Start-Frontend {
     if (Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue) {
         Write-Host "  前端已在运行" -ForegroundColor Green; return
     }
-    $p = Start-Process -FilePath "npm" -ArgumentList "run", "dev" `
-        -WorkingDirectory $FE_DIR -WindowStyle NewWindow -PassThru
+    $p = Start-Process -FilePath $NPM -ArgumentList "run", "dev" `
+        -WorkingDirectory $FE_DIR -WindowStyle Minimized -PassThru
     Start-Sleep -Seconds 5
     if (Wait-Port 5173 15) { Write-Host "  OK 前端已就绪（PID: $($p.Id)） http://localhost:5173" -ForegroundColor Green }
     else { Write-Host "  WARN 前端尚未就绪，请查看新窗口日志" -ForegroundColor Red }
@@ -214,7 +223,6 @@ function Check-Connections {
 # ======================== 主流程 ========================
 if ($StopAll) { Stop-All; exit 0 }
 if ($OllamaOnly) { Start-Ollama; exit 0 }
-if ($Build) { Build-Backend; exit 0 }
 if ($BackendOnly) { Start-Backend; exit 0 }
 if ($FrontendOnly) { Start-Frontend; exit 0 }
 if ($AIServiceOnly) { Start-AIService; exit 0 }

@@ -73,7 +73,6 @@ export const ARTICLE_AUDIENCE_FILTERS = [
   { key: '老年人', label: '老年人' },
   { key: '孕妇', label: '孕妇' },
   { key: '糖尿病患者', label: '糖尿病患者' },
-  { key: '高血压', label: '高血压' },
 ] as const
 
 // ======================== 食谱标签 ========================
@@ -83,7 +82,6 @@ export const RECIPE_TAGS = [
   '糖尿病',
   '老年人',
   '青少年',
-  '高血压',
   '减脂',
   '健身',
   '低GI',
@@ -97,7 +95,6 @@ export const RECIPE_PERSONA_TAGS = [
   '糖尿病患者',
   '老年人',
   '青少年',
-  '高血压患者',
   '健身人士',
   '减脂人群',
 ] as const

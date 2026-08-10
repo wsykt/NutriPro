@@ -293,8 +293,9 @@ export const api = {
     topics: () => instance.get('/articles/topics'),
     like: (id: number) => instance.post(`/articles/${id}/like`),
     // AI 生成：主题 + 人群 → 母稿 → 拆分三版 → 入库
+    // B方案双模型流水线（本地框架→云端外扩→本地校验）实测约 2~3 分钟，需单独放宽超时
     generate: (topic: string, persona?: string) =>
-      instance.post('/articles/generate', { topic, persona: persona || '普通人群' }),
+      instance.post('/articles/generate', { topic, persona: persona || '普通人群' }, { timeout: 320000 }),
     // 同主题不同篇幅的相关文章
     related: (topicGroupId: string, excludeId?: number) =>
       instance.get(`/articles/related/${topicGroupId}`, { params: { excludeId } }),

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,6 +35,10 @@ public class AiChatClientService {
     @Autowired
     @Qualifier("aiRestTemplate")
     private RestTemplate restTemplate;
+
+    @Autowired
+    @Qualifier("aiRestTemplateLong")
+    private RestTemplate restTemplateLong;
 
     public AiChatClientService(CircuitBreaker circuitBreaker, RestClientConfig restClientConfig) {
         this.circuitBreaker = circuitBreaker;
@@ -109,13 +114,16 @@ public class AiChatClientService {
             Map<String, Object> requestBody = new LinkedHashMap<>();
             requestBody.put("message", prompt);
             requestBody.put("user_id", 0);
+            // 母稿为带标记的完整 prompt，走 AI 服务透传通道（_raw_prompt），避免被健康咨询管线重新包装导致标记丢失
+            requestBody.put("_raw_prompt", true);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            // 母稿生成属长文本任务，使用 120s 长超时模板（本地 Ollama 生成长文耗时超过 30s）
+            ResponseEntity<String> response = restTemplateLong.postForEntity(
                     restClientConfig.getAiBaseUrl() + "/chat", entity, String.class);
 
             if (response.getBody() == null) {
@@ -123,7 +131,20 @@ public class AiChatClientService {
             }
 
             Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
-            String content = (String) responseMap.get("response");
+            // AI 服务统一响应结构：{success, code, message, data:{response,...}}，正文在 data.response
+            String content = null;
+            Object dataObj = responseMap.get("data");
+            if (dataObj instanceof Map) {
+                Object resp = ((Map<?, ?>) dataObj).get("response");
+                content = resp != null ? String.valueOf(resp) : null;
+            }
+            if (content == null) {
+                // 兼容旧的顶层 response 字段
+                Object topResp = responseMap.get("response");
+                if (topResp != null) {
+                    content = String.valueOf(topResp);
+                }
+            }
             circuitBreaker.recordSuccess();
             log.info("文章母稿生成完成, contentSize={}", content != null ? content.length() : 0);
             return content != null ? content : "";
@@ -131,6 +152,72 @@ public class AiChatClientService {
             circuitBreaker.recordFailure();
             log.error("AI服务调用失败: {}", e.getMessage(), e);
             throw new RuntimeException("调用 AI 生成母稿失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 调用 AI 服务 /articles/mother-draft 端点生成科普文章母稿（B方案双模型流水线）。
+     * <p>后端只传 topic 与目标人群，母稿由 AI 服务内 pipeline_v32 完成三阶段：
+     * 本地 Ollama 出框架 → 云端 DeepSeek 外扩 → 本地格式校验（含五道质量闸门）。
+     * 错误时抛出异常（由调用方决定如何处理）。
+     */
+    public String generateArticleMotherDraftB(String topic, String persona) {
+        return generateArticleMotherDraftB(topic, persona, null);
+    }
+
+    /**
+     * 带 PubMed 关键词的 B方案母稿生成。
+     *
+     * @param keywords PubMed 检索关键词列表，可为 null（由 AI 服务按人群默认映射）
+     */
+    public String generateArticleMotherDraftB(String topic, String persona, List<String> keywords) {
+        log.info("开始生成文章母稿(B方案), topic={}, persona={}", topic, persona);
+        if (circuitBreaker.isOpen()) {
+            log.warn("AI服务熔断保护中，跳过文章母稿(B方案)生成");
+            throw new RuntimeException(circuitBreaker.buildBreakerMessage());
+        }
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("topic", topic);
+            requestBody.put("target_crowd", persona);
+            if (keywords != null && !keywords.isEmpty()) {
+                requestBody.put("keywords", keywords);
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+            // B方案含本地 Ollama 推理（Stage1 框架 + Stage3 校验），耗时较长，使用 120s 长超时模板
+            ResponseEntity<String> response = restTemplateLong.postForEntity(
+                    restClientConfig.getAiBaseUrl() + "/articles/mother-draft", entity, String.class);
+
+            if (response.getBody() == null) {
+                throw new RuntimeException("AI 服务返回空响应");
+            }
+
+            Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+            // AI 服务统一响应结构：{success, code, message, data:{response,...}}，正文在 data.response
+            String content = null;
+            Object dataObj = responseMap.get("data");
+            if (dataObj instanceof Map) {
+                Object resp = ((Map<?, ?>) dataObj).get("response");
+                content = resp != null ? String.valueOf(resp) : null;
+            }
+            if (content == null) {
+                Object topResp = responseMap.get("response");
+                if (topResp != null) {
+                    content = String.valueOf(topResp);
+                }
+            }
+            circuitBreaker.recordSuccess();
+            log.info("文章母稿(B方案)生成完成, contentSize={}", content != null ? content.length() : 0);
+            return content != null ? content : "";
+        } catch (Exception e) {
+            circuitBreaker.recordFailure();
+            log.error("AI服务(B方案)调用失败: {}", e.getMessage(), e);
+            throw new RuntimeException("调用 AI 生成母稿(B方案)失败: " + e.getMessage(), e);
         }
     }
 

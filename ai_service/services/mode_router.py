@@ -638,13 +638,37 @@ class ModeRouter:
             return "", False
 
     def _run_local_rewrite(self, func_type: str, template: str, **kwargs) -> Any:
-        """A方案：本地 Ollama 基于模板改写（无模板则走本地引擎兜底）"""
+        """A方案：本地 Ollama 生成
 
-        # 如果没有模板且有本地引擎，直接走本地规则
-        if (not template or not template.strip()) and self._local_engine:
-            return self._local_fallback(func_type, **kwargs)
+        - 模板命中：基于模板改写（REWRITE_PROMPTS）
+        - 模板未命中：本地 LLM 直接生成（CLOUD_PROMPTS，mode=local）
+        - 本地 LLM 失败：回退本地规则引擎兜底
+        """
 
-        # 尝试本地 LLM 改写
+        # 模板未命中：本地 LLM 直接生成（CLOUD_PROMPTS 构造 prompt，强制 mode=local）
+        if not template or not template.strip():
+            prompt_template = CLOUD_PROMPTS.get(func_type)
+            if not prompt_template:
+                return self._local_fallback(func_type, **kwargs)
+            try:
+                fmt_params = self._build_prompt_params(func_type, "", **kwargs)
+                prompt = prompt_template.format(**fmt_params)
+                messages = [
+                    {"role": "system", "content": "你是专业的健康/营养/运动专家。严格按照要求输出。"},
+                    {"role": "user", "content": prompt},
+                ]
+                if func_type == "qa":
+                    output = self._llm.chat(messages, max_retries=1, mode="local")
+                else:
+                    output = self._llm.chat_json(messages, max_retries=1, mode="local")
+                if func_type != "qa" and (not output or not isinstance(output, dict)):
+                    return self._local_fallback(func_type, **kwargs)
+                return output
+            except Exception:
+                # 本地 LLM 失败，退回本地规则引擎
+                return self._local_fallback(func_type, **kwargs)
+
+        # 模板命中：本地 LLM 基于模板改写
         prompt_template = REWRITE_PROMPTS.get(func_type)
         if not prompt_template:
             return self._local_fallback(func_type, **kwargs)
