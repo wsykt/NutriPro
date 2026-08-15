@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
 import { api } from '@/api'
 
 // ============== 统计数据 ==============

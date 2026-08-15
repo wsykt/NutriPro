@@ -85,7 +85,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { api } from '@/api'
-import { getCache } from '@/utils/storage'
+import { getCache, getCurrentUserId } from '@/utils/storage'
 import { AlertTriangle } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -106,8 +106,8 @@ onMounted(() => {
 
 async function loadRecipeDetail() {
   try {
-    const currentUserId = localStorage.getItem('currentUserId')
-    const userId = currentUserId ? parseInt(currentUserId) : undefined
+    const currentUserId = getCurrentUserId()
+    const userId = currentUserId ?? undefined
     const data = await api.recipe.getDetail(recipeId.value, userId)
     recipe.value = data.recipe
     ingredients.value = data.ingredients || []
@@ -197,8 +197,8 @@ function removeSubstitution(index: number) {
 
 .tag {
   padding: 4px 10px;
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #E4EDE7;
+  color: #2F5D4A;
   border-radius: 4px;
   font-size: 12px;
 }
@@ -245,10 +245,10 @@ function removeSubstitution(index: number) {
 }
 
 .suitable {
-  color: #388e3c;
+  color: #274d3d;
   font-weight: 600;
   padding: 4px 8px;
-  background: #e8f5e9;
+  background: #E4EDE7;
   border-radius: 4px;
 }
 
@@ -304,7 +304,7 @@ function removeSubstitution(index: number) {
 
 .alt-btn {
   padding: 8px 16px;
-  background: #4CAF50;
+  background: #2F5D4A;
   color: white;
   border: none;
   border-radius: 6px;
@@ -314,7 +314,7 @@ function removeSubstitution(index: number) {
 }
 
 .alt-btn:hover {
-  background: #388e3c;
+  background: #274d3d;
 }
 
 .applied-list {

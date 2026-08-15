@@ -207,7 +207,7 @@ async function saveProfile() {
 
 .form-section input[type="text"]:focus {
   outline: none;
-  border-color: #4CAF50;
+  border-color: #2F5D4A;
 }
 
 .help-text {
@@ -282,7 +282,7 @@ async function saveProfile() {
 }
 
 .toggle-label input[type="checkbox"]:checked + .toggle-switch {
-  background: #4CAF50;
+  background: #2F5D4A;
 }
 
 .toggle-label input[type="checkbox"]:checked + .toggle-switch::after {
@@ -301,7 +301,7 @@ async function saveProfile() {
 .save-btn {
   width: 100%;
   padding: 14px;
-  background: #4CAF50;
+  background: #2F5D4A;
   color: white;
   border: none;
   border-radius: 8px;
@@ -311,14 +311,14 @@ async function saveProfile() {
 }
 
 .save-btn:hover {
-  background: #388e3c;
+  background: #274d3d;
 }
 
 .success-message {
   margin-top: 20px;
   padding: 16px;
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: #E4EDE7;
+  color: #2F5D4A;
   border-radius: 8px;
   text-align: center;
   font-size: 16px;

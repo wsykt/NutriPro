@@ -665,7 +665,7 @@ function formatDate(d: any): string {
   font-size: 1.25rem; font-weight: 700;
   margin: 2.2rem 0 1rem; color: #1f2937;
   padding: 0.35rem 0 0.35rem 0.85rem;
-  border-left: 4px solid #43b086;
+  border-left: 4px solid #2F5D4A;
   letter-spacing: 0.01em;
   line-height: 1.5;
   background: linear-gradient(90deg, rgba(67,176,134,0.06), transparent 70%);
@@ -685,7 +685,7 @@ function formatDate(d: any): string {
   position: absolute; left: 0; top: 0.55rem;
   width: 0.42rem; height: 0.42rem;
   border-radius: 9999px;
-  background: #43b086;
+  background: #2F5D4A;
 }
 .article-body p { margin: 0.85rem 0; color: #374151; }
 .article-body strong {
@@ -699,8 +699,8 @@ function formatDate(d: any): string {
 .article-body ol li { list-style: decimal; }
 .article-body blockquote {
   margin: 1.1rem 0; padding: 0.85rem 1.1rem;
-  border-left: 3px solid #43b086;
-  background: #f0fdf4;
+  border-left: 3px solid #2F5D4A;
+  background: #E4EDE7;
   border-radius: 0 0.6rem 0.6rem 0; color: #4b5563;
   font-size: 0.95rem;
 }
@@ -719,7 +719,7 @@ function formatDate(d: any): string {
   margin: 0 0.0625rem;
   border-radius: 0.2rem;
   background: rgba(67, 176, 134, 0.1);
-  color: #0f766e;
+  color: #2F5D4A;
   font-weight: 500;
   cursor: help;
   /* 用下划虚线 + 小圆点前缀的方式暗示"可解释术语"，不依赖外部图标 */
@@ -735,27 +735,27 @@ function formatDate(d: any): string {
   display: inline-block;
   width: 3px; height: 3px;
   border-radius: 9999px;
-  background: #0f766e;
+  background: #2F5D4A;
   margin: 0 0.18rem 0.22rem 0;
   vertical-align: middle;
   opacity: 0.85;
 }
 .term-mark:hover {
   background: rgba(67, 176, 134, 0.2);
-  color: #0d5a52;
-  border-bottom-color: #0d5a52;
+  color: #274d3d;
+  border-bottom-color: #274d3d;
 }
 
 /* ===== 引用角标 ===== */
 .cite-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 1rem; height: 1rem; margin: 0 0.125rem; border-radius: 9999px;
-  background: rgba(67, 176, 134, 0.15); color: #0f766e;
+  background: rgba(67, 176, 134, 0.15); color: #2F5D4A;
   font-size: 0.625rem; font-weight: 700; cursor: pointer;
   vertical-align: super; transition: all 0.2s;
   font-family: inherit;
 }
-.cite-badge:hover { background: #0f766e; color: white; }
+.cite-badge:hover { background: #2F5D4A; color: white; }
 
 /* ===== 行数限制 ===== */
 .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
+import { getToken, setToken, setCurrentUserId } from '@/utils/storage'
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
@@ -66,14 +67,13 @@ router.beforeEach((to, _from, next) => {
   // 开发模式：自动设置模拟登录态（仅 npm run dev 时生效，生产构建自动关闭）
   const DEV_MODE = import.meta.env.DEV
   if (DEV_MODE) {
-    if (!localStorage.getItem('user_token')) {
-      localStorage.setItem('user_token', 'dev-mock-token')
-      localStorage.setItem('token', 'dev-mock-token')
-      localStorage.setItem('currentUserId', '1')
+    if (!getToken()) {
+      setToken('dev-mock-token')
+      setCurrentUserId(1)
     }
   }
 
-  const token = localStorage.getItem('user_token') || localStorage.getItem('token')
+  const token = getToken()
   if (to.meta.requiresAuth && !token) {
     next('/login')
   } else if (to.path === '/' && token) {

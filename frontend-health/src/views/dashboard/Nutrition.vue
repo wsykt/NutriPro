@@ -124,7 +124,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import * as echarts from 'echarts'
+import echarts from '@/utils/echarts'
+import type { ECharts } from '@/utils/echarts'
 import { useUserStore } from '@/stores/user'
 import { useDietStore } from '@/stores/diet'
 import { api } from '@/api'
@@ -140,7 +141,7 @@ const analysis = ref<any>(null)
 
 // ECharts 饼图
 const macroChartRef = ref<HTMLDivElement | null>(null)
-let macroChart: echarts.ECharts | null = null
+let macroChart: ECharts | null = null
 let resizeHandler: (() => void) | null = null
 
 function renderMacroChart() {

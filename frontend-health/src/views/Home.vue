@@ -302,7 +302,7 @@ onBeforeUnmount(() => {
     top: 0;
     left: 0;
     height: 3px;
-    background: linear-gradient(90deg, #34d399 0%, #10b981 50%, #059669 100%);
+    background: linear-gradient(90deg, #34d399 0%, #2F5D4A 50%, #059669 100%);
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
     transition: width 0.15s ease-out;
     z-index: 100;

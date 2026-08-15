@@ -1,4 +1,9 @@
 import { defineStore } from 'pinia'
+import {
+  getToken, setToken, clearSession,
+  getCurrentUserId, setCurrentUserId,
+  getActAsUserId, setActAsUserId,
+} from '@/utils/storage'
 
 export interface User {
   username: string
@@ -17,22 +22,13 @@ export interface User {
   [key: string]: any
 }
 
-function readLSNumber(key: string): number | null {
-  try {
-    const v = localStorage.getItem(key)
-    if (!v) return null
-    const n = parseInt(v, 10)
-    return Number.isFinite(n) ? n : null
-  } catch { return null }
-}
-
 export const useUserStore = defineStore('user', {
   state: () => ({
     user: null as User | null,
     // 我监护的亲属列表（用于操作身份切换）
     wards: [] as Array<{ wardId: number; wardUsername: string; status?: string }>,
     // 当前替谁操作：null 表示操作自己；否则是被监护人 userId
-    actAsUserId: readLSNumber('actAsUserId')
+    actAsUserId: getActAsUserId()
   }),
   actions: {
     async login(username: string, password: string) {
@@ -55,9 +51,8 @@ export const useUserStore = defineStore('user', {
             gender: response.gender
           }
           this.user = user
-          localStorage.setItem('user_token', token)
-          localStorage.setItem('token', token)
-          if (uid != null) localStorage.setItem('currentUserId', String(uid))
+          setToken(token) // 单一事实源，不再双写 user_token + token
+          if (uid != null) setCurrentUserId(uid)
           this.setActAs(null)
           try { await this.loadWards() } catch {}
           return { success: true }
@@ -83,13 +78,13 @@ export const useUserStore = defineStore('user', {
     },
     async init() {
       if (this.user?.token) return
-      const token = localStorage.getItem('user_token') || localStorage.getItem('token')
+      const token = getToken()
       if (!token) return
       try {
         const { api } = await import('../api')
         // init 阶段只查自己的资料，不做亲属切换
-        const backup = localStorage.getItem('actAsUserId')
-        localStorage.removeItem('actAsUserId')
+        const backup = getActAsUserId()
+        setActAsUserId(null)
         const info: any = await api.profile.getInfo()
         if (info) {
           const uid = info.id || info.user_id || info.userId || info.user?.id
@@ -105,14 +100,11 @@ export const useUserStore = defineStore('user', {
             age: info.age || info.user?.age,
             gender: info.gender || info.user?.gender
           }
-          if (uid != null) localStorage.setItem('currentUserId', String(uid))
+          if (uid != null) setCurrentUserId(uid)
           // init 完成后，恢复之前的 actAsUserId（如监护人希望直接打开替亲属操作的页面）
-          if (backup) {
-            const n = parseInt(backup, 10)
-            if (Number.isFinite(n)) {
-              this.actAsUserId = n
-              localStorage.setItem('actAsUserId', String(n))
-            }
+          if (backup != null) {
+            this.actAsUserId = backup
+            setActAsUserId(backup)
           }
           try { await this.loadWards() } catch {}
         }
@@ -131,13 +123,10 @@ export const useUserStore = defineStore('user', {
             age: 30,
             gender: '男'
           }
-          localStorage.setItem('currentUserId', '1')
+          setCurrentUserId(1)
         } else {
           this.user = null
-          localStorage.removeItem('user_token')
-          localStorage.removeItem('token')
-          localStorage.removeItem('actAsUserId')
-          localStorage.removeItem('currentUserId')
+          clearSession()
         }
       }
     },
@@ -145,10 +134,7 @@ export const useUserStore = defineStore('user', {
       this.user = null
       this.wards = []
       this.actAsUserId = null
-      localStorage.removeItem('user_token')
-      localStorage.removeItem('token')
-      localStorage.removeItem('actAsUserId')
-      localStorage.removeItem('currentUserId')
+      clearSession()
     },
     // 载入我监护的亲属列表
     async loadWards() {
@@ -186,11 +172,7 @@ export const useUserStore = defineStore('user', {
     // 切换当前操作身份：传 null 代表操作自己
     setActAs(userId: number | null) {
       this.actAsUserId = userId
-      if (userId == null) {
-        localStorage.removeItem('actAsUserId')
-      } else {
-        localStorage.setItem('actAsUserId', String(userId))
-      }
+      setActAsUserId(userId)
     }
   },
   getters: {

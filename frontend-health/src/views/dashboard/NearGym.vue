@@ -289,7 +289,7 @@ function drawUserMarker(lng: number, lat: number, accuracy: number | undefined) 
   userMarker = new AMap.Marker({
     position: [lng, lat],
     map: mapInstance,
-    content: '<div style="width:24px;height:24px;background:#43b086;border:3px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(0,0,0,0.3);"></div>',
+    content: '<div style="width:24px;height:24px;background:#2F5D4A;border:3px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(0,0,0,0.3);"></div>',
     offset: new AMap.Pixel(-12, -12),
     zIndex: 200
   })
@@ -297,10 +297,10 @@ function drawUserMarker(lng: number, lat: number, accuracy: number | undefined) 
     userCircle = new AMap.Circle({
       center: [lng, lat],
       radius: accuracy,
-      strokeColor: '#43b086',
+      strokeColor: '#2F5D4A',
       strokeWeight: 2,
       strokeOpacity: 0.8,
-      fillColor: '#43b086',
+      fillColor: '#2F5D4A',
       fillOpacity: 0.12,
       map: mapInstance,
       zIndex: 199

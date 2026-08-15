@@ -1,124 +1,67 @@
 <template>
   <div class="content-layer min-h-screen flex">
     <!-- 左侧侧边栏 -->
-    <aside class="w-64 h-screen sticky top-0 shrink-0 overflow-y-auto bg-white/90 border-r border-morandi-soft/50 backdrop-blur-sm">
-      <div class="py-8 px-4 border-b border-morandi-soft mb-6">
-        <h2 class="text-xl font-bold text-morandi-text">个人健康管理系统</h2>
+        <aside :class="['h-screen sticky top-0 shrink-0 overflow-y-auto bg-white/90 border-r border-morandi-soft/50 backdrop-blur-sm transition-all duration-200', sidebarCollapsed ? 'w-16' : 'w-64']">
+      <div class="py-6 px-4 border-b border-morandi-soft mb-4 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-morandi-accent flex items-center justify-center text-white font-bold shrink-0">健</div>
+        <h2 v-show="!sidebarCollapsed" class="text-base font-bold text-morandi-text truncate">健康助手</h2>
       </div>
       <ul class="px-2 space-y-2">
-        <!-- 用户中心 -->
         <li class="parent-menu">
-          <div
-            class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center"
-            @click="toggleSubMenu('user')"
-          >
-            <span>用户中心</span>
-            <span class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.user }">▼</span>
+          <div class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center" @click="toggleSubMenu('user')">
+            <span class="flex items-center gap-2"><Users class="w-5 h-5 shrink-0" /><span v-show="!sidebarCollapsed">用户中心</span></span>
+            <span v-show="!sidebarCollapsed" class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.user }">▼</span>
           </div>
-          <ul class="submenu pl-4 space-y-1 mt-1" :class="{ open: subMenuOpen.user }">
-            <li>
-              <RouterLink to="/dashboard/profile" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'profile' }" @click="setActiveMenu('profile')">个人中心</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/metrics-history" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'metrics-history' }" @click="setActiveMenu('metrics-history')">身体指标历史</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/health-history" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'health-history' }" @click="setActiveMenu('health-history')">健康档案历史</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/family-relation" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'family-relation' }" @click="setActiveMenu('family-relation')">亲属关系管理</RouterLink>
-            </li>
+          <ul class="submenu space-y-1 mt-1 overflow-hidden transition-all" :class="{ open: subMenuOpen.user }">
+            <li><RouterLink to="/dashboard/profile" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'profile' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('profile')"><UserIcon class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">个人中心</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/metrics-history" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'metrics-history' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('metrics-history')"><Activity class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">身体指标历史</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/health-history" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'health-history' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('health-history')"><FileText class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">健康档案历史</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/family-relation" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'family-relation' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('family-relation')"><UsersRound class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">亲属关系管理</span></RouterLink></li>
           </ul>
         </li>
-
-        <!-- 饮食管理 -->
         <li class="parent-menu">
-          <div
-            class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center"
-            @click="toggleSubMenu('food')"
-          >
-            <span>饮食管理</span>
-            <span class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.food }">▼</span>
+          <div class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center" @click="toggleSubMenu('food')">
+            <span class="flex items-center gap-2"><Utensils class="w-5 h-5 shrink-0" /><span v-show="!sidebarCollapsed">饮食管理</span></span>
+            <span v-show="!sidebarCollapsed" class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.food }">▼</span>
           </div>
-          <ul class="submenu pl-4 space-y-1 mt-1" :class="{ open: subMenuOpen.food }">
-            <li>
-              <RouterLink to="/dashboard/food-input" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'food-input' }" @click="setActiveMenu('food-input')">录入饮食</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/food-add" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'food-add' }" @click="setActiveMenu('food-add')">添加食材</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/nutrition" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'nutrition' }" @click="setActiveMenu('nutrition')">营养分析</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/food-search" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'food-search' }" @click="setActiveMenu('food-search')">食物搜索</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/family-input" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'family-input' }" @click="setActiveMenu('family-input')">亲属代录入饮食</RouterLink>
-            </li>
+          <ul class="submenu space-y-1 mt-1 overflow-hidden transition-all" :class="{ open: subMenuOpen.food }">
+            <li><RouterLink to="/dashboard/food-input" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'food-input' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('food-input')"><PlusCircle class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">录入饮食</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/food-add" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'food-add' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('food-add')"><Plus class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">添加食材</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/nutrition" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'nutrition' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('nutrition')"><PieChart class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">营养分析</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/food-search" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'food-search' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('food-search')"><Search class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">食物搜索</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/family-input" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'family-input' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('family-input')"><UsersRound class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">亲属代录入饮食</span></RouterLink></li>
           </ul>
         </li>
-
-        <!-- 菜谱管理 -->
         <li class="parent-menu">
-          <div
-            class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center"
-            @click="toggleSubMenu('recipe')"
-          >
-            <span>菜谱管理</span>
-            <span class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.recipe }">▼</span>
+          <div class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center" @click="toggleSubMenu('recipe')">
+            <span class="flex items-center gap-2"><ChefHat class="w-5 h-5 shrink-0" /><span v-show="!sidebarCollapsed">菜谱管理</span></span>
+            <span v-show="!sidebarCollapsed" class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.recipe }">▼</span>
           </div>
-          <ul class="submenu pl-4 space-y-1 mt-1" :class="{ open: subMenuOpen.recipe }">
-            <li>
-              <RouterLink to="/dashboard/recipe-library" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'recipe-library' }" @click="setActiveMenu('recipe-library')">菜谱库</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/dietary-profile" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'dietary-profile' }" @click="setActiveMenu('dietary-profile')">饮食档案管理</RouterLink>
-            </li>
+          <ul class="submenu space-y-1 mt-1 overflow-hidden transition-all" :class="{ open: subMenuOpen.recipe }">
+            <li><RouterLink to="/dashboard/recipe-library" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'recipe-library' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('recipe-library')"><BookOpen class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">菜谱库</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/dietary-profile" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'dietary-profile' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('dietary-profile')"><ClipboardList class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">饮食档案管理</span></RouterLink></li>
           </ul>
         </li>
-
-        <!-- 健康生活 -->
         <li class="parent-menu">
-          <div
-            class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center"
-            @click="toggleSubMenu('health')"
-          >
-            <span>健康生活</span>
-            <span class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.health }">▼</span>
+          <div class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center" @click="toggleSubMenu('health')">
+            <span class="flex items-center gap-2"><HeartPulse class="w-5 h-5 shrink-0" /><span v-show="!sidebarCollapsed">健康生活</span></span>
+            <span v-show="!sidebarCollapsed" class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.health }">▼</span>
           </div>
-          <ul class="submenu pl-4 space-y-1 mt-1" :class="{ open: subMenuOpen.health }">
-            <li>
-              <RouterLink to="/dashboard/health-report" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'health-report' }" @click="setActiveMenu('health-report')">健康报告</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/gym" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'gym' }" @click="setActiveMenu('gym')">附近地图</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/muscle-chart" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'muscle-chart' }" @click="setActiveMenu('muscle-chart')">运动管理</RouterLink>
-            </li>
+          <ul class="submenu space-y-1 mt-1 overflow-hidden transition-all" :class="{ open: subMenuOpen.health }">
+            <li><RouterLink to="/dashboard/health-report" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'health-report' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('health-report')"><BarChart3 class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">健康报告</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/gym" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'gym' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('gym')"><MapPin class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">附近地图</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/muscle-chart" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'muscle-chart' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('muscle-chart')"><Dumbbell class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">运动管理</span></RouterLink></li>
           </ul>
         </li>
-
-        <!-- AI功能 -->
         <li class="parent-menu">
-          <div
-            class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center"
-            @click="toggleSubMenu('ai')"
-          >
-            <span>AI功能</span>
-            <span class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.ai }">▼</span>
+          <div class="parent-title block px-4 py-3 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer flex justify-between items-center" @click="toggleSubMenu('ai')">
+            <span class="flex items-center gap-2"><Sparkles class="w-5 h-5 shrink-0" /><span v-show="!sidebarCollapsed">AI功能</span></span>
+            <span v-show="!sidebarCollapsed" class="arrow transition-transform duration-300 text-xs" :class="{ 'rotate-180': subMenuOpen.ai }">▼</span>
           </div>
-          <ul class="submenu pl-4 space-y-1 mt-1" :class="{ open: subMenuOpen.ai }">
-            <li>
-              <RouterLink to="/dashboard/ai-consult" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'ai-consult' }" @click="setActiveMenu('ai-consult')">AI健康咨询</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/training-plan" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'training-plan' }" @click="setActiveMenu('training-plan')">训练计划</RouterLink>
-            </li>
-            <li>
-              <RouterLink to="/dashboard/articles" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm" :class="{ 'menu-active': activeMenu === 'articles' }" @click="setActiveMenu('articles')">科普文章</RouterLink>
-            </li>
+          <ul class="submenu space-y-1 mt-1 overflow-hidden transition-all" :class="{ open: subMenuOpen.ai }">
+            <li><RouterLink to="/dashboard/ai-consult" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'ai-consult' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('ai-consult')"><MessageCircle class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">AI健康咨询</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/training-plan" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'training-plan' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('training-plan')"><Dumbbell class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">训练计划</span></RouterLink></li>
+            <li><RouterLink to="/dashboard/articles" class="menu-item block px-4 py-2 rounded-lg hover:bg-morandi-soft text-morandi-text cursor-pointer text-sm flex items-center" :class="[{ 'menu-active': activeMenu === 'articles' }, sidebarCollapsed ? 'justify-center px-0' : '']" @click="setActiveMenu('articles')"><Newspaper class="w-5 h-5 mr-2 shrink-0" /><span v-show="!sidebarCollapsed">科普文章</span></RouterLink></li>
           </ul>
         </li>
       </ul>
@@ -128,6 +71,7 @@
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
       <header class="sticky top-0 z-10 px-8 py-4 flex items-center justify-between shrink-0 gap-4 bg-white/95 backdrop-blur-sm border-b border-morandi-soft/50 shadow-sm">
         <div class="flex items-center gap-3">
+          <button @click="sidebarCollapsed = !sidebarCollapsed" class="w-9 h-9 rounded-lg hover:bg-morandi-soft flex items-center justify-center text-morandi-text transition-colors" title="展开/收起侧边栏"><Menu class="w-5 h-5" /></button>
           <span class="text-sm text-morandi-text">当前操作：</span>
           <select
             v-model="selectedActAs"
@@ -169,6 +113,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter, RouterLink, useRoute } from 'vue-router'
 import { useUserStore, type User } from '@/stores/user'
+import { User as UserIcon, Users, Activity, FileText, UsersRound, Utensils, PlusCircle, Plus, PieChart, Search, ChefHat, BookOpen, Newspaper, ClipboardList, HeartPulse, BarChart3, MapPin, Dumbbell, Sparkles, MessageCircle, Menu } from 'lucide-vue-next'
 
 type SubMenuKey = 'user' | 'food' | 'recipe' | 'health' | 'ai'
 type MenuKey =
@@ -216,6 +161,9 @@ const selectedActAs = computed({
   }
 })
 
+// 侧边栏收起状态（默认收起）
+const sidebarCollapsed = ref(true)
+
 // 控制下拉菜单展开/收起
 const subMenuOpen = reactive<Record<SubMenuKey, boolean>>({
   user: true,
@@ -253,6 +201,8 @@ const setActiveMenu = (key: MenuKey) => {
 }
 
 const toggleSubMenu = (key: SubMenuKey) => {
+  // 收起态点击分组：先展开侧边栏
+  if (sidebarCollapsed.value) { sidebarCollapsed.value = false }
   subMenuOpen[key] = !subMenuOpen[key]
 }
 
@@ -287,7 +237,7 @@ onMounted(() => {
     border: 1px solid rgba(255, 255, 255, 0.9);
   }
   .menu-active {
-    background-color: #43b086 !important;
+    background-color: #2F5D4A !important;
     color: white !important;
   }
   .submenu {

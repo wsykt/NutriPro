@@ -127,12 +127,12 @@
     <section v-if="recordsWithHeight > 1" class="glass rounded-2xl p-6 mb-6">
       <h3 class="text-lg font-semibold text-morandi-text mb-3">身高变化（cm）· 点击圆点修改当日数据</h3>
       <svg :viewBox="`0 0 ${svgW} 240`" class="w-full h-60">
-        <polyline :points="heightLine" fill="none" stroke="#43b086" stroke-width="2" />
+        <polyline :points="heightLine" fill="none" stroke="#2F5D4A" stroke-width="2" />
         <g v-for="(p, i) in heightPoints" :key="i" class="cursor-pointer" @click="editPoint(p.record)">
-          <circle :cx="p.x" :cy="p.y" r="6" fill="#43b086" opacity="0.25" />
-          <circle :cx="p.x" :cy="p.y" r="4" fill="#43b086" />
+          <circle :cx="p.x" :cy="p.y" r="6" fill="#2F5D4A" opacity="0.25" />
+          <circle :cx="p.x" :cy="p.y" r="4" fill="#2F5D4A" />
           <text :x="p.x" y="225" text-anchor="middle" font-size="10" fill="#555">{{ p.label }}</text>
-          <text :x="p.x" :y="p.y - 8" text-anchor="middle" font-size="10" fill="#43b086">{{ p.value }}</text>
+          <text :x="p.x" :y="p.y - 8" text-anchor="middle" font-size="10" fill="#2F5D4A">{{ p.value }}</text>
         </g>
       </svg>
     </section>
@@ -487,7 +487,7 @@ onMounted(async () => {
   overflow: hidden;
 }
 .date-picker-wrap:hover {
-  border-color: #10b981;
+  border-color: #2F5D4A;
 }
 
 /* 原生日期输入框：透明覆盖层，完全可点击，文字颜色与背景相同 */

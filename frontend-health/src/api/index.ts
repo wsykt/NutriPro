@@ -1,16 +1,6 @@
 import axios from 'axios'
-
-// 从 localStorage 读取"当前替谁操作"，这样可以跨标签页、跨刷新保持一致。
-function readActAsUserId(): number | null {
-  try {
-    const v = localStorage.getItem('actAsUserId')
-    if (!v) return null
-    const n = parseInt(v, 10)
-    return Number.isFinite(n) ? n : null
-  } catch {
-    return null
-  }
-}
+import { getToken, clearSession, resolveActAsUserId } from '@/utils/storage'
+import { extractSSEEvents, parseSSEPayload } from '@/utils/sse'
 
 const instance = axios.create({
   baseURL: '/api',
@@ -21,22 +11,12 @@ const instance = axios.create({
 //    如果当前用户处于"替亲属操作"状态，自动把 targetUserId 附加到请求参数。
 instance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('user_token') || localStorage.getItem('token')
+    const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    const actAs = readActAsUserId()
-    const currentUserId = (() => {
-      try {
-        const v = localStorage.getItem('currentUserId')
-        return v ? parseInt(v, 10) : null
-      } catch { return null }
-    })()
-    if (
-      actAs != null &&
-      currentUserId != null &&
-      actAs !== currentUserId
-    ) {
+    const actAs = resolveActAsUserId()
+    if (actAs != null) {
       // GET 请求用 params；其他请求把 targetUserId 加到 URL 查询串
       const method = (config.method || 'get').toLowerCase()
       if (method === 'get') {
@@ -68,10 +48,7 @@ instance.interceptors.response.use(
     // 开发模式：profile/info 用 mock token 会返回 403，不跳登录页，避免无法预览页面
     const isDevProfileProbe = url.includes('/profile/info')
     if ((status === 401 || status === 403) && !isDevProfileProbe) {
-      localStorage.removeItem('user_token')
-      localStorage.removeItem('token')
-      localStorage.removeItem('actAsUserId')
-      localStorage.removeItem('currentUserId')
+      clearSession()
       if (
         window.location.pathname !== '/login' &&
         window.location.pathname !== '/register'
@@ -159,28 +136,23 @@ export const api = {
         onDelta?: (content: string) => void
         onDone?: (payload: any) => void
         onError?: (message: string) => void
-      }
+      },
+      options?: { high_performance?: boolean }
     ): { abort: () => void } => {
       const controller = new AbortController()
-      const actAs = readActAsUserId()
-      const currentUserId = (() => {
-        try {
-          const v = localStorage.getItem('currentUserId')
-          return v ? parseInt(v, 10) : null
-        } catch { return null }
-      })()
+      const actAs = resolveActAsUserId()
       let url = '/api/ai/consult/stream'
-      if (actAs != null && currentUserId != null && actAs !== currentUserId) {
+      if (actAs != null) {
         url += `?targetUserId=${actAs}`
       }
-      const token = localStorage.getItem('user_token') || localStorage.getItem('token')
+      const token = getToken()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
       fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, high_performance: options?.high_performance ?? false }),
         signal: controller.signal
       })
         .then(async (res) => {
@@ -200,43 +172,24 @@ export const api = {
             const { done, value } = await reader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
-            // 按空行切分 SSE 事件
-            let idx
-            while ((idx = buffer.indexOf('\n\n')) >= 0) {
-              const rawEvent = buffer.slice(0, idx)
-              buffer = buffer.slice(idx + 2)
-              let eventType = 'message'
-              let dataStr = ''
-              for (const line of rawEvent.split('\n')) {
-                if (line.startsWith('event:')) eventType = line.slice(6).trim()
-                else if (line.startsWith('data:')) dataStr += line.slice(5).trim()
-              }
-              if (!dataStr) continue
-              let payload: any = {}
-              try {
-                payload = JSON.parse(dataStr)
-              } catch { payload = { content: dataStr } }
-              if (eventType === 'thinking') handlers.onThinking?.()
-              else if (eventType === 'delta') handlers.onDelta?.(payload.content || '')
-              else if (eventType === 'done') handlers.onDone?.(payload)
-              else if (eventType === 'error') handlers.onError?.(payload.message || '未知错误')
+            // 解析逻辑统一走 utils/sse.ts（可单测，避免重复实现）
+            const { events, rest } = extractSSEEvents(buffer)
+            buffer = rest
+            for (const ev of events) {
+              const payload = parseSSEPayload(ev.data)
+              if (ev.event === 'thinking') handlers.onThinking?.()
+              else if (ev.event === 'delta') handlers.onDelta?.(String(payload.content ?? ''))
+              else if (ev.event === 'done') handlers.onDone?.(payload)
+              else if (ev.event === 'error') handlers.onError?.(String(payload.message ?? '未知错误'))
             }
           }
-          // 处理剩余 buffer（无尾部空行的最后一条）
-          if (buffer.trim()) {
-            let eventType = 'message'
-            let dataStr = ''
-            for (const line of buffer.trim().split('\n')) {
-              if (line.startsWith('event:')) eventType = line.slice(6).trim()
-              else if (line.startsWith('data:')) dataStr += line.slice(5).trim()
-            }
-            if (dataStr) {
-              let payload: any = {}
-              try { payload = JSON.parse(dataStr) } catch { payload = { content: dataStr } }
-              if (eventType === 'done') handlers.onDone?.(payload)
-              else if (eventType === 'error') handlers.onError?.(payload.message || '未知错误')
-              else if (eventType === 'delta') handlers.onDelta?.(payload.content || '')
-            }
+          // 处理无尾部空行的最后一条（补 \n\n 强制终止）
+          const { events: tailEvents } = extractSSEEvents(buffer + '\n\n')
+          for (const ev of tailEvents) {
+            const payload = parseSSEPayload(ev.data)
+            if (ev.event === 'done') handlers.onDone?.(payload)
+            else if (ev.event === 'error') handlers.onError?.(String(payload.message ?? '未知错误'))
+            else if (ev.event === 'delta') handlers.onDelta?.(String(payload.content ?? ''))
           }
         })
         .catch((e: any) => {

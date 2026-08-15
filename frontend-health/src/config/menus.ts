@@ -48,7 +48,7 @@ export const level1Map: Record<Level1Key, Level1Menu> = {
     label: '用户中心',
     description: '个人档案、身体指标与健康历史',
     icon: User,
-    theme: { primary: '#43b086' },
+    theme: { primary: '#2F5D4A' },
     children: [
       {
         key: 'profile',

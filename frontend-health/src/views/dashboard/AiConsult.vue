@@ -165,7 +165,7 @@ const handleSend = async () => {
           messages.value[aiIdx].content = '[错误] ' + message
           resolve()
         }
-      })
+      }, { high_performance: true })
     })
   } catch (e: any) {
     const msg =
