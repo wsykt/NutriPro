@@ -263,8 +263,12 @@ public class AiChatClientService {
      *
      * 与通用 postForMap 不同：本方法返回纯文本回复，并对「连接拒绝 / 超时」给出
      * 面向用户的友好提示（与拆分前行为一致）；错误不抛出。
+     *
+     * 架构收敛（RAG 职责归 AI 服务）：不再发送 Java 侧 system_prompt ——
+     * AI 服务 /chat 不读取该字段，其内部 orchestrator 自行完成知识库检索与
+     * 系统提示词组装（health_snapshot 已携带全部用户上下文）。
      */
-    public String callAiService(Integer userId, String question, Map<String, Object> healthSnapshot, String systemPrompt) {
+    public String callAiService(Integer userId, String question, Map<String, Object> healthSnapshot) {
         // 断路器检查：熔断时快速失败
         if (circuitBreaker.isOpen()) {
             log.warn("AI服务熔断保护中，跳过健康咨询调用");
@@ -276,17 +280,14 @@ public class AiChatClientService {
             requestBody.put("message", question);
             requestBody.put("user_id", userId);
             requestBody.put("health_snapshot", healthSnapshot);
-            // 携带 Java 侧构建的系统提示词（v2.0：综合身体数据+运动数据）
-            if (systemPrompt != null && !systemPrompt.isEmpty()) {
-                requestBody.put("system_prompt", systemPrompt);
-            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            // 健康咨询为长调用（云端 DeepSeek 生成常超 30s），必须使用 300s 长超时模板
+            ResponseEntity<String> response = restTemplateLong.postForEntity(
                     restClientConfig.getAiBaseUrl() + "/chat", entity, String.class);
 
             if (response.getBody() == null) {
@@ -294,7 +295,15 @@ public class AiChatClientService {
             }
 
             Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+            // AI 服务统一响应结构：{success, code, message, data:{response,...}}，正文在 data.response
             String reply = (String) responseMap.get("response");
+            if (reply == null) {
+                Object dataObj = responseMap.get("data");
+                if (dataObj instanceof Map) {
+                    Object resp = ((Map<?, ?>) dataObj).get("response");
+                    reply = resp != null ? String.valueOf(resp) : null;
+                }
+            }
             circuitBreaker.recordSuccess();
             return reply != null ? reply : "未返回有效内容";
 

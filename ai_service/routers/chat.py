@@ -133,16 +133,22 @@ def _chunk_sse_text(text: str, max_chunk: int = 30) -> list:
     return chunks or [text]
 
 
+_STREAM_SENTINEL = object()
+
+
 async def _iter_sync_stream(gen):
     """把同步生成器逐项桥接到事件循环（线程池执行 next，避免阻塞）
 
     LLM 流式生成器每次 next() 会阻塞等待网络分块返回；
     放到线程池执行可保证事件循环持续响应其他请求。
+
+    注意：不能依赖 `except StopIteration` 捕获生成器耗尽——Python 3.7+
+    会把线程内（to_thread）抛出的 StopIteration 包装成 RuntimeError，
+    因此改用 `next(gen, _STREAM_SENTINEL)` 哨兵默认值来识别流结束。
     """
     while True:
-        try:
-            item = await asyncio.to_thread(next, gen)
-        except StopIteration:
+        item = await asyncio.to_thread(next, gen, _STREAM_SENTINEL)
+        if item is _STREAM_SENTINEL:
             break
         yield item
 

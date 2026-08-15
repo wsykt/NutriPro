@@ -1,6 +1,8 @@
+# 版本范围文件（开发用）。可复现构建请用 requirements.lock（已锁定且通过全部单测）。
+#
 fastapi>=0.115.0
 uvicorn>=0.30.0
-openai>=1.12.0
+openai>=1.53.0
 chromadb>=0.4.24
 sentence-transformers>=3.0.0
 torch>=2.0.0

@@ -18,8 +18,18 @@ spring:
 
 health:
   jwt:
+    # 默认密钥仅用于本地演示；生产必须通过 JWT_SECRET 环境变量覆盖
     secret: ${JWT_SECRET:RkVCRUNBMDUyNzlDQjAzQkI0OUJBNjM4MjIxRjY3QUI=}
-    expiration: 86400000
+    # 过期时间（毫秒），可用 JWT_EXPIRATION 覆盖（默认 24h）
+    expiration: ${JWT_EXPIRATION:86400000}
+  rate-limit:
+    # 登录/注册/重置密码：每 IP 10 次 / 5 分钟（防爆破）
+    auth-max: 10
+    auth-window-seconds: 300
+    # AI 咨询接口：每用户（或 IP）30 次 / 分钟（防烧 token）
+    ai-max: 30
+    ai-window-seconds: 60
   ai-service:
-    url: http://localhost:8002
+    # Docker 部署时通过 AI_SERVICE_URL 覆盖为 http://ai_service:8002
+    url: ${AI_SERVICE_URL:http://localhost:8002}
     api-prefix: /api/v1

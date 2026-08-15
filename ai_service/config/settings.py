@@ -15,6 +15,13 @@ class Settings:
     MAX_LLM_CONCURRENCY = int(os.getenv("MAX_LLM_CONCURRENCY", "5"))  # 最大并发数
     LLM_DAILY_TOKEN_LIMIT = int(os.getenv("LLM_DAILY_TOKEN_LIMIT", "1000000"))  # 每日 token 阈值
 
+    # ---- DeepSeek Responses API（方案1：语义化流式，默认关闭，验证跑通后再切换）----
+    # 开关：false 走原有 Chat Completions；true 走 Responses API（仅 deepseek-v4-flash）
+    RESPONSES_API_ENABLED = os.getenv("RESPONSES_API_ENABLED", "false").lower() in ("1", "true", "yes", "on")
+    RESPONSES_API_BASE = os.getenv("RESPONSES_API_BASE", "https://api.deepseek.com")  # 文档示例 base_url（不带 /v1）
+    RESPONSES_MODEL = os.getenv("RESPONSES_MODEL", "deepseek-v4-flash")              # 目前仅支持 v4-flash
+    # 流式结束语义：completed 正常 / incomplete 截断 / failed 失败，前端据此区分结束态
+
     # ---- Ollama 本地大模型配置 ----
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5-7b-local")
@@ -39,7 +46,7 @@ class Settings:
     TEMPLATES_DB_PATH = os.getenv("TEMPLATES_DB_PATH", "./data/templates.db")  # AI 模板库（SQLite 双写）
 
     # ---- 服务端口 ----
-    AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", "8003"))
+    AI_SERVICE_PORT = int(os.getenv("AI_SERVICE_PORT", "8002"))  # 与 start_all.ps1 一致
 
     # ---- 环境配置 ----
     ENV_MODE = os.getenv("ENV_MODE", "dev")  # dev / demo / prod

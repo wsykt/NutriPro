@@ -68,9 +68,10 @@ public class RecipeService {
         put("冰糖", "白砂糖");
         put("白糖", "白砂糖");
         put("红糖", "白砂糖");
-        put("盐", "食盐");
-        put("鸡精", "食盐");
-        put("味精", "食盐");
+        put("盐", "精盐");
+        put("食盐", "精盐");
+        put("鸡精", "精盐");
+        put("味精", "精盐");
         put("醋", "香醋");
         put("陈醋", "香醋");
         put("白醋", "香醋");
@@ -171,19 +172,57 @@ public class RecipeService {
         put("瘦猪肉", "瘦猪肉(生)");
         put("牛里脊", "瘦牛肉(生)");
 
-        // 通用食材别名
+        // 食用油通用名
         put("食用油", "花生油");
+        put("植物油", "花生油");
+        put("色拉油", "色拉油");
+        put("菜油", "菜籽油");
+        put("玉米油", "玉米油");
+        put("橄榄油", "橄榄油");
+        put("芝麻油", "芝麻油");
+        put("香油", "芝麻油");
+        put("猪油", "猪油");
+        put("黄油", "黄油");
+
+        // 调味品通用名
+        put("盐", "精盐");
+        put("食盐", "精盐");
+        put("鸡精", "精盐");
+        put("味精", "精盐");
+        put("酱油", "酱油");
+        put("生抽", "生抽");
+        put("老抽", "老抽");
+        put("蒸鱼豉油", "生抽");
+        put("醋", "醋");
+        put("白醋", "白醋");
+        put("陈醋", "陈醋");
+        put("料酒", "生抽");  // 料酒在库中无独立条目，映射至最近的液体调味品
+        put("白糖", "甜面酱"); // 库中无糖，映射至最近的甜类调味品
+        put("冰糖", "甜面酱");
+        put("红糖", "甜面酱");
+        put("淀粉", "淀粉");
+        put("生粉", "淀粉");
+        put("豆瓣酱", "豆瓣酱");
+        put("辣椒酱", "辣椒酱");
+        put("花椒", "花椒");
+        put("胡椒粉", "胡椒粉");
+
+        // 通用食材别名
         put("蒜蓉", "大蒜");
-        put("花生米", "花生仁(生)");
-        put("猪肝", "猪肝(生)");
-        put("牛腱子", "牛腱子(生)");
-        put("胡萝卜", "胡萝卜(生)");
-        put("冬瓜", "冬瓜(生)");
-        put("黄瓜", "黄瓜(生)");
-        put("生菜", "生菜(生)");
+        put("花生米", "花生(均值)");
+        put("猪肝", "猪肝");
+        put("牛腱子", "牛腱子");
+        put("牛腱", "牛腱子");
+        put("胡萝卜", "胡萝卜");
+        put("冬瓜", "冬瓜");
+        put("黄瓜", "黄瓜");
+        put("生菜", "生菜");
         put("木耳", "木耳(干)");
-        put("排骨", "猪小排(生)");
+        put("排骨", "猪小排");
         put("脱脂牛奶", "脱脂牛奶");
+        put("鸡蛋", "鸡蛋");
+        put("鸭蛋", "鸭蛋");
+        put("鹌鹑蛋", "鹌鹑蛋");
     }};
 
     // ========== 智能替换规则引擎（参考 Demo substituteRules.ts） ==========
@@ -576,9 +615,28 @@ public class RecipeService {
             if (f.getFoodName().equals(ingredientName)) return f;
         }
         
-        // 2级：食物名包含食材名（最常用，处理 "鸡胸肉" → "鸡胸肉"）
+        // 2级：食物名包含食材名（最常用，处理 "鸡胸肉" → "鸡胸肉(生)"）
         for (Food f : allFoods) {
-            if (f.getFoodName().contains(ingredientName)) return f;
+            String foodName = f.getFoodName();
+            if (foodName.contains(ingredientName)) {
+                // 防误匹配：对于短食材名（<= 2字），防止单字在长名称中误匹配
+                // 例如 "盐" 不应匹配 "盐水鸭"，"油" 不应匹配 "油菜"
+                if (ingredientName.length() <= 2) {
+                    int idx = foodName.indexOf(ingredientName);
+                    // 食材名不在开头，跳过
+                    if (idx != 0) continue;
+                    // 食材名在开头但后面跟了较长的非修饰性内容，跳过
+                    if (idx == 0 && foodName.length() > ingredientName.length()) {
+                        String rest = foodName.substring(ingredientName.length());
+                        // 允许：括号修饰（如 "盐(粗)"）、单字修饰（如 "精盐"、"冰糖"）
+                        // 拒绝：多字非修饰内容（如 "盐水鸭"、"油菜薹"）
+                        if (!rest.startsWith("(") && !rest.startsWith("（") && rest.length() > 1) {
+                            continue;
+                        }
+                    }
+                }
+                return f;
+            }
         }
         
         // 3级：食材名包含食物名（处理 "姜片" → "生姜" 等常用映射已在第0级处理）
@@ -701,9 +759,268 @@ public class RecipeService {
         return substitutions;
     }
 
+    // ========== AI 生成的精确替换规则（权威白名单机制） ==========
+    // 规则来源：本地 Ollama 模型(qwen2.5-7b)生成，确保每种食材只能由同类同性质的食材替换
+
+    private static final String SUBTYPE_LIQUID_OIL = "liquid_oil";       // 液态食用油
+    private static final String SUBTYPE_SOLID_FAT = "solid_fat";         // 动物固体脂
+    private static final String SUBTYPE_NUT = "nut";                    // 坚果/种子
+    private static final String SUBTYPE_LIQUID_SEASONING = "liquid_seasoning"; // 液体调味品
+    private static final String SUBTYPE_SOLID_SEASONING = "solid_seasoning";   // 固体调味品
+    private static final String SUBTYPE_PICKLED = "pickled";             // 腌制品
+    private static final String SUBTYPE_MEAT = "meat";                   // 肉类
+    private static final String SUBTYPE_EGG = "egg";                     // 蛋类
+    private static final String SUBTYPE_SEAFOOD = "seafood";             // 水产
+    private static final String SUBTYPE_MILK = "milk";                   // 奶类
+    private static final String SUBTYPE_GRAIN = "grain";                 // 主食(谷薯)
+    private static final String SUBTYPE_FRUIT = "fruit";                 // 水果
+    private static final String SUBTYPE_VEG = "veg";                    // 蔬菜
+    private static final String SUBTYPE_SOY = "soy";                     // 豆制品
+    private static final String SUBTYPE_UNKNOWN = "unknown";
+
+    /**
+     * AI 规则：油脂类精确子类型映射
+     * liquid_oil 液态食用油 | solid_fat 动物固体脂 | nut 坚果种子
+     */
+    private static final Map<String, String> FAT_FOOD_SUBTYPE_MAP = new HashMap<String, String>() {{
+        // 液态食用油 (liquid_oil)
+        put("花生油", SUBTYPE_LIQUID_OIL);
+        put("菜籽油", SUBTYPE_LIQUID_OIL);
+        put("大豆油", SUBTYPE_LIQUID_OIL);
+        put("橄榄油", SUBTYPE_LIQUID_OIL);
+        put("玉米油", SUBTYPE_LIQUID_OIL);
+        put("芝麻油", SUBTYPE_LIQUID_OIL);
+        put("芝麻油(均值)", SUBTYPE_LIQUID_OIL);
+        put("葵花籽油", SUBTYPE_LIQUID_OIL);
+        put("葵花子油", SUBTYPE_LIQUID_OIL);
+        put("茶油", SUBTYPE_LIQUID_OIL);
+        put("油茶籽油", SUBTYPE_LIQUID_OIL);
+        put("米糠油", SUBTYPE_LIQUID_OIL);
+        put("胡麻油", SUBTYPE_LIQUID_OIL);
+        put("椰子油", SUBTYPE_LIQUID_OIL);
+        put("棕榈油", SUBTYPE_LIQUID_OIL);
+        put("麦胚油", SUBTYPE_LIQUID_OIL);
+        put("棉籽油", SUBTYPE_LIQUID_OIL);
+        put("红花油", SUBTYPE_LIQUID_OIL);
+        put("大豆色拉油", SUBTYPE_LIQUID_OIL);
+        put("色拉油", SUBTYPE_LIQUID_OIL);
+        put("色拉油(均值)", SUBTYPE_LIQUID_OIL);
+        put("混合油", SUBTYPE_LIQUID_OIL);
+        put("豆油", SUBTYPE_LIQUID_OIL);
+        put("油(均值)", SUBTYPE_LIQUID_OIL);
+        put("栗米油", SUBTYPE_LIQUID_OIL);
+        // 动物固体脂 (solid_fat)
+        put("黄油", SUBTYPE_SOLID_FAT);
+        put("黄油渣", SUBTYPE_SOLID_FAT);
+        put("猪油", SUBTYPE_SOLID_FAT);
+        put("牛油", SUBTYPE_SOLID_FAT);
+        put("羊油", SUBTYPE_SOLID_FAT);
+        // 坚果种子 (nut)
+        put("花生(均值)", SUBTYPE_NUT);
+        put("花生仁(均值)", SUBTYPE_NUT);
+        put("核桃(均值)", SUBTYPE_NUT);
+        put("山核桃", SUBTYPE_NUT);
+        put("开心果", SUBTYPE_NUT);
+        put("杏仁(均值)", SUBTYPE_NUT);
+        put("松子(均值)", SUBTYPE_NUT);
+        put("松子仁", SUBTYPE_NUT);
+        put("榛子(均值)", SUBTYPE_NUT);
+        put("腰果", SUBTYPE_NUT);
+        put("南瓜子", SUBTYPE_NUT);
+        put("南瓜子仁", SUBTYPE_NUT);
+        put("西瓜子", SUBTYPE_NUT);
+        put("西瓜子仁", SUBTYPE_NUT);
+        put("葵花子(均值)", SUBTYPE_NUT);
+        put("葵花子仁", SUBTYPE_NUT);
+        put("芝麻籽(均值)", SUBTYPE_NUT);
+        put("胡麻籽", SUBTYPE_NUT);
+        put("栗子(均值)", SUBTYPE_NUT);
+        put("白果", SUBTYPE_NUT);
+        put("橡实", SUBTYPE_NUT);
+        put("芡实米", SUBTYPE_NUT);
+        put("莲子", SUBTYPE_NUT);
+        put("菠萝蜜子", SUBTYPE_NUT);
+    }};
+
+    /**
+     * AI 规则：调味品精确子类型映射
+     * liquid_seasoning 液体调味品 | solid_seasoning 固体调味品 | pickled 腌制品
+     */
+    private static final Map<String, String> SEASONING_FOOD_SUBTYPE_MAP = new HashMap<String, String>() {{
+        // 液体调味品
+        put("酱油", SUBTYPE_LIQUID_SEASONING);
+        put("生抽", SUBTYPE_LIQUID_SEASONING);
+        put("老抽", SUBTYPE_LIQUID_SEASONING);
+        put("香醋", SUBTYPE_LIQUID_SEASONING);
+        put("白醋", SUBTYPE_LIQUID_SEASONING);
+        put("陈醋", SUBTYPE_LIQUID_SEASONING);
+        put("豆瓣酱", SUBTYPE_LIQUID_SEASONING);
+        put("辣椒酱", SUBTYPE_LIQUID_SEASONING);
+        put("芝麻酱", SUBTYPE_LIQUID_SEASONING);
+        put("花生酱", SUBTYPE_LIQUID_SEASONING);
+        put("蚝油", SUBTYPE_LIQUID_SEASONING);
+        put("番茄酱", SUBTYPE_LIQUID_SEASONING);
+        put("沙拉酱", SUBTYPE_LIQUID_SEASONING);
+        put("海鲜酱", SUBTYPE_LIQUID_SEASONING);
+        put("牛肉酱", SUBTYPE_LIQUID_SEASONING);
+        put("黄酱", SUBTYPE_LIQUID_SEASONING);
+        put("甜面酱", SUBTYPE_LIQUID_SEASONING);
+        put("腐乳", SUBTYPE_LIQUID_SEASONING);
+        put("剁椒", SUBTYPE_LIQUID_SEASONING);
+        // 固体调味品
+        put("精盐", SUBTYPE_SOLID_SEASONING);
+        put("味精", SUBTYPE_SOLID_SEASONING);
+        put("鸡精", SUBTYPE_SOLID_SEASONING);
+        put("白糖", SUBTYPE_SOLID_SEASONING);
+        put("冰糖", SUBTYPE_SOLID_SEASONING);
+        put("淀粉", SUBTYPE_SOLID_SEASONING);
+        put("生粉", SUBTYPE_SOLID_SEASONING);
+        put("花椒", SUBTYPE_SOLID_SEASONING);
+        put("胡椒粉", SUBTYPE_SOLID_SEASONING);
+        put("十三香", SUBTYPE_SOLID_SEASONING);
+        // 腌制品
+        put("榨菜(均值)", SUBTYPE_PICKLED);
+        put("腌大头菜", SUBTYPE_PICKLED);
+        put("腌芥菜头", SUBTYPE_PICKLED);
+        put("腌萝卜条", SUBTYPE_PICKLED);
+        put("腌雪里红", SUBTYPE_PICKLED);
+        put("腌韭菜花", SUBTYPE_PICKLED);
+        put("酱黄瓜", SUBTYPE_PICKLED);
+        put("萝卜干", SUBTYPE_PICKLED);
+    }};
+
+    /**
+     * 统一获取食物的子类型（使用 AI 规则白名单精确匹配）
+     * 对于油脂类和调味品，使用 AI 生成的精确映射表；其他类别按大类划分
+     */
+    private String getSubType(Food f) {
+        if (f == null || f.getFoodName() == null || f.getFoodCategory() == null) {
+            return SUBTYPE_UNKNOWN;
+        }
+        String name = f.getFoodName();
+        String category = f.getFoodCategory();
+
+        // 油脂类：使用 AI 精确映射表
+        if ("油脂类".equals(category)) {
+            String sub = FAT_FOOD_SUBTYPE_MAP.get(name);
+            if (sub != null) return sub;
+            // 未在白名单中 -> UNKNOWN（保守策略，不允许替换）
+            return SUBTYPE_UNKNOWN;
+        }
+
+        // 调味品：使用 AI 精确映射表
+        if ("调味品".equals(category)) {
+            String sub = SEASONING_FOOD_SUBTYPE_MAP.get(name);
+            if (sub != null) return sub;
+            return SUBTYPE_UNKNOWN;
+        }
+
+        // 肉蛋类：蛋/肉区分
+        if ("肉蛋类".equals(category)) {
+            if (name.contains("蛋") || name.contains("鹌鹑蛋") || name.contains("鸭蛋") || name.contains("鸡蛋")) {
+                return SUBTYPE_EGG;
+            }
+            return SUBTYPE_MEAT;
+        }
+
+        // 其他类别：单一子类型
+        if ("水产".equals(category)) return SUBTYPE_SEAFOOD;
+        if ("奶类".equals(category)) return SUBTYPE_MILK;
+        if ("主食".equals(category)) return SUBTYPE_GRAIN;
+        if ("水果".equals(category)) return SUBTYPE_FRUIT;
+        if ("蔬菜".equals(category)) return SUBTYPE_VEG;
+        if ("豆制品".equals(category)) return SUBTYPE_SOY;
+
+        return SUBTYPE_UNKNOWN;
+    }
+
+    /**
+     * AI 生成的替换兼容性规则（严格模式）
+     * 核心原则：
+     *   1. 不同大类 -> 绝对禁止替换
+     *   2. 油脂类：liquid_oil 只能 ↔ liquid_oil，solid_fat 只能 ↔ solid_fat，nut 只能 ↔ nut
+     *   3. 调味品：liquid 只能 ↔ liquid，solid 只能 ↔ solid，pickled 只能 ↔ pickled
+     *   4. UNKNOWN 子类型 -> 禁止替换（保守策略，宁可少替换也不错替换）
+     */
+    private boolean isSubCategoryCompatible(Food original, Food alternative) {
+        if (original == null || alternative == null) return false;
+
+        String origCategory = original.getFoodCategory();
+        String altCategory = alternative.getFoodCategory();
+        if (origCategory == null || altCategory == null) return false;
+
+        // 规则1：不同大类 -> 绝对禁止
+        if (!origCategory.equals(altCategory)) {
+            log.info("    跨类别禁止: {}({}) ≠ {}({})", 
+                original.getFoodName(), origCategory, alternative.getFoodName(), altCategory);
+            return false;
+        }
+
+        // 获取子类型
+        String origSubType = getSubType(original);
+        String altSubType = getSubType(alternative);
+
+        // 规则2：UNKNOWN -> 禁止（宁可错杀不放过）
+        if (SUBTYPE_UNKNOWN.equals(origSubType) || SUBTYPE_UNKNOWN.equals(altSubType)) {
+            log.info("    子类型未知禁止: {}({}) <-> {}({})", 
+                original.getFoodName(), origSubType, alternative.getFoodName(), altSubType);
+            return false;
+        }
+
+        // 规则3：同子类型 -> 允许
+        if (origSubType.equals(altSubType)) {
+            return true;
+        }
+
+        // 规则4：油脂类特殊处理
+        if ("油脂类".equals(origCategory)) {
+            // liquid_oil 可以和 solid_fat 互换（都是食用油/脂肪），但不能和 nut 互换
+            if ((SUBTYPE_LIQUID_OIL.equals(origSubType) || SUBTYPE_SOLID_FAT.equals(origSubType))
+                && (SUBTYPE_LIQUID_OIL.equals(altSubType) || SUBTYPE_SOLID_FAT.equals(altSubType))) {
+                return true;
+            }
+            // nut 只能和 nut 互换
+            if (SUBTYPE_NUT.equals(origSubType) && SUBTYPE_NUT.equals(altSubType)) {
+                return true;
+            }
+            return false; // 油脂类内不同子类型禁止
+        }
+
+        // 规则5：调味品严格区分
+        if ("调味品".equals(origCategory)) {
+            // 液体调味品 ↔ 液体调味品
+            if (SUBTYPE_LIQUID_SEASONING.equals(origSubType) && SUBTYPE_LIQUID_SEASONING.equals(altSubType)) {
+                return true;
+            }
+            // 固体调味品 ↔ 固体调味品
+            if (SUBTYPE_SOLID_SEASONING.equals(origSubType) && SUBTYPE_SOLID_SEASONING.equals(altSubType)) {
+                return true;
+            }
+            // 腌制品 ↔ 腌制品
+            if (SUBTYPE_PICKLED.equals(origSubType) && SUBTYPE_PICKLED.equals(altSubType)) {
+                return true;
+            }
+            return false; // 调味品内不同子类型禁止
+        }
+
+        // 其他类别：同子类型已通过规则3处理
+        return false;
+    }
+
     /**
      * 基于食物数据库的智能替换分析：
-     * 检查每种食材的营养指标（高脂/高GI/高热量），从同类别中推荐更优替代
+     *
+     * 严格执行两步筛选流程：
+     *   第一步：类型一致筛选（硬门槛，isSubCategoryCompatible）
+     *       - 必须同类别 + 同子类型
+     *       - 不同类别：禁止（如盐不能换牛肉）
+     *       - 同类别不同子类型：禁止（如食用油不能换坚果，液体调味品不能换腌制品）
+     *       - 类型未在白名单中：禁止（宁可少替换也不错替换）
+     *
+     *   第二步：营养指标筛选（软筛选，在通过第一步的候选集中进行）
+     *       - 高脂问题：选 脂肪 <= 原食材 × 0.7
+     *       - 高GI问题：选 GI <= 原食材 × 0.8
+     *       - 高热量问题：选 热量 <= 原食材 × 0.75
      */
     private List<Map<String, Object>> analyzeIngredientsWithFoodDB(List<RecipeIngredient> ingredients) {
         List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
@@ -711,19 +1028,33 @@ public class RecipeService {
 
         for (RecipeIngredient ingredient : ingredients) {
             String name = ingredient.getIngredientName();
-            // 使用统一的 findBestFoodMatch 查找匹配食材
             Food food = findBestFoodMatch(name, allFoods);
             if (food == null) continue;
+
+            log.info("【分析食材】{} -> {} (类别={}, 子类型={})",
+                name, food.getFoodName(), food.getFoodCategory(), getSubType(food));
 
             List<String> concerns = new ArrayList<String>();
             List<Map<String, Object>> alternatives = new ArrayList<Map<String, Object>>();
 
-            // 检查高脂
+            // ============== 第一步：类型一致筛选 ==============
+            // 从 allFoods 中预先筛选「类型兼容」的候选集
+            List<Food> typeCompatibleCandidates = new ArrayList<Food>();
+            for (Food alt : allFoods) {
+                if (alt.getFoodId().equals(food.getFoodId())) continue;
+                if (isSubCategoryCompatible(food, alt)) {
+                    typeCompatibleCandidates.add(alt);
+                }
+            }
+            log.info("  第一步[类型一致] 候选数量: {}", typeCompatibleCandidates.size());
+
+            // ============== 第二步：指标筛选（在候选集中筛选） ==============
+
+            // --- 2.1 检查高脂 ---
             if (food.getFat() != null && food.getFat().doubleValue() > HIGH_FAT_THRESHOLD) {
                 concerns.add("高脂(" + food.getFat() + "g/100g)");
-                for (Food alt : allFoods) {
-                    if (alt.getFoodId().equals(food.getFoodId())) continue;
-                    if (!alt.getFoodCategory().equals(food.getFoodCategory())) continue;
+                log.info("  第二步[高脂筛选] 阈值: 原脂肪*0.7 = {}", food.getFat().doubleValue() * 0.7);
+                for (Food alt : typeCompatibleCandidates) {
                     if (alt.getFat() != null && alt.getFat().doubleValue() <= food.getFat().doubleValue() * 0.7) {
                         Map<String, Object> altMap = new HashMap<String, Object>();
                         altMap.put("name", alt.getFoodName());
@@ -732,17 +1063,18 @@ public class RecipeService {
                         altMap.put("protein", alt.getProtein());
                         altMap.put("reason", "低脂替代(减少" + (int)((1 - alt.getFat().doubleValue()/food.getFat().doubleValue())*100) + "%脂肪)");
                         alternatives.add(altMap);
+                        log.info("    -> 选中 {} (脂肪={})", alt.getFoodName(), alt.getFat());
                     }
                 }
+                log.info("  [高脂] 最终方案数: {}", alternatives.size());
             }
 
-            // 检查高GI（仅当没有高脂问题时才报GI，或已有替代方案时才GI需额外补充）
+            // --- 2.2 检查高GI ---
             if (food.getGiValue() != null && food.getGiValue().doubleValue() > HIGH_GI_THRESHOLD) {
                 concerns.add("高GI(" + food.getGiValue() + ")");
                 if (alternatives.isEmpty()) {
-                    for (Food alt : allFoods) {
-                        if (alt.getFoodId().equals(food.getFoodId())) continue;
-                        if (!alt.getFoodCategory().equals(food.getFoodCategory())) continue;
+                    log.info("  第二步[高GI筛选] 阈值: 原GI*0.8 = {}", food.getGiValue().doubleValue() * 0.8);
+                    for (Food alt : typeCompatibleCandidates) {
                         if (alt.getGiValue() != null && alt.getGiValue().doubleValue() <= food.getGiValue().doubleValue() * 0.8) {
                             Map<String, Object> altMap = new HashMap<String, Object>();
                             altMap.put("name", alt.getFoodName());
@@ -751,18 +1083,18 @@ public class RecipeService {
                             altMap.put("giValue", alt.getGiValue());
                             altMap.put("reason", "低GI替代(低" + (int)(food.getGiValue().doubleValue() - alt.getGiValue().doubleValue()) + ")");
                             alternatives.add(altMap);
+                            log.info("    -> 选中 {} (GI={})", alt.getFoodName(), alt.getGiValue());
                         }
                     }
                 }
             }
 
-            // 检查高热量（仅当无更高优先级问题时）
+            // --- 2.3 检查高热量（仅当无更高优先级问题时） ---
             if (food.getCalorie() != null && food.getCalorie().doubleValue() > HIGH_CALORIE_THRESHOLD && concerns.isEmpty()) {
                 concerns.add("高热量(" + food.getCalorie() + "kcal/100g)");
                 if (alternatives.isEmpty()) {
-                    for (Food alt : allFoods) {
-                        if (alt.getFoodId().equals(food.getFoodId())) continue;
-                        if (!alt.getFoodCategory().equals(food.getFoodCategory())) continue;
+                    log.info("  第二步[高热量筛选] 阈值: 原热量*0.75 = {}", food.getCalorie().doubleValue() * 0.75);
+                    for (Food alt : typeCompatibleCandidates) {
                         if (alt.getCalorie() != null && alt.getCalorie().doubleValue() <= food.getCalorie().doubleValue() * 0.75) {
                             Map<String, Object> altMap = new HashMap<String, Object>();
                             altMap.put("name", alt.getFoodName());
@@ -771,6 +1103,7 @@ public class RecipeService {
                             altMap.put("protein", alt.getProtein());
                             altMap.put("reason", "低热量替代(减少" + (int)((1 - alt.getCalorie().doubleValue()/food.getCalorie().doubleValue())*100) + "%热量)");
                             alternatives.add(altMap);
+                            log.info("    -> 选中 {} (热量={})", alt.getFoodName(), alt.getCalorie());
                         }
                     }
                 }

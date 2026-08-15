@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+.pytest_cache
+models
+knowledge
+data
+logs
+*.log
+ckp_*.json
+kb_out_*.json
+kb_templates*.json
+*.db
+Dockerfile

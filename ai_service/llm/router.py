@@ -45,12 +45,13 @@ class LLMUnknownError(Exception):
 # ============================================================
 
 class TokenTracker:
-    """Token 用量追踪——记录每日消耗，超限自动切换"""
+    """Token 用量追踪——记录每日消耗与缓存命中，超限自动切换"""
 
     def __init__(self, db_path: str = None):
         self._db_path = db_path or settings.TOKEN_USAGE_DB
         self._init_db()
         self._daily_total = self._load_today()
+        self._daily_cached = self._load_today("cached_tokens")
 
     def _init_db(self):
         from utils.sqlite_utils import init_db
@@ -59,32 +60,51 @@ class TokenTracker:
             ddl_statements=["""
                 CREATE TABLE IF NOT EXISTS token_usage (
                     date TEXT PRIMARY KEY,
-                    total_tokens INTEGER DEFAULT 0
+                    total_tokens INTEGER DEFAULT 0,
+                    cached_tokens INTEGER DEFAULT 0
                 )
             """],
             indexes=[],
         )
+        # 兼容旧表：早期版本没有 cached_tokens 列，动态补列（幂等）
+        try:
+            from utils.sqlite_utils import get_conn
+            conn = get_conn(self._db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "ALTER TABLE token_usage ADD COLUMN cached_tokens INTEGER DEFAULT 0")
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass  # 列已存在则忽略
 
-    def _load_today(self) -> int:
+    def _load_today(self, column: str = "total_tokens") -> int:
         from utils.sqlite_utils import get_conn
         today = time.strftime("%Y-%m-%d")
         conn = get_conn(self._db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT total_tokens FROM token_usage WHERE date=?", (today,))
-        row = cursor.fetchone()
-        conn.close()
+        try:
+            cursor.execute(
+                f"SELECT {column} FROM token_usage WHERE date=?", (today,))
+            row = cursor.fetchone()
+        finally:
+            conn.close()
         return row[0] if row else 0
 
-    def record(self, tokens: int):
+    def record(self, tokens: int, cached_tokens: int = 0):
+        """记录本次消耗。cached_tokens 为上下文缓存命中的输入 token 数（DeepSeek 自动管理）"""
         from utils.sqlite_utils import get_conn
         today = time.strftime("%Y-%m-%d")
         self._daily_total += tokens
+        self._daily_cached += cached_tokens
         conn = get_conn(self._db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR REPLACE INTO token_usage (date, total_tokens) VALUES (?, "
-            "COALESCE((SELECT total_tokens FROM token_usage WHERE date=?), 0) + ?)",
-            (today, today, tokens)
+            "INSERT OR REPLACE INTO token_usage (date, total_tokens, cached_tokens) "
+            "VALUES (?, "
+            "COALESCE((SELECT total_tokens FROM token_usage WHERE date=?), 0) + ?, "
+            "COALESCE((SELECT cached_tokens FROM token_usage WHERE date=?), 0) + ?)",
+            (today, today, tokens, today, cached_tokens)
         )
         conn.commit()
         conn.close()
@@ -92,6 +112,20 @@ class TokenTracker:
     @property
     def is_over_limit(self) -> bool:
         return self._daily_total >= settings.LLM_DAILY_TOKEN_LIMIT
+
+    @property
+    def cache_hit_rate(self) -> float:
+        """今日缓存命中率：命中缓存 token / 今日总 token（0~1，无消耗为 0）"""
+        if self._daily_total <= 0:
+            return 0.0
+        return round(min(self._daily_cached / self._daily_total, 1.0), 4)
+
+    def log_cache_stats(self):
+        """输出今日缓存命中统计（调试观测用，可接日志）"""
+        logger.info(
+            "TokenTracker 今日 total=%s cached=%s hit_rate=%.2f%%",
+            self._daily_total, self._daily_cached, self.cache_hit_rate * 100,
+        )
 
 
 # ============================================================
@@ -195,7 +229,6 @@ class LLMRouter:
         if total:
             self._token_tracker.record(total)
         return content or ""
-
     def _classify_exception(self, e: Exception) -> Exception:
         """将 OpenAI 原生异常分类为项目内部异常"""
         error_msg = str(e).lower()
@@ -207,9 +240,113 @@ class LLMRouter:
             return LLMRateLimitError(f"请求频率限制: {e}")
         return LLMUnknownError(f"LLM 未知异常: {e}")
 
+    def _extract_cache_hit(self, usage) -> int:
+        """从 usage 提取上下文缓存命中 token 数。
+
+        兼容两种字段：Chat Completions 的 prompt_tokens_details.cached_tokens，
+        Responses API 的 input_tokens_details.cached_tokens（DeepSeek 自动管理缓存）。
+        """
+        try:
+            details = (
+                getattr(usage, "prompt_tokens_details", None)
+                or getattr(usage, "input_tokens_details", None)
+            )
+            if details and getattr(details, "cached_tokens", None):
+                return int(details.cached_tokens)
+        except Exception:
+            pass
+        return 0
+
+    @staticmethod
+    def _messages_to_responses_input(messages: list):
+        """把 Chat Completions 的 messages 转换为 Responses API 的 instructions + input。
+
+        - 第一条 system 消息提升为 instructions（Responses API 约定）
+        - 其余 system 消息保留为 system 角色 input item
+        - user / assistant 消息原样保留
+        """
+        instructions = None
+        items = []
+        for m in messages or []:
+            role = m.get("role", "user")
+            content = m.get("content", "")
+            if role == "system":
+                if instructions is None:
+                    instructions = content
+                else:
+                    items.append({"role": "system", "content": content})
+            else:
+                items.append({"role": role, "content": content})
+        return instructions, items
+
+    def _call_responses_api(self, messages: list, model_name: str, req_timeout: int,
+                            temperature: Optional[float], json_mode: bool = False) -> str:
+        """Responses API 单次调用（非流式），统一由 chat() 外层循环负责重试。
+
+        json_mode=True 时通过 text.format 声明式约束输出为合法 JSON（方案4），
+        从源头消除 chat_json 的"生成→正则修复→重试"链路。
+        """
+        instructions, input_items = self._messages_to_responses_input(messages)
+        request_kwargs = dict(
+            model=model_name or settings.RESPONSES_MODEL,
+            instructions=instructions or "You are a helpful assistant.",
+            input=input_items,
+            temperature=temperature if temperature is not None else 0.7,
+            timeout=req_timeout,
+        )
+        if json_mode:
+            # 实测支持 json_object / json_schema / strict 三种写法；用最通用的 json_object
+            request_kwargs["text"] = {"type": "json_object"}
+        resp = self.client.responses.create(**request_kwargs)
+        # 记录 Token 用量 + 缓存命中
+        if hasattr(resp, "usage") and resp.usage:
+            self._token_tracker.record(
+                resp.usage.total_tokens,
+                cached_tokens=self._extract_cache_hit(resp.usage),
+            )
+        return resp.output_text if hasattr(resp, "output_text") else ""
+
+    def _chat_stream_responses(self, messages: list, model: Optional[str],
+                               timeout: Optional[int]):
+        """Responses API 语义化流式（方案1）。
+
+        事件语义：output_text.delta 增量 → completed / incomplete / failed 明确结束态。
+        调用方（routers/chat.py）据此区分"正常完成 / 被截断 / 失败"，无需再猜 DONE。
+        """
+        instructions, input_items = self._messages_to_responses_input(messages)
+        try:
+            stream = self.client.responses.create(
+                model=model or settings.RESPONSES_MODEL,
+                instructions=instructions or "You are a helpful assistant.",
+                input=input_items,
+                temperature=0.7,
+                stream=True,
+                timeout=timeout if timeout is not None else settings.LLM_TIMEOUT,
+            )
+            for event in stream:
+                etype = getattr(event, "type", "")
+                if etype == "response.output_text.delta":
+                    delta = getattr(event, "delta", None)
+                    if delta:
+                        yield delta
+                elif etype == "response.completed":
+                    # 结束态：完整 response 挂载在 event.response，读取 usage 记录缓存命中
+                    resp_obj = getattr(event, "response", None)
+                    usage = getattr(resp_obj, "usage", None) if resp_obj else None
+                    if usage:
+                        self._token_tracker.record(
+                            usage.total_tokens,
+                            cached_tokens=self._extract_cache_hit(usage),
+                        )
+                elif etype in ("response.incomplete", "response.failed"):
+                    yield f"\n\n[响应未完成: {etype}]"
+                    return
+        except Exception as e:
+            yield f"\n\n[流式响应异常: {self._classify_exception(e)}]"
+
     def chat(self, messages: list, model: Optional[str] = None, max_retries: int = 2,
              timeout: Optional[int] = None, temperature: Optional[float] = None,
-             mode: Optional[str] = None) -> str:
+             mode: Optional[str] = None, json_mode: bool = False) -> str:
         """带超时和重试的对话方法
 
         根据 LLM_MODE 分流：
@@ -221,6 +358,9 @@ class LLMRouter:
         mode 参数：本次调用临时指定 local/cloud，仅本次生效，不修改全局 self._mode
         （None 时使用 self._mode，与原有行为完全一致）。用于消除并发线程间
         直接改写共享 _mode 导致的本地/云端调用串台。
+
+        json_mode 参数：仅对云端 Responses API 生效（方案4）——通过 text.format
+        声明式约束输出为合法 JSON，供 chat_json 使用；本地 Ollama 路径忽略该参数。
 
         重试策略：
         - 超时/限流：2 次递增间隔重试（1s, 2s）
@@ -236,23 +376,33 @@ class LLMRouter:
         if effective_mode == "local":
             return self._ollama_chat(messages)
 
-        # 云端模式（原有逻辑）
+        # 云端模式（原有逻辑 / Responses API 开关分流）
         model_name = model or settings.DEEPSEEK_MODEL
         last_exception = None
 
         for attempt in range(max_retries + 1):
             try:
                 req_timeout = timeout if timeout is not None else settings.LLM_TIMEOUT
-                resp = self.client.chat.completions.create(
-                    model=model_name,
-                    messages=messages,
-                    temperature=temperature if temperature is not None else 0.7,
-                    timeout=req_timeout,
-                )
-                content = resp.choices[0].message.content
-                # 记录 Token 用量
-                if hasattr(resp, 'usage') and resp.usage:
-                    self._token_tracker.record(resp.usage.total_tokens)
+                if settings.RESPONSES_API_ENABLED:
+                    # 方案1：Responses API（仅 deepseek-v4-flash），语义化结束态
+                    # 方案4：json_mode 时声明式约束 JSON 输出
+                    content = self._call_responses_api(
+                        messages, model_name, req_timeout, temperature,
+                        json_mode=json_mode)
+                else:
+                    resp = self.client.chat.completions.create(
+                        model=model_name,
+                        messages=messages,
+                        temperature=temperature if temperature is not None else 0.7,
+                        timeout=req_timeout,
+                    )
+                    content = resp.choices[0].message.content
+                    # 记录 Token 用量 + 缓存命中
+                    if hasattr(resp, 'usage') and resp.usage:
+                        self._token_tracker.record(
+                            resp.usage.total_tokens,
+                            cached_tokens=self._extract_cache_hit(resp.usage),
+                        )
                 return content if content else ""
             except Exception as e:
                 classified = self._classify_exception(e)
@@ -272,6 +422,11 @@ class LLMRouter:
 
     def chat_stream(self, messages: list, model: Optional[str] = None, timeout: Optional[int] = None):
         """流式对话（增强：增加超时 + 异常捕获）"""
+        if settings.RESPONSES_API_ENABLED:
+            # 方案1：Responses API 语义化流式（事件自带结束态，无需猜 DONE）
+            yield from self._chat_stream_responses(messages, model, timeout)
+            return
+
         model_name = model or settings.DEEPSEEK_MODEL
         try:
             stream = self.client.chat.completions.create(
@@ -465,10 +620,14 @@ class LLMRouter:
 
         mode 参数：本次调用临时指定 local/cloud，仅本次生效，不修改全局 self._mode
         （None 时使用全局模式，与原有行为完全一致）。
+
+        方案4：当 RESPONSES_API_ENABLED 开启时自动启用 text.format json_object 约束，
+        从源头保证合法 JSON；解析失败仍走原有"修复→重试"兜底。
         """
         for attempt in range(max_retries + 1):
             try:
-                result = self.chat(messages, timeout=timeout, temperature=temperature, mode=mode)
+                result = self.chat(messages, timeout=timeout, temperature=temperature,
+                                   mode=mode, json_mode=settings.RESPONSES_API_ENABLED)
             except Exception:
                 return {}
 

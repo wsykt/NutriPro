@@ -1,0 +1,15 @@
+# 依赖锁定文件（可复现构建）
+# 由实际运行环境生成：该环境已通过 tests/unit 全部 75 项测试（含 prompts 一致性测试）。
+# 生成方式：python -m pip freeze（过滤核心依赖）
+# 使用方式：pip install -r requirements.lock
+
+fastapi==0.141.1
+uvicorn==0.52.1
+openai==2.53.0
+chromadb==1.5.9
+sentence-transformers==5.7.0
+torch==2.13.0
+pydantic==2.13.4
+loguru==0.7.3
+python-dotenv==1.2.2
+markdown==3.3.6

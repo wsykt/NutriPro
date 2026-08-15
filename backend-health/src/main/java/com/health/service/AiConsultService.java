@@ -1,20 +1,16 @@
 package com.health.service;
 
-import com.health.config.RestClientConfig;
 import com.health.entity.*;
 import com.health.repository.*;
 import com.health.util.CircuitBreaker;
-import com.health.util.RagVectorSearchUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -45,11 +41,6 @@ public class AiConsultService {
     private final AiConversationRecordRepository recordRepository;
     private final AiChatContextBuilder contextBuilder;
     private final AiChatClientService aiChatClient;
-    private final RagVectorSearchUtil ragSearchUtil;
-
-    @Autowired
-    @Qualifier("aiRestTemplate")
-    private RestTemplate restTemplate;
 
     /** AI 长任务受管线程池（core 2 / max 8，用于 SSE 流式转发，替代原始 new Thread） */
     @Autowired
@@ -70,14 +61,6 @@ public class AiConsultService {
         this.recordRepository = recordRepository;
         this.contextBuilder = contextBuilder;
         this.aiChatClient = aiChatClient;
-        // BGE 向量检索工具（非 Spring Bean，直接实例化）
-        this.ragSearchUtil = new RagVectorSearchUtil();
-    }
-
-    @PostConstruct
-    public void init() {
-        this.ragSearchUtil.setRestTemplate(restTemplate);
-        this.ragSearchUtil.setAiBaseUrl(aiChatClient.getRestClientConfig().getAiBaseUrl());
     }
 
     /**
@@ -102,18 +85,11 @@ public class AiConsultService {
             snapshotJson = "{}";
         }
 
-        // 2. RAG 向量检索：知识性问题触发检索，日常分析/计划不强制检索
-        String ragKnowledge = "";
-        if (RagVectorSearchUtil.shouldRetrieveForConsultation(question)) {
-            String crowdType = user.getCrowdType() != null ? user.getCrowdType() : "";
-            ragKnowledge = ragSearchUtil.search(question, 3, crowdType);
-        }
+        // 2. RAG 检索与系统提示词组装已收敛至 AI 服务内部（orchestrator 自行检索并组装），
+        //    后端只负责组装健康快照并透传，避免两端各做一次检索造成阈值与上下文漂移。
 
-        // 3. 构建系统提示词（v2.1：分层架构 + 后端前置计算 + RAG 知识注入）
-        String systemPrompt = contextBuilder.buildSystemPrompt(user, snapshot, ragKnowledge);
-
-        // 4. 调用 AI 服务（携带系统提示词）
-        String reply = aiChatClient.callAiService(userId, question, snapshot, systemPrompt);
+        // 3. 调用 AI 服务（仅透传健康快照，AI 内部完成 RAG + 提示词组装）
+        String reply = aiChatClient.callAiService(userId, question, snapshot);
 
         // 5. 后端拼接固定尾部温馨提示（不由 AI 生成）
         reply = reply + FIXED_DISCLAIMER;
@@ -134,7 +110,8 @@ public class AiConsultService {
         result.put("forUserId", userId);
         result.put("forUsername", user.getUsername());
         result.put("snapshot", snapshot);
-        result.put("ragUsed", !ragKnowledge.isEmpty());
+        // RAG 已收敛至 AI 服务内部执行，后端不再预检索；保留字段以兼容响应结构
+        result.put("ragUsed", false);
         return result;
     }
 

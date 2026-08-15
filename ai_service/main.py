@@ -110,8 +110,11 @@ app = FastAPI(title="AI Core - 个人健康管理系统 v2", version="2.0.0", li
 
 app.add_middleware(
     CORSMiddleware,
+    # 浏览器流量均经后端(:8082)代理，AI 服务 CORS 仅影响其自带 dashboard；
+    # "*" 与 allow_credentials=True 是无效且有风险的组合（浏览器会拒绝通配+凭证），
+    # 认证走 Bearer 头（非 Cookie），改 allow_credentials=False 即可。
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

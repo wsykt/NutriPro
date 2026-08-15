@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .antMatchers("/api/articles", "/api/articles/**").authenticated()
                 .anyRequest().authenticated()
             .and()
+            // 注意：RateLimitFilter 为 @Component，由 Spring Boot 自动注册到 servlet 层
+            // （先于本安全链执行，对所有请求生效，见 shouldNotFilter 只拦 /api/auth/ 与 /api/ai/）
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
