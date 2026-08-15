@@ -85,3 +85,33 @@ Thumbs.db
 # ---------- 顶层残留文件 ----------
 3.0.0
 3.5.0
+
+# ---------- 本地产物（不提交） ----------
+# 后端运行时数据目录（整个忽略）
+backend-health/data/
+# 本地下载的 Maven
+apache-maven-*/
+# 食物成分数据目录（原始素材）
+food_data/
+# 后端临时构建/运行脚本
+backend-health/*.bat
+backend-health/*.ps1
+backend-health/*.pid
+backend-health/META-INF/
+backend-health/probe.py
+backend-health/do_compile*
+backend-health/simple_compile*
+backend-health/repack*
+backend-health/run_*
+backend-health/start_backend*
+# Maven wrapper（项目用 IntelliJ 内置 Maven，非必需）
+backend-health/.mvn/
+backend-health/mvnw
+backend-health/mvnw.cmd
+# Vite 临时文件
+frontend-health/vite.config.ts.timestamp-*
+frontend-health/vite.err
+frontend-health/*.bat
+# 其他临时
+start_services.py
+test_substitution.py

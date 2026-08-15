@@ -24,6 +24,14 @@ health/
 
 详细启动步骤与环境要求见 [启动说明.md](启动说明.md)。
 
+## 其他部署方式
+
+- **Docker 一键部署**（可选，未实测）：见 [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)。包含三个服务的
+  Dockerfile、nginx 反向代理与 docker-compose.yml。
+- **启动脚本路径可移植**：`start_all.ps1` 的路径均可用环境变量覆盖（`DSH_HEALTH_ROOT` /
+  `DSH_JDK8` / `DSH_MVN` / `DSH_NODEJS` / `DSH_PY312` / `DSH_OLLAMA_MODELS`），
+  换机器/CI 无需改脚本。
+
 ## 文档
 
 - [启动说明.md](启动说明.md) —— 启动流程与环境要求

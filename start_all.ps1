@@ -29,15 +29,29 @@ param(
     [switch]$StopAll
 )
 
-# ======================== 路径常量（改这里即可迁移） ========================
-$PROJECT_ROOT = "c:\Users\13425\Desktop\个人健康助手\health"
-$JDK8 = "C:\Program Files\Java\jdk1.8.0_341"
+# ======================== 路径常量（可用环境变量覆盖，便于迁移/CI） ========================
+# 覆盖方式（示例）：
+#   $env:DSH_HEALTH_ROOT = "D:\work\health"
+#   $env:DSH_JDK8 = "D:\tools\jdk1.8.0_341"
+#   $env:DSH_MVN = "D:\tools\maven\bin\mvn.cmd"
+#   $env:DSH_NODEJS = "D:\tools\nodejs\npm.cmd"
+#   $env:DSH_PY312 = "D:\tools\python312\python.exe"
+#   $env:DSH_OLLAMA_MODELS = "D:\ollama\models"
+$PROJECT_ROOT = $env:DSH_HEALTH_ROOT
+if (-not $PROJECT_ROOT) { $PROJECT_ROOT = "c:\Users\13425\Desktop\个人健康助手\health" }
+$JDK8 = $env:DSH_JDK8
+if (-not $JDK8) { $JDK8 = "C:\Program Files\Java\jdk1.8.0_341" }
 $JAR = "$PROJECT_ROOT\backend-health\target\health-backend-1.0.0.jar"
-$MVN = "C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd"
+$MVN = $env:DSH_MVN
+if (-not $MVN) { $MVN = "C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.3\plugins\maven\lib\maven3\bin\mvn.cmd" }
 $AI_DIR = "$PROJECT_ROOT\ai_service"
 $FE_DIR = "$PROJECT_ROOT\frontend-health"
 # npm 必须用 .cmd 绝对路径（Start-Process 无法直接运行不带扩展名的 npm 脚本文件）
-$NPM = "C:\Program Files\nodejs\npm.cmd"
+$NPM = $env:DSH_NODEJS
+if (-not $NPM) { $NPM = "C:\Program Files\nodejs\npm.cmd" }
+# Python 3.12（AI 服务运行时，可用 DSH_PY312 覆盖）
+$PY312 = $env:DSH_PY312
+if (-not $PY312) { $PY312 = "C:\Users\13425\AppData\Local\Programs\Python\Python312\python.exe" }
 if (-not (Test-Path $NPM)) {
     $NPM = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
 }
@@ -58,10 +72,12 @@ function Wait-Port([int]$Port, [int]$Seconds) {
 function Start-Ollama {
     Write-Host "`n[Ollama] 启动本地大模型服务（端口11434）..." -ForegroundColor Yellow
     # 确保模型目录指向 D 盘（已永久设置到用户环境变量，此处兜底）
+    $modelsDir = $env:DSH_OLLAMA_MODELS
+    if (-not $modelsDir) { $modelsDir = "D:\ollama\models" }
     if (-not [Environment]::GetEnvironmentVariable("OLLAMA_MODELS", "User")) {
-        [Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "D:\ollama\models", "User")
+        [Environment]::SetEnvironmentVariable("OLLAMA_MODELS", $modelsDir, "User")
     }
-    $env:OLLAMA_MODELS = "D:\ollama\models"
+    $env:OLLAMA_MODELS = $modelsDir
     if (Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue) {
         Write-Host "  Ollama 已在运行（端口11434已监听）" -ForegroundColor Green
     } else {
@@ -121,8 +137,8 @@ function Start-AIService {
     if (Get-NetTCPConnection -LocalPort 8002 -State Listen -ErrorAction SilentlyContinue) {
         Write-Host "  AI服务已在运行" -ForegroundColor Green; return
     }
-    # 优先使用 Python312（已装完整 AI 依赖），回退到 PATH 中的 python
-    $PyPath = "C:\Users\13425\AppData\Local\Programs\Python\Python312\python.exe"
+    # 优先使用 Python312（已装完整 AI 依赖，可用 DSH_PY312 覆盖），回退到 PATH 中的 python
+    $PyPath = $PY312
     if (-not (Test-Path $PyPath)) { $PyPath = "python" }
     Write-Host "  使用 Python: $PyPath" -ForegroundColor Gray
     $p = Start-Process -FilePath $PyPath -ArgumentList "main.py" `
