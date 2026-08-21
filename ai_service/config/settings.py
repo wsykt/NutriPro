@@ -12,6 +12,8 @@ class Settings:
     LLM_MODE = os.getenv("LLM_MODE", "cloud")  # cloud / local
     LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "30"))          # LLM 请求超时秒数
     LLM_TIMEOUT_HIGH_PERF = int(os.getenv("LLM_TIMEOUT_HIGH_PERF", "45"))  # 高性能模式（演示）云端超时放宽
+    # 输出上限：deepseek-chat 默认 max_tokens=4096，长报告（周报分析/科普文章）会被硬截断，显式放宽到上限 8192
+    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "8192"))
     MAX_LLM_CONCURRENCY = int(os.getenv("MAX_LLM_CONCURRENCY", "5"))  # 最大并发数
     LLM_DAILY_TOKEN_LIMIT = int(os.getenv("LLM_DAILY_TOKEN_LIMIT", "1000000"))  # 每日 token 阈值
 

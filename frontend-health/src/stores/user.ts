@@ -3,6 +3,7 @@ import {
   getToken, setToken, clearSession,
   getCurrentUserId, setCurrentUserId,
   getActAsUserId, setActAsUserId,
+  getHighPerformance, setHighPerformance,
 } from '@/utils/storage'
 
 export interface User {
@@ -28,7 +29,9 @@ export const useUserStore = defineStore('user', {
     // 我监护的亲属列表（用于操作身份切换）
     wards: [] as Array<{ wardId: number; wardUsername: string; status?: string }>,
     // 当前替谁操作：null 表示操作自己；否则是被监护人 userId
-    actAsUserId: getActAsUserId()
+    actAsUserId: getActAsUserId(),
+    // AI 处理模式：true=高性能（云端直连） false=普通模式；默认普通模式
+    highPerformance: getHighPerformance()
   }),
   actions: {
     async login(username: string, password: string) {
@@ -136,6 +139,33 @@ export const useUserStore = defineStore('user', {
       this.actAsUserId = null
       clearSession()
     },
+    // 头像上传成功后同步本地与 storage（移植自 health1）
+    updateAvatar(url: string) {
+      if (this.user) {
+        this.user = { ...this.user, avatar: url }
+      }
+    },
+    // 标记首次引导完成（移植自 health1）：写入内存 + localStorage（按 uid/username 双 key）
+    setFirstLogin(value: number) {
+      if (this.user) {
+        this.user.first_login = value
+        const uid = this.user.user_id || this.user.userId || this.user.id
+        const uname = this.user.username
+        if (uid != null) {
+          const data = JSON.stringify({ username: uname, value })
+          localStorage.setItem(`first_login_${uid}`, data)
+        }
+        if (uname) {
+          localStorage.setItem(`first_login_user_${uname}`, String(value))
+        }
+      }
+    },
+    // 更新用户资料字段（移植自 health1，Onboarding 使用）
+    updateProfile(data: Partial<User>) {
+      if (this.user) {
+        this.user = { ...this.user, ...data }
+      }
+    },
     // 载入我监护的亲属列表
     async loadWards() {
       const { api } = await import('../api')
@@ -173,6 +203,11 @@ export const useUserStore = defineStore('user', {
     setActAs(userId: number | null) {
       this.actAsUserId = userId
       setActAsUserId(userId)
+    },
+    // 切换 AI 处理模式：true=高性能（云端直连），false=普通模式（默认）
+    setHighPerformance(enabled: boolean) {
+      this.highPerformance = enabled
+      setHighPerformance(enabled)
     }
   },
   getters: {

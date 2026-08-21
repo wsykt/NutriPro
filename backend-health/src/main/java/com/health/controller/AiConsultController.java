@@ -1,5 +1,7 @@
 package com.health.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.health.config.RestClientConfig;
 import com.health.dto.ApiResponse;
 import com.health.entity.User;
 import com.health.repository.UserRepository;
@@ -9,13 +11,21 @@ import com.health.service.AiContentService;
 import com.health.service.AiExerciseService;
 import com.health.service.AiNutritionService;
 import com.health.service.FamilyRelationService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -30,6 +40,9 @@ public class AiConsultController {
     private final AiNutritionService aiNutritionService;
     private final AiExerciseService aiExerciseService;
     private final AiContentService aiContentService;
+    private final RestClientConfig restClientConfig;
+    private final RestTemplate aiRestTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AiConsultController(UserRepository userRepository,
                                FamilyRelationService familyRelationService,
@@ -37,7 +50,9 @@ public class AiConsultController {
                                AiConsultService aiConsultService,
                                AiNutritionService aiNutritionService,
                                AiExerciseService aiExerciseService,
-                               AiContentService aiContentService) {
+                               AiContentService aiContentService,
+                               RestClientConfig restClientConfig,
+                               @Qualifier("aiRestTemplate") RestTemplate aiRestTemplate) {
         this.userRepository = userRepository;
         this.familyRelationService = familyRelationService;
         this.aiChatClientService = aiChatClientService;
@@ -45,6 +60,8 @@ public class AiConsultController {
         this.aiNutritionService = aiNutritionService;
         this.aiExerciseService = aiExerciseService;
         this.aiContentService = aiContentService;
+        this.restClientConfig = restClientConfig;
+        this.aiRestTemplate = aiRestTemplate;
     }
 
     private User extractUser(Authentication authentication) {
@@ -482,6 +499,81 @@ public class AiConsultController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                             "运动建议生成失败：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 本地知识库检索：供前端 AI 分析周报/月报时，按营养问题（蛋白质超标/碳水不足等）检索知识卡片，
+     * 将命中内容注入提示词后发给大模型。透传调用 AI 服务 /api/v1/retrieve。
+     */
+    @PostMapping("/knowledge/retrieve")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> retrieveKnowledge(
+            Authentication authentication,
+            @RequestBody Map<String, Object> body) {
+
+        User current = extractUser(authentication);
+        if (current == null || current.getUserId() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(HttpStatus.UNAUTHORIZED.value(), "请先登录"));
+        }
+
+        String query = body != null ? String.valueOf(body.getOrDefault("query", "")).trim() : "";
+        if (query.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(HttpStatus.BAD_REQUEST.value(), "请提供检索关键词"));
+        }
+        int topK = 3;
+        if (body != null && body.get("top_k") != null) {
+            try { topK = Integer.parseInt(String.valueOf(body.get("top_k"))); } catch (Exception ignore) { }
+        }
+        if (topK < 1 || topK > 10) topK = 3;
+        String crowd = body != null ? String.valueOf(body.getOrDefault("target_crowd", "")) : "";
+
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("query", query);
+            requestBody.put("top_k", topK);
+            requestBody.put("target_crowd", crowd);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+            ResponseEntity<String> resp = aiRestTemplate.postForEntity(
+                    restClientConfig.getAiBaseUrl() + "/retrieve", entity, String.class);
+            Map<String, Object> aiResult = objectMapper.readValue(resp.getBody(), Map.class);
+
+            // 精简透传：只保留 content 与来源，控制响应体积
+            List<Map<String, Object>> items = new ArrayList<>();
+            Object rawResults = aiResult.get("results");
+            if (rawResults instanceof List) {
+                for (Object o : (List<?>) rawResults) {
+                    if (!(o instanceof Map)) continue;
+                    Map<?, ?> m = (Map<?, ?>) o;
+                    Object content = m.get("content");
+                    if (content == null || String.valueOf(content).trim().isEmpty()) continue;
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("content", String.valueOf(content).trim());
+                    Object meta = m.get("metadata");
+                    String source = "";
+                    if (meta instanceof Map) {
+                        Object s = ((Map<?, ?>) meta).get("source");
+                        if (s != null) source = String.valueOf(s);
+                    }
+                    item.put("source", source);
+                    items.add(item);
+                }
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("query", query);
+            result.put("total", items.size());
+            result.put("results", items);
+            return ResponseEntity.ok(ApiResponse.success(result));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                            "知识库检索失败：" + e.getMessage()));
         }
     }
 }

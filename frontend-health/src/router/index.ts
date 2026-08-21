@@ -11,14 +11,17 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/login', name: 'Login', component: Login },
   { path: '/register', name: 'Register', component: Register },
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
+  { path: '/onboarding', name: 'Onboarding', component: () => import('@/views/Onboarding.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('@/views/Admin.vue'), meta: { requiresAuth: true } },
   {
     path: '/dashboard',
     name: 'Dashboard',
     component: Dashboard,
     meta: { requiresAuth: true },
-    redirect: '/dashboard/profile',
+    redirect: '/dashboard/demo',
     children: [
+      { path: 'hub', component: () => import('@/views/dashboard/FeatureHub.vue') },
+      { path: 'demo', component: () => import('@/views/dashboard/DashboardDemo.vue') },
       { path: 'profile', component: () => import('@/views/dashboard/Profile.vue') },
       { path: 'food-input', component: () => import('@/views/dashboard/FoodInput.vue') },
       { path: 'food-add', component: () => import('@/views/dashboard/FoodAdd.vue') },
@@ -57,6 +60,7 @@ const routes: Array<RouteRecordRaw> = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
+
   scrollBehavior() {
     return { top: 0 }
   }
@@ -85,3 +89,4 @@ router.beforeEach((to, _from, next) => {
 })
 
 export default router
+

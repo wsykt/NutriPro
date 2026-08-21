@@ -87,6 +87,21 @@ export const api = {
     update: (data: any) => instance.put('/profile/update', data),
     snapshot: (date?: string) => instance.post('/profile/snapshot', null, { params: { date } })
   },
+  file: {
+    // 上传头像：FormData（avatar blob + userId）
+    uploadAvatar: (formData: FormData) =>
+      instance.post('/file/uploadAvatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000
+      }).then((res: any) => {
+        // 响应拦截器可能已剥离 data，也可能返回完整响应
+        const d = res?.data ?? res
+        if (d && typeof d === 'string') return d
+        if (d && d.url) return d.url
+        if (d && d.avatar) return d.avatar
+        return d
+      })
+  },
   admin: {
     listUsers: () => instance.get('/admin/users'),
     listUsersWithRelations: () => instance.get('/admin/users-with-relations'),
@@ -125,9 +140,19 @@ export const api = {
     deleteByDate: (recordDate: string) => instance.delete('/metrics/delete', { params: { recordDate } }),
     predict: (userId: number, days = 7) => instance.get(`/metrics/predict/${userId}`, { params: { days } })
   },
+  // 运动记录
+  exercise: {
+    recordsRange: (startDate: string, endDate: string) =>
+      instance.get('/exercise/records/range', { params: { startDate, endDate } }),
+    statsWeek: () => instance.get('/exercise/stats/week'),
+    statsToday: () => instance.get('/exercise/stats/today')
+  },
   // AI 健康咨询
   ai: {
     consult: (question: string) => instance.post('/ai/consult', { question }),
+    // 本地知识库检索：按营养问题检索知识卡片，供 AI 分析注入提示词
+    knowledgeRetrieve: (data: { query: string; top_k?: number; target_crowd?: string }) =>
+      instance.post('/ai/knowledge/retrieve', data),
     // SSE 流式咨询：fetch 原生实现，支持 thinking/delta/done/error 事件回调
     consultStream: (
       question: string,
@@ -137,7 +162,7 @@ export const api = {
         onDone?: (payload: any) => void
         onError?: (message: string) => void
       },
-      options?: { high_performance?: boolean }
+      options?: { high_performance?: boolean; report_context?: any }
     ): { abort: () => void } => {
       const controller = new AbortController()
       const actAs = resolveActAsUserId()
@@ -149,10 +174,18 @@ export const api = {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers['Authorization'] = `Bearer ${token}`
 
+      const body: Record<string, any> = {
+        question,
+        high_performance: options?.high_performance ?? false,
+      }
+      if (options?.report_context != null) {
+        body._report_context = options.report_context
+      }
+
       fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ question, high_performance: options?.high_performance ?? false }),
+        body: JSON.stringify(body),
         signal: controller.signal
       })
         .then(async (res) => {

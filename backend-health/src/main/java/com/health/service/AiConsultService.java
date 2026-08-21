@@ -154,7 +154,8 @@ public class AiConsultService {
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(5000);
-                conn.setReadTimeout(60000);
+                // 长报告（周/月综合分析）生成耗时可能超过 60s，放宽至 180s
+                conn.setReadTimeout(180000);
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 conn.setRequestProperty("Accept", "text/event-stream");
 

@@ -97,6 +97,25 @@
             </div>
           </div>
 
+          <!-- AI 运动建议（专用接口） -->
+          <div class="glass rounded-2xl p-5">
+            <h3 class="font-semibold mb-3 text-morandi-text flex items-center gap-2">
+              <Sparkles class="w-4 h-4 text-morandi-accent" />
+              AI 运动建议
+            </h3>
+            <p class="text-xs text-morandi-lightText leading-relaxed mb-3">基于你的身体数据与训练记录，一键生成个性化运动方案</p>
+            <div class="space-y-2">
+              <button v-for="g in adviceGoals" :key="g.value" @click="getExerciseAdvice(g.value)" :disabled="!!adviceLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
+                <component :is="g.icon" class="w-4 h-4 text-morandi-accent" />
+                <span>{{ g.label }}</span>
+                <component v-if="adviceLoading === g.value" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
+              </button>
+            </div>
+            <div v-if="exerciseAdviceResult" class="mt-3 p-4 rounded-xl bg-white/70 border border-morandi-soft/50 text-sm text-morandi-text whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
+              {{ exerciseAdviceResult }}
+            </div>
+          </div>
+
           <!-- 近七日训练数据快照 -->
           <div class="glass rounded-2xl p-5">
             <h3 class="font-semibold mb-3 text-morandi-text flex items-center gap-2">
@@ -289,10 +308,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
-import {
-  Dumbbell, Activity, Send, Loader2, Zap, Calendar, Clock, Flame, Layers,
-  User, History
-} from 'lucide-vue-next'
+import { Dumbbell, Activity, Send, Loader2, Zap, Calendar, Clock, Flame, Layers, User, History, Sparkles } from 'lucide-vue-next'
 import { EXERCISES, getExerciseById, type ExerciseDetail } from '@/data/exercises'
 import { useWorkoutRecords, type WorkoutRecord } from '@/composables/useWorkoutRecords'
 import { CROWD_LABELS, MUSCLE_GROUPS } from '@/constants'
@@ -315,6 +331,30 @@ const userCrowdLabel = computed(() => {
   }
   return map[c] || c
 })
+
+// ===== AI 运动建议（专用接口） =====
+const adviceGoals = [
+  { value: '减脂', label: '减脂塑形', icon: Flame },
+  { value: '增肌', label: '增肌力量', icon: Dumbbell },
+  { value: '体态改善', label: '体态改善', icon: Activity },
+  { value: '保持健康', label: '保持健康', icon: User }
+]
+const adviceLoading = ref<string | null>(null)
+const exerciseAdviceResult = ref('')
+async function getExerciseAdvice(goal: string) {
+  if (adviceLoading.value) return
+  adviceLoading.value = goal
+  exerciseAdviceResult.value = ''
+  try {
+    const res: any = await api.ai.exerciseAdvice(goal)
+    const content = res?.content || res?.response || res?.answer || (typeof res === 'string' ? res : '')
+    exerciseAdviceResult.value = String(content || '未获取到建议，请稍后重试')
+  } catch (e: any) {
+    exerciseAdviceResult.value = '生成失败：' + (e?.message || '未知错误，请稍后重试')
+  } finally {
+    adviceLoading.value = null
+  }
+}
 
 // ===== 运动记录（来自共享存储） =====
 const workoutRecords = computed<WorkoutRecord[]>(() => workout.records.value)

@@ -174,13 +174,88 @@ async def chat_stream(data: dict):
     health_snapshot = data.get("health_snapshot", {}) or {}
     conversation_id = data.get("conversation_id", "")
     high_performance = bool(data.get("high_performance", False))
+    # report 透传：前端把结构化报告数据（基本信息/体重/运动/饮食/issueTable/知识库卡片）
+    # 直接通过 _report_context 传过来，不走 orchestrator 的 qa 包装（避免双层 prompt + 重复知识库检索）。
+    # 直接用 CLOUD_PROMPTS["report"] 模板拼云端流式，prompt 最短。
+    report_ctx = data.get("_report_context") or None
 
     if not message:
         return error_response(message="缺少 message 参数", code=400, detail="MISSING_MESSAGE")
 
     async def event_stream():
-        yield _sse_event("thinking", {"message": "正在检索知识库并生成回答..."})
+        yield _sse_event("thinking", {"message": "正在生成"+(report_ctx.get("period_label") if isinstance(report_ctx, dict) else "")+"健康分析报告..."})
         try:
+            # ========== report 专属透传分支：最短 prompt，直接云端 report 模板 ==========
+            if isinstance(report_ctx, dict):
+                from prompts.cloud import CLOUD_PROMPTS
+                tmpl = CLOUD_PROMPTS.get("report")
+                if tmpl:
+                    # 1. 取字段（空值兜底）
+                    period_label = str(report_ctx.get("period_label") or "本期")
+                    report_body = str(report_ctx.get("report_body") or "（数据为空）").strip()
+                    kb_snippets = str(report_ctx.get("kb_snippets") or "（无本地知识库参考）").strip()
+                    issue_table = str(report_ctx.get("issue_table") or "|（暂无明显营养问题）| - | - | - |").strip()
+
+                    # 2. 用 mode_router 复用「系统自动推导健康上下文」逻辑（精简版）
+                    try:
+                        from services.mode_router import mode_router
+                        ctx = mode_router._compute_user_derived_context(
+                            user_profile=(health_snapshot or {}).get("profile", {}) or {},
+                            health_snapshot=health_snapshot or {},
+                        )
+                    except Exception:
+                        ctx = "（无）"
+
+                    # 3. 拼 prompt
+                    prompt = tmpl.format(
+                        period_label=period_label,
+                        user_derived_context=ctx,
+                        report_body=report_body,
+                        kb_snippets=kb_snippets,
+                        issue_table=issue_table,
+                    )
+
+                    # 4. 对话记录（同 orchestrator.chat_stream_setup 行为一致）
+                    try:
+                        conv_id = orchestrator._stage_conversation(
+                            user_id, message, conversation_id, health_snapshot,
+                        )
+                    except Exception:
+                        conv_id = conversation_id or f"report_{int(time.time())}"
+
+                    # 5. 云端流式
+                    start_ts = time.time()
+                    messages = [
+                        {"role": "system", "content": "你是专业注册营养师与运动医学顾问。严格按用户要求的 Markdown 结构输出报告，不要添加任何额外引导语。"},
+                        {"role": "user", "content": prompt},
+                    ]
+                    gen = llm.chat_stream(
+                        messages,
+                        timeout=settings.LLM_TIMEOUT_HIGH_PERF,
+                    )
+                    parts = []
+                    async for delta in _iter_sync_stream(gen):
+                        if delta:
+                            parts.append(delta)
+                            yield _sse_event("delta", {"content": delta})
+                    full_text = "".join(parts)
+                    response_text = orchestrator.finalize_chat_stream(conv_id, full_text, health_snapshot)
+                    elapsed = round(time.time() - start_ts, 2)
+                    result = {
+                        "conversation_id": conv_id,
+                        "response": response_text,
+                        "provider": "deepseek",
+                        "mode": "high_performance",
+                        "route": "C_report_direct_stream",
+                        "high_performance": True,
+                        "validation": {"skipped": True, "reason": "report专属真流式"},
+                        "elapsed_seconds": elapsed,
+                        "retrieve_info": [],
+                        "timing_breakdown": {"stream_ms": round(elapsed * 1000)},
+                    }
+                    yield _sse_event("done", result)
+                    return
+
             if high_performance:
                 # ---- 真流式路径（高性能模式）----
                 setup = orchestrator.chat_stream_setup(

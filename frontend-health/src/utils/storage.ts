@@ -71,6 +71,7 @@ const TOKEN_KEY = 'user_token'
 const LEGACY_TOKEN_KEY = 'token'
 const CURRENT_USER_ID_KEY = 'currentUserId'
 const ACT_AS_USER_ID_KEY = 'actAsUserId'
+const HIGH_PERFORMANCE_KEY = 'health_high_performance'
 
 function readNumberKey(key: string): number | null {
   try {
@@ -139,4 +140,30 @@ export function clearSession(): void {
   localStorage.removeItem(LEGACY_TOKEN_KEY)
   localStorage.removeItem(CURRENT_USER_ID_KEY)
   localStorage.removeItem(ACT_AS_USER_ID_KEY)
+}
+
+// ============ AI 处理模式 ============
+
+/**
+ * AI 处理模式开关：
+ * - true  = 高性能模式（云端直连，响应快、耗 token）
+ * - false = 普通模式（模板 → 本地大模型 → 云端兜底，质量稳、省 token）
+ * 默认普通模式。持久化到 localStorage，供 AI 咨询 / 周报分析等请求使用。
+ */
+export function getHighPerformance(): boolean {
+  try {
+    return localStorage.getItem(HIGH_PERFORMANCE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setHighPerformance(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(HIGH_PERFORMANCE_KEY, '1')
+    } else {
+      localStorage.removeItem(HIGH_PERFORMANCE_KEY)
+    }
+  } catch { /* ignore */ }
 }

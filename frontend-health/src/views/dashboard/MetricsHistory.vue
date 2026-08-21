@@ -207,12 +207,16 @@
       </div>
     </div>
   </div>
+
+
+
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
+import { Dumbbell } from 'lucide-vue-next'
 
 const userStore = useUserStore()
 const accentColor = '#b47f5f'

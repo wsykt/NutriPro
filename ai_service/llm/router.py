@@ -291,6 +291,7 @@ class LLMRouter:
             model=model_name or settings.RESPONSES_MODEL,
             instructions=instructions or "You are a helpful assistant.",
             input=input_items,
+            max_output_tokens=settings.LLM_MAX_TOKENS,
             temperature=temperature if temperature is not None else 0.7,
             timeout=req_timeout,
         )
@@ -319,6 +320,7 @@ class LLMRouter:
                 model=model or settings.RESPONSES_MODEL,
                 instructions=instructions or "You are a helpful assistant.",
                 input=input_items,
+                max_output_tokens=settings.LLM_MAX_TOKENS,
                 temperature=0.7,
                 stream=True,
                 timeout=timeout if timeout is not None else settings.LLM_TIMEOUT,
@@ -393,6 +395,7 @@ class LLMRouter:
                     resp = self.client.chat.completions.create(
                         model=model_name,
                         messages=messages,
+                        max_tokens=settings.LLM_MAX_TOKENS,
                         temperature=temperature if temperature is not None else 0.7,
                         timeout=req_timeout,
                     )
@@ -432,6 +435,7 @@ class LLMRouter:
             stream = self.client.chat.completions.create(
                 model=model_name,
                 messages=messages,
+                max_tokens=settings.LLM_MAX_TOKENS,
                 temperature=0.7,
                 stream=True,
                 timeout=timeout if timeout is not None else settings.LLM_TIMEOUT,
