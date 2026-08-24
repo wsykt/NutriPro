@@ -5,8 +5,13 @@
 <script>
 (async function () {
   const q = new URLSearchParams(location.search);
-  const username = q.get('u') || 'admin';
-  const password = q.get('p') || 'admin123';
+  // 安全加固：不内置默认口令，用户名/密码均从 URL 参数必填
+  const username = q.get('u');
+  const password = q.get('p');
+  if (!username || !password) {
+    document.body.innerHTML = '<h2>缺少参数：请在 URL 提供 ?u=用户名&p=密码</h2>';
+    return;
+  }
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
