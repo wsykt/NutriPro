@@ -2,7 +2,7 @@
   <div class="min-h-screen flex items-center justify-center p-4" style="background: linear-gradient(160deg, #FAF8F3 0%, #F7F5F0 40%, #F4F2EA 75%, #F2F3EC 100%)">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl text-white text-3xl mb-4 shadow-lg" style="background: linear-gradient(135deg, #2F5D4A 0%, #1F4636 100%); box-shadow: 0 12px 32px rgba(47,93,74,0.25)">✨</div>
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl text-white text-3xl mb-4 shadow-lg" style="background: linear-gradient(135deg, #2F5D4A 0%, #1F4636 100%); box-shadow: 0 12px 32px rgba(47,93,74,0.25)"></div>
         <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Noto Serif SC', serif">欢迎使用健康助手</h1>
         <p class="text-gray-500 text-sm mt-2">完成简单设置，开启你的健康之旅</p>
       </div>
@@ -23,10 +23,10 @@
               <label class="block text-sm font-medium text-gray-700 mb-2">性别</label>
               <div class="grid grid-cols-2 gap-3">
                 <button @click="form.gender = '男'" class="py-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2" :class="form.gender === '男' ? 'text-white border-transparent' : 'border-gray-200 hover:border-gray-300'" :style="form.gender === '男' ? { background: '#2F5D4A' } : {}">
-                  <span class="text-xl">👨</span><span class="font-medium">男</span>
+                  <span class="text-xl"></span><span class="font-medium">男</span>
                 </button>
                 <button @click="form.gender = '女'" class="py-3 rounded-xl border-2 transition-all duration-200 flex items-center justify-center gap-2" :class="form.gender === '女' ? 'text-white border-transparent' : 'border-gray-200 hover:border-gray-300'" :style="form.gender === '女' ? { background: '#2F5D4A' } : {}">
-                  <span class="text-xl">👩</span><span class="font-medium">女</span>
+                  <span class="text-xl"></span><span class="font-medium">女</span>
                 </button>
               </div>
             </div>

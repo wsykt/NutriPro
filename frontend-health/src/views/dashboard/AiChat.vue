@@ -15,7 +15,7 @@
       <div class="flex-1 overflow-y-auto space-y-4 mb-4" ref="messagesContainer">
         <div v-if="messages.length === 0 && !isLoading" class="flex flex-col items-center justify-center h-full text-center">
           <div class="w-16 h-16 rounded-full bg-morandi-accent/10 flex items-center justify-center mb-4">
-            <span class="text-3xl">🤖</span>
+            <span class="text-3xl"></span>
           </div>
           <h3 class="text-lg font-semibold text-morandi-text mb-2">您好！我是您的健康助手</h3>
           <p class="text-sm text-morandi-lightText mb-4">我将结合您的健康档案和营养学知识库，为您提供个性化膳食建议</p>

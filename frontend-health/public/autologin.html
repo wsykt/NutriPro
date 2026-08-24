@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="UTF-8"><title>Auto Login</title></head>
+<body>
+<script>
+(async function () {
+  const q = new URLSearchParams(location.search);
+  const username = q.get('u') || 'admin';
+  const password = q.get('p') || 'admin123';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    });
+    const j = await res.json();
+    if (j.code === 200 && j.data) {
+      const d = j.data;
+      const token = d.access_token || d.token;
+      localStorage.setItem('user_token', token);
+      localStorage.setItem('token', token);
+      if (d.user_id != null) localStorage.setItem('currentUserId', String(d.user_id));
+      document.body.innerHTML = '<h2>OK, redirecting...</h2>';
+      const target = q.get('to') || '/dashboard/health-report';
+      location.href = target;
+    } else {
+      document.body.innerHTML = '<h2>Login failed: ' + (j.message || JSON.stringify(j)) + '</h2>';
+    }
+  } catch (e) {
+    document.body.innerHTML = '<h2>Error: ' + e.message + '</h2>';
+  }
+})();
+</script>
+</body>
+</html>

@@ -78,7 +78,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        return !(uri.startsWith("/api/auth/") || uri.startsWith("/api/ai/"));
+        // 覆盖：登录类、AI 生成/咨询类、文章 AI 生成类（烧 token 的接口）
+        return !(uri.startsWith("/api/auth/")
+                || uri.startsWith("/api/ai/")
+                || isArticleGenerationPath(uri));
+    }
+
+    /** 文章 AI 生成/知识库写入类路径（烧 token，需限流） */
+    private boolean isArticleGenerationPath(String uri) {
+        if (!uri.startsWith("/api/articles/")) return false;
+        return uri.contains("/generate")
+                || uri.contains("/import-mother")
+                || uri.contains("/regenerate")
+                || uri.contains("/knowledge/ingest");
     }
 
     @Override
@@ -124,12 +136,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String clientIp(HttpServletRequest request) {
-        // 依次取 X-Forwarded-For（反向代理场景）→ 直连地址
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isEmpty()) {
-            int comma = forwarded.indexOf(',');
-            return comma > 0 ? forwarded.substring(0, comma).trim() : forwarded.trim();
-        }
+        // 不使用 X-Forwarded-For（客户端可伪造绕过 IP 维度限流）。
+        // 若部署在反向代理后，应在此按可信代理链解析真实 IP（或改用网关层限流）。
         String remoteAddr = request.getRemoteAddr();
         return remoteAddr != null ? remoteAddr : "unknown";
     }

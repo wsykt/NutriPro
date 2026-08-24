@@ -22,7 +22,7 @@
         <!-- 左侧介绍 -->
         <div class="hidden md:block">
           <h1 class="text-4xl font-bold leading-tight mb-6" style="font-family: 'Noto Serif SC', 'Source Han Serif SC', serif">
-            欢迎回来 👋<br />
+            欢迎回来 <br />
             <span class="text-morandi-accent">继续记录你的健康数据</span>
           </h1>
           <p class="text-morandi-lightText leading-relaxed mb-8 text-base">

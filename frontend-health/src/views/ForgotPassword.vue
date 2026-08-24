@@ -19,30 +19,30 @@
         <!-- 左侧说明 -->
         <div class="hidden md:block">
           <h1 class="text-4xl font-bold leading-tight mb-6">
-            重置密码 🔐<br />
+            重置密码 <br />
             <span class="text-morandi-accent">快速恢复你的账号</span>
           </h1>
           <p class="text-morandi-lightText leading-relaxed mb-8 text-base">
-            输入用户名和新密码，系统将校验你之前预留的身体信息并帮你重置登录密码。
+            输入用户名、当前密码和新密码，系统将校验身份并帮你重置登录密码。
           </p>
 
           <div class="space-y-4">
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">1️⃣</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">1</div>
               <div>
                 <h3 class="font-semibold mb-1">输入用户名</h3>
                 <p class="text-sm text-morandi-lightText">请填写你之前注册时使用的用户名</p>
               </div>
             </div>
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">2️⃣</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">2</div>
               <div>
                 <h3 class="font-semibold mb-1">设置新密码</h3>
                 <p class="text-sm text-morandi-lightText">两次输入一致，长度至少 6 位</p>
               </div>
             </div>
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">3️⃣</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">3</div>
               <div>
                 <h3 class="font-semibold mb-1">提交重置</h3>
                 <p class="text-sm text-morandi-lightText">成功后会自动跳转到登录页面</p>
@@ -54,7 +54,7 @@
         <!-- 右侧表单 -->
         <div class="glass rounded-2xl p-8 md:p-10 shadow-lg w-full max-w-md mx-auto">
           <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-morandi-accent/15 text-morandi-accent text-2xl mb-4">🔑</div>
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-morandi-accent/15 text-morandi-accent text-2xl mb-4"></div>
             <h1 class="text-2xl font-bold text-morandi-text mb-2">重置密码</h1>
             <p class="text-sm text-morandi-lightText">输入用户名与新密码以完成密码重置</p>
           </div>
@@ -68,6 +68,17 @@
                 required
                 class="w-full px-4 py-3 rounded-xl bg-white/70 border border-morandi-soft focus:outline-none focus:border-morandi-accent transition-colors"
                 placeholder="请输入用户名"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-morandi-text mb-2">当前密码</label>
+              <input
+                v-model="form.oldPassword"
+                type="password"
+                required
+                class="w-full px-4 py-3 rounded-xl bg-white/70 border border-morandi-soft focus:outline-none focus:border-morandi-accent transition-colors"
+                placeholder="为保护账号安全，需验证当前密码"
               />
             </div>
 
@@ -129,6 +140,7 @@ const successMsg = ref('')
 
 const form = ref({
   username: '',
+  oldPassword: '',
   newPassword: '',
   confirmPassword: ''
 })
@@ -137,6 +149,10 @@ const handleReset = async () => {
   error.value = ''
   successMsg.value = ''
 
+  if (!form.value.oldPassword) {
+    error.value = '请输入当前密码'
+    return
+  }
   if (form.value.newPassword !== form.value.confirmPassword) {
     error.value = '两次输入的密码不一致'
     return
@@ -150,6 +166,7 @@ const handleReset = async () => {
   try {
     const result: any = await api.auth.resetPassword({
       username: form.value.username,
+      oldPassword: form.value.oldPassword,
       newPassword: form.value.newPassword
     })
     successMsg.value = '密码重置成功，即将跳转登录页...'

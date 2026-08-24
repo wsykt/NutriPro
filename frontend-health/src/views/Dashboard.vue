@@ -154,9 +154,10 @@
     <main class="content-main">
       <div class="p-6 lg:p-8 min-h-screen relative">
         <div class="page-stage" :class="{ 'bubble-playing': bubbleAnimating }">
-          <router-view v-slot="{ Component }">
+          <router-view v-slot="{ Component, route: r }">
             <transition name="page-fade" mode="out-in">
-              <component :is="Component" />
+              <!-- key 绑定完整路径 + 操作身份：切换"替亲属操作"时强制重建子页面组件，按新身份重新拉取数据 -->
+              <component :is="Component" :key="r.fullPath + '|' + (userStore.actAsUserId ?? 'self')" />
             </transition>
           </router-view>
         </div>
@@ -202,8 +203,8 @@ const selectedActAs = computed({
       userStore.setActAs(null)
     } else {
       userStore.setActAs(val)
-      router.replace({ path: route.path, query: { ...(route.query || {}), _t: Date.now() } })
     }
+    // 不再用 _t 参数 hack：router-view key 已绑定操作身份，切换后组件自动重建并重新拉数据
   }
 })
 
@@ -227,7 +228,6 @@ const groups: MenuGroup[] = [
   { key: 'health', name: '健康监测', icon: HeartPulse, items: [
     { name: '健康报告', to: '/dashboard/health-report' },
     { name: '运动管理', to: '/dashboard/muscle-chart' },
-    { name: '附近地图', to: '/dashboard/gym' },
   ]},
   { key: 'knowledge', name: '知识中心', icon: BookOpen, items: [
     { name: '科普文章', to: '/dashboard/articles' },
@@ -245,9 +245,9 @@ function goGroup(g: { key: string }) {
   router.push({ path: '/dashboard/hub', query: { group: g.key } })
 }
 
-// 首页入口 → demo 首页（与 /dashboard 默认重定向保持一致）
+// 首页入口 → 首页（原 demo 路由，已更名 home）
 function goHub() {
-  router.push('/dashboard/demo')
+  router.push('/dashboard/home')
 }
 
 // 顶栏标题映射
@@ -256,7 +256,7 @@ const routeToTitleMap: Record<string, string> = {
   profile: '个人中心', 'metrics-history': '身体指标', 'health-history': '健康档案', 'family-relation': '亲属管理',
   'food-input': '饮食记录', 'food-add': '添加食材', nutrition: '营养分析',
   'food-search': '食物搜索', 'family-input': '亲属代录',
-  'health-report': '健康报告', 'muscle-chart': '运动管理', gym: '附近地图',
+  'health-report': '健康报告', 'muscle-chart': '运动管理',
   articles: '科普文章', 'article-detail': '文章详情', 'ai-consult': 'AI 咨询', 'training-plan': '训练计划',
   'recipe-library': '菜谱库', 'dietary-profile': '饮食档案', 'recipe-detail': '菜谱详情'
 }
@@ -271,7 +271,7 @@ const currentPageTitle = computed(() => {
 })
 
 const isHubActive = computed(() => {
-  return route.path === '/dashboard/demo'
+  return route.path === '/dashboard/home'
 })
 
 const isGroupActive = (groupKey: string) => {
@@ -312,6 +312,10 @@ function triggerBubble() {
   })
 }
 watch(() => route.fullPath, () => {
+  triggerBubble()
+})
+// 切换操作身份时也触发气泡动画（router-view key 重建组件的过渡动画之外的点缀效果）
+watch(() => userStore.actAsUserId, () => {
   triggerBubble()
 })
 </script>

@@ -299,6 +299,9 @@ const saveEdit = async () => {
   editModal.saving = true
   editModal.error = ''
   try {
+    if (editModal.foodId == null) {
+      throw new Error('缺少食物ID，无法保存')
+    }
     await api.admin.updateFood(editModal.foodId, {
       foodName: editForm.foodName.trim(),
       foodCategory: editForm.foodCategory || '',

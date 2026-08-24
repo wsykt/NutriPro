@@ -1,5 +1,5 @@
 <template>
-  <div :class="['dietary-profile', { 'elderly-mode': elderlyMode }]">
+  <div class="dietary-profile">
     <h1>我的饮食档案</h1>
     
     <div class="profile-form">
@@ -45,16 +45,6 @@
         </div>
       </div>
       
-      <div class="form-section">
-        <h2>老年人模式</h2>
-        <p class="section-desc">开启后界面将使用大字体和高对比度，更适合老年人使用</p>
-        <label class="toggle-label">
-          <input type="checkbox" v-model="form.elderlyMode" @change="toggleElderlyMode" />
-          <span class="toggle-switch"></span>
-          <span>{{ form.elderlyMode ? '已开启' : '已关闭' }}</span>
-        </label>
-      </div>
-      
       <div class="form-actions">
         <button class="save-btn" @click="saveProfile">保存饮食档案</button>
       </div>
@@ -70,18 +60,15 @@
 import { ref, onMounted, watch } from 'vue'
 import { api } from '@/api'
 import { Check } from 'lucide-vue-next'
-import { setCache } from '@/utils/storage'
 
 const form = ref({
   allergicFoods: '',
   dietaryRestrictions: '',
-  tastePreference: '清淡',
-  elderlyMode: 0
+  tastePreference: '清淡'
 })
 
 const selectedRestrictions = ref<string[]>([])
 
-const elderlyMode = ref(false)
 const saved = ref(false)
 
 const restrictionOptions = [
@@ -111,14 +98,10 @@ async function loadProfile() {
     form.value.allergicFoods = data.allergicFoods || ''
     form.value.dietaryRestrictions = data.dietaryRestrictions || ''
     form.value.tastePreference = data.tastePreference || '清淡'
-    form.value.elderlyMode = data.elderlyMode || 0
-    
+
     if (form.value.dietaryRestrictions) {
       selectedRestrictions.value = form.value.dietaryRestrictions.split(',').map(s => s.trim())
     }
-    
-    elderlyMode.value = form.value.elderlyMode === 1
-    setCache('elderlyMode', form.value.elderlyMode)
   } catch (e) {
     console.error('加载用户信息失败', e)
   }
@@ -128,21 +111,12 @@ watch(selectedRestrictions, (val) => {
   form.value.dietaryRestrictions = val.join(',')
 })
 
-function toggleElderlyMode() {
-  setCache('elderlyMode', form.value.elderlyMode)
-  elderlyMode.value = form.value.elderlyMode === 1
-  if (form.value.elderlyMode === 1) {
-    alert('老年人模式已开启，页面将使用大字体显示')
-  }
-}
-
 async function saveProfile() {
   try {
     await api.profile.updateDietary({
       allergicFoods: form.value.allergicFoods,
       dietaryRestrictions: form.value.dietaryRestrictions,
-      tastePreference: form.value.tastePreference,
-      elderlyMode: form.value.elderlyMode
+      tastePreference: form.value.tastePreference
     })
     saved.value = true
     setTimeout(() => {
@@ -160,10 +134,6 @@ async function saveProfile() {
   padding: 20px;
   max-width: 600px;
   margin: 0 auto;
-}
-
-.dietary-profile.elderly-mode {
-  font-size: 18px;
 }
 
 .dietary-profile h1 {
@@ -249,51 +219,6 @@ async function saveProfile() {
   color: #333;
 }
 
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  cursor: pointer;
-}
-
-.toggle-label input[type="checkbox"] {
-  display: none;
-}
-
-.toggle-switch {
-  width: 60px;
-  height: 32px;
-  background: #ccc;
-  border-radius: 16px;
-  position: relative;
-  transition: background 0.3s;
-}
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  background: white;
-  border-radius: 50%;
-  top: 2px;
-  left: 2px;
-  transition: left 0.3s;
-}
-
-.toggle-label input[type="checkbox"]:checked + .toggle-switch {
-  background: #2F5D4A;
-}
-
-.toggle-label input[type="checkbox"]:checked + .toggle-switch::after {
-  left: 30px;
-}
-
-.toggle-label span:last-child {
-  font-size: 16px;
-  color: #333;
-}
-
 .form-actions {
   margin-top: 30px;
 }
@@ -323,74 +248,5 @@ async function saveProfile() {
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-}
-
-.elderly-mode h1 {
-  font-size: 36px;
-}
-
-.elderly-mode .profile-form {
-  padding: 32px;
-}
-
-.elderly-mode .form-section h2 {
-  font-size: 28px;
-}
-
-.elderly-mode .section-desc {
-  font-size: 18px;
-}
-
-.elderly-mode .form-section input[type="text"] {
-  font-size: 20px;
-  padding: 16px 20px;
-}
-
-.elderly-mode .help-text {
-  font-size: 16px;
-}
-
-.elderly-mode .checkbox-item, .elderly-mode .radio-item {
-  padding: 16px;
-}
-
-.elderly-mode .checkbox-item input[type="checkbox"],
-.elderly-mode .radio-item input[type="radio"] {
-  width: 28px;
-  height: 28px;
-}
-
-.elderly-mode .checkbox-item span, .elderly-mode .radio-item span {
-  font-size: 18px;
-}
-
-.elderly-mode .toggle-switch {
-  width: 80px;
-  height: 44px;
-}
-
-.elderly-mode .toggle-switch::after {
-  width: 40px;
-  height: 40px;
-  top: 2px;
-  left: 2px;
-}
-
-.elderly-mode .toggle-label input[type="checkbox"]:checked + .toggle-switch::after {
-  left: 38px;
-}
-
-.elderly-mode .toggle-label span:last-child {
-  font-size: 20px;
-}
-
-.elderly-mode .save-btn {
-  font-size: 24px;
-  padding: 20px;
-}
-
-.elderly-mode .success-message {
-  font-size: 20px;
-  padding: 20px;
 }
 </style>

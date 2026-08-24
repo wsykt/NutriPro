@@ -281,18 +281,29 @@ const macroRows = computed(() => {
 
 const microRows = computed(() => {
   const total: any = analysis.value?.total || {}
+  const recs: any = analysis.value?.recommendations || {}
+  const statusMap: any = analysis.value?.status || {}
+  const warnings: any = analysis.value?.warnings || {}
   const items = [
     { key: 'dietFiber', name: '膳食纤维', unit: 'g' },
     { key: 'calcium', name: '钙', unit: 'mg' },
-    { key: 'dna', name: 'DHA', unit: 'mg' },
+    { key: 'dha', name: 'DHA', unit: 'mg' },
     { key: 'folicAcid', name: '叶酸', unit: 'μg' }
   ]
   return items.map((it) => {
     const grams = asNumber(total[it.key])
+    // 推荐范围来自后端 recommendations（按人群不同而不同），不再硬编码 0
+    const recMin = asNumber(recs[it.key + 'Min'])
+    const recMax = asNumber(recs[it.key + 'Max'])
+    const mid = (recMin + recMax) / 2 || 1
+    const ratioPct = Math.max(0, Math.round((grams / mid) * 100))
+    // 状态优先取后端 status 计算结果，兼容旧后端无 status 时按比例兜底
+    const status: string = statusMap[it.key] || (ratioPct < 80 ? 'low' : ratioPct > 120 ? 'high' : 'normal')
+    const tip = warnings[it.key] || ''
     return {
       name: it.name, grams, unit: it.unit,
-      recMin: 0, recMax: 0, ratioPct: 0, status: 'normal',
-      lowTip: '', highTip: ''
+      recMin, recMax, ratioPct, status,
+      lowTip: tip, highTip: tip
     }
   })
 })

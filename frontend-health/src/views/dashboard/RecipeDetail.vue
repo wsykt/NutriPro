@@ -1,5 +1,5 @@
 <template>
-  <div :class="['recipe-detail', { 'elderly-mode': elderlyMode }]">
+  <div class="recipe-detail">
     <button class="back-btn" @click="goBack">← 返回</button>
     
     <div v-if="recipe" class="recipe-content">
@@ -85,7 +85,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { api } from '@/api'
-import { getCache, getCurrentUserId } from '@/utils/storage'
+import { getCurrentUserId } from '@/utils/storage'
 import { AlertTriangle } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -94,14 +94,11 @@ const recipe = ref<any>(null)
 const ingredients = ref<any[]>([])
 const substitutions = ref<any[]>([])
 const appliedSubstitutions = ref<{ original: string; replaced: string }[]>([])
-const elderlyMode = ref(false)
 
 const recipeId = computed(() => parseInt(route.params.id as string))
 
 onMounted(() => {
   loadRecipeDetail()
-  const mode = getCache<number>('elderlyMode')
-  elderlyMode.value = mode === 1
 })
 
 async function loadRecipeDetail() {
@@ -140,10 +137,6 @@ function removeSubstitution(index: number) {
 <style scoped>
 .recipe-detail {
   padding: 20px;
-}
-
-.recipe-detail.elderly-mode {
-  font-size: 18px;
 }
 
 .back-btn {
@@ -350,58 +343,4 @@ function removeSubstitution(index: number) {
   color: #666;
 }
 
-.elderly-mode .back-btn {
-  font-size: 20px;
-  padding: 14px 28px;
-}
-
-.elderly-mode .recipe-title h1 {
-  font-size: 36px;
-}
-
-.elderly-mode .recipe-title p {
-  font-size: 18px;
-}
-
-.elderly-mode .nutrition-summary {
-  font-size: 18px;
-  gap: 25px;
-}
-
-.elderly-mode .tag {
-  font-size: 16px;
-  padding: 6px 12px;
-}
-
-.elderly-mode .section h2 {
-  font-size: 28px;
-}
-
-.elderly-mode .ingredients-table th, .elderly-mode .ingredients-table td {
-  font-size: 18px;
-  padding: 16px;
-}
-
-.elderly-mode .not-suitable, .elderly-mode .suitable {
-  font-size: 16px;
-  padding: 8px 12px;
-}
-
-.elderly-mode .substitution-card {
-  padding: 20px;
-}
-
-.elderly-mode .alt-btn {
-  font-size: 18px;
-  padding: 12px 24px;
-}
-
-.elderly-mode .applied-item {
-  font-size: 18px;
-}
-
-.elderly-mode .remove-btn {
-  font-size: 16px;
-  padding: 8px 16px;
-}
 </style>

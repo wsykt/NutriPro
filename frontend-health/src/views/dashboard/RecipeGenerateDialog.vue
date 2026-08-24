@@ -18,7 +18,7 @@
                 @click="closeGenerateDialog"
                 class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-morandi-soft text-morandi-lightText hover:text-morandi-text transition-colors text-lg"
               >
-                ✕
+                
               </button>
             </div>
 
@@ -64,8 +64,28 @@
               :disabled="!generatePrompt.trim() || isGenerating"
               class="w-full px-4 py-3 rounded-lg bg-morandi-accent text-white font-medium hover:opacity-90 hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {{ isGenerating ? '生成中...' : '生成食谱' }}
+              {{ isGenerating ? '生成中，请稍候...' : '生成食谱' }}
             </button>
+
+            <!-- 生成中 loading 反馈：云端生成通常需 30~60 秒，避免用户误以为卡死 -->
+            <div
+              v-if="isGenerating"
+              class="mt-4 p-4 rounded-xl bg-morandi-soft/40 border border-morandi-soft/60 flex items-center gap-3"
+            >
+              <div class="w-5 h-5 rounded-full border-2 border-morandi-accent border-t-transparent animate-spin shrink-0"></div>
+              <div class="text-sm text-morandi-lightText">
+                <p class="font-medium text-morandi-text">AI 正在生成食谱...</p>
+                <p class="text-xs mt-0.5">通常需要 30 秒~2 分钟，请保持页面打开，勿重复点击</p>
+              </div>
+            </div>
+
+            <!-- 错误提示 -->
+            <div
+              v-if="promptError && !isGenerating"
+              class="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600"
+            >
+              {{ promptError }}
+            </div>
 
             <div
               v-if="generatedRecipe"
@@ -236,9 +256,9 @@ const generateRecipe = async () => {
     if (result?.ingredients?.length > 0) {
       fetchIngredientDBInfo(result.ingredients.map((i: any) => i.ingredient_name))
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('生成食谱失败', e)
-    promptError.value = 'AI生成失败，请稍后重试'
+    promptError.value = e?.response?.data?.message || 'AI生成失败，请稍后重试'
   } finally {
     isGenerating.value = false
   }

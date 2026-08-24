@@ -37,7 +37,7 @@
               : 'bg-morandi-soft/60 text-morandi-text hover:bg-morandi-soft'
           ]"
         >
-          <span v-if="item.isUser" class="mr-1">👤</span>
+          <span v-if="item.isUser" class="mr-1"></span>
           {{ item.label }}
         </button>
         <span class="text-xs text-morandi-lightText ml-auto">
@@ -152,7 +152,7 @@
         >
           <!-- 推荐标签 -->
           <div v-if="opt.recommended" class="bg-morandi-accent text-white text-xs font-medium px-4 py-1.5 text-center">
-            ⭐ {{ opt.recommendedLabel }}
+             {{ opt.recommendedLabel }}
           </div>
 
           <div class="p-5">

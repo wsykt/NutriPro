@@ -225,7 +225,7 @@ public class DietService {
         totalMap.put("carb", totalCarb.setScale(1, BigDecimal.ROUND_HALF_UP));
         totalMap.put("dietFiber", totalDietFiber.setScale(1, BigDecimal.ROUND_HALF_UP));
         totalMap.put("calcium", totalCalcium.setScale(1, BigDecimal.ROUND_HALF_UP));
-        totalMap.put("dna", totalDha.setScale(1, BigDecimal.ROUND_HALF_UP));
+        totalMap.put("dha", totalDha.setScale(1, BigDecimal.ROUND_HALF_UP));
         totalMap.put("folicAcid", totalFolicAcid.setScale(1, BigDecimal.ROUND_HALF_UP));
         result.put("total", totalMap);
 

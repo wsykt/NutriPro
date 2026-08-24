@@ -132,7 +132,7 @@
 
               <div class="cropper-body">
                 <div v-if="!originImg" class="cropper-empty">
-                  <div class="cropper-empty-icon">🖼️</div>
+                  <div class="cropper-empty-icon"></div>
                   <div class="text-sm text-slate-500">正在加载图片...</div>
                 </div>
                 <VueCropper
@@ -156,7 +156,7 @@
               </div>
 
               <div class="cropper-tips">
-                <span>💡 提示：可拖动裁剪框位置（上下左右均可）、滚轮缩放图片，裁剪框已锁定 1:1 正方形</span>
+                <span> 提示：可拖动裁剪框位置（上下左右均可）、滚轮缩放图片，裁剪框已锁定 1:1 正方形</span>
               </div>
 
               <div class="cropper-footer">

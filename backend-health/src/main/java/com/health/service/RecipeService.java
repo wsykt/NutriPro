@@ -1224,10 +1224,27 @@ public class RecipeService {
         savedRecipe.setSteps(String.valueOf(recipeData.getOrDefault("steps", "")));
         savedRecipe.setNutritionSummary(String.valueOf(recipeData.getOrDefault("nutritionSummary", "")));
         savedRecipe.setPersonaTag(String.valueOf(recipeData.getOrDefault("personaTag", "")));
+        savedRecipe.setSource(String.valueOf(recipeData.getOrDefault("source", "")));
+        Object originalId = recipeData.get("originalRecipeId");
+        if (originalId instanceof Number) {
+            savedRecipe.setOriginalRecipeId(((Number) originalId).intValue());
+        } else if (originalId != null) {
+            try {
+                savedRecipe.setOriginalRecipeId(Integer.valueOf(String.valueOf(originalId)));
+            } catch (NumberFormatException ignore) {
+                // 非数字原ID，忽略
+            }
+        }
         return savedRecipeRepository.save(savedRecipe);
     }
 
-    public void deleteSavedRecipe(Integer userId, Integer savedId) {
-        savedRecipeRepository.deleteByIdAndUserId(savedId, userId);
+    @Transactional
+    public void deleteSavedRecipe(Integer userId, Integer id) {
+        // 优先按收藏记录主键删除；主键不存在时尝试按来源系统菜谱ID删除（兼容映射丢失/旧数据）
+        if (savedRecipeRepository.existsByIdAndUserId(id, userId)) {
+            savedRecipeRepository.deleteByIdAndUserId(id, userId);
+        } else {
+            savedRecipeRepository.deleteByUserIdAndOriginalRecipeId(userId, id);
+        }
     }
 }

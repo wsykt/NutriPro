@@ -16,10 +16,16 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+upload:
+  path: ./uploads
+  access-prefix: /uploads
+  max-size-mb: 10
+
 health:
   jwt:
-    # 默认密钥仅用于本地演示；生产必须通过 JWT_SECRET 环境变量覆盖
-    secret: ${JWT_SECRET:RkVCRUNBMDUyNzlDQjAzQkI0OUJBNjM4MjIxRjY3QUI=}
+    # 安全加固：不再内置默认密钥（已知默认密钥可伪造 token）。
+    # 生产必须通过 JWT_SECRET 环境变量指定固定密钥；未配置时 JwtUtil 启动自动生成随机密钥（重启后 token 失效）。
+    secret: ${JWT_SECRET:}
     # 过期时间（毫秒），可用 JWT_EXPIRATION 覆盖（默认 24h）
     expiration: ${JWT_EXPIRATION:86400000}
   rate-limit:

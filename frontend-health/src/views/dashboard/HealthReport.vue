@@ -63,7 +63,7 @@
               class="heat-cell"
               :class="c.checked ? 'lv1' : 'lv0'"
             >
-              <span v-if="c.checked">✓</span>
+              <span v-if="c.checked"></span>
             </button>
           </div>
           <div class="heat-dow">
@@ -241,7 +241,7 @@
           <div class="row"><span>身高</span><b>{{ userInfo.height || '--' }} cm</b></div>
           <div class="row"><span>体重</span><b>{{ userInfo.weight || '--' }} kg</b></div>
           <div class="row"><span>BMI</span><b>{{ bmi || '--' }}</b></div>
-          <div class="row"><span>基础代谢 BMR</span><b>{{ bmrData.bmr }} kcal</b></div>
+          <div class="row"><span>基础代谢 BMR</span><b>{{ bmrData.bmr || '--' }} kcal</b></div>
           <div class="row"><span>目标体重</span><b>{{ userInfo.targetWeight || '--' }} kg</b></div>
           <div class="row"><span>血压</span><b>{{ archive.bp }}</b></div>
           <div class="row"><span>血糖</span><b>{{ archive.bs }}</b></div>
@@ -268,7 +268,7 @@
             <span>目标 {{ goalData.target }} kg</span>
           </div>
           <div class="gb-foot">
-            已减 <b>{{ goalData.lost }} kg</b> · {{ goalData.left > 0 ? '还差 ' + goalData.left + ' kg' : '<span class="goal-hit">恭喜达成目标 🎉</span>' }}
+            已减 <b>{{ goalData.lost }} kg</b> · {{ goalData.left > 0 ? '还差 ' + goalData.left + ' kg' : '<span class="goal-hit">恭喜达成目标 </span>' }}
           </div>
         </div>
       </div>
@@ -355,9 +355,10 @@ function fmtDate(d: Date): string {
   return y + '-' + m + '-' + day
 }
 
-/* -------------------- 数据：真实 API + mock 兜底 -------------------- */
+/* -------------------- 数据：真实 API（无数据时显示 0 / --，不注入假数据） -------------------- */
 interface ReportShape {
   checkinSet: Set<string>
+  prevCheckin: number
   weights: Array<{ date: string; weight: number }>
   weightPred: Array<{ date: string; weight: number }>
   calories: number /* 日均 */
@@ -372,30 +373,32 @@ interface ReportShape {
 }
 const R = reactive<ReportShape>({
   checkinSet: new Set(),
+  prevCheckin: 0,
   weights: [],
   weightPred: [],
-  calories: 1617,
-  prevCalories: 1702,
+  calories: 0,
+  prevCalories: 0,
   nutrients: [
-    { name: '蛋白质', key: 'protein', unit: 'g', avg: 116, targetMin: 65, targetMax: 78 },
-    { name: '脂肪', key: 'fat', unit: 'g', avg: 68, targetMin: 52, targetMax: 65 },
-    { name: '碳水化合物', key: 'carb', unit: 'g', avg: 168, targetMin: 195, targetMax: 260 },
-    { name: '膳食纤维', key: 'dietFiber', unit: 'g', avg: 26, targetMin: 20, targetMax: 35 },
+    { name: '蛋白质', key: 'protein', unit: 'g', avg: 0, targetMin: 65, targetMax: 78 },
+    { name: '脂肪', key: 'fat', unit: 'g', avg: 0, targetMin: 52, targetMax: 65 },
+    { name: '碳水化合物', key: 'carb', unit: 'g', avg: 0, targetMin: 195, targetMax: 260 },
+    { name: '膳食纤维', key: 'dietFiber', unit: 'g', avg: 0, targetMin: 20, targetMax: 35 },
   ],
-  exercise: { days: 5, totalMin: 210, totalKcal: 1340, prevMin: 165 },
-  bmr: 1568,
-  startWeight: 72,
-  targetWeight: 60,
+  exercise: { days: 0, totalMin: 0, totalKcal: 0, prevMin: 0 },
+  bmr: 0,
+  startWeight: 0,
+  targetWeight: 0,
   advice: [],
 })
 
-/* 计算 BMR（和后端公式保持一致） */
+/* 计算 BMR（和后端公式保持一致；缺体重/身高时返回 0，前端显示 --） */
 function calcBmr(u: any): number {
-  const w = Number(u.weight) || 65
-  const h = Number(u.height) || 170
-  const a = Number(u.age) || 30
+  const w = Number(u.weight)
+  const h = Number(u.height)
+  const a = Number(u.age)
+  if (!w || !h) return 0
   const g = (u.gender || '男')
-  return Math.round(g === '女' ? 10 * w + 6.25 * h - 5 * a - 161 : 10 * w + 6.25 * h - 5 * a + 5)
+  return Math.round(g === '女' ? 10 * w + 6.25 * h - 5 * (a || 0) - 161 : 10 * w + 6.25 * h - 5 * (a || 0) + 5)
 }
 
 const reportCache = useReportCache<any>('health-report-v5')
@@ -432,17 +435,19 @@ async function fetchReport() {
   exDates.forEach(d => checkinSet.add(d))
   R.checkinSet = checkinSet
 
+  /* 上周/上月打卡天数（真实数据，非估算） */
+  const prevCheckinSet = new Set<string>()
+  prevAnalyses.forEach((a, idx) => {
+    if (a && a.total && (a.total.calorie || a.totalCalories || 0) > 0) prevCheckinSet.add(prevDates[idx])
+  })
+  R.prevCheckin = prevCheckinSet.size
+
   /* ---- 体重历史 ---- */
   const sortedWeights = (metricsList || [])
     .filter((m: any) => Number(m.weight) > 0)
     .map((m: any) => ({ date: String(m.recordDate || '').slice(0, 10), weight: Number(m.weight) }))
     .sort((a, b) => a.date.localeCompare(b.date))
-  if (sortedWeights.length === 0) {
-    const base = Number(userInfo.value.weight) || 69.8
-    R.weights = dates.slice(0, 7).map((d, i) => ({ date: d, weight: +(base - i * 0.12).toFixed(1) }))
-  } else {
-    R.weights = sortedWeights
-  }
+  R.weights = sortedWeights
 
   /* ---- 预测体重 ---- */
   if (predictRes && Array.isArray((predictRes as any).predictions) && (predictRes as any).predictions.length) {
@@ -480,11 +485,10 @@ async function fetchReport() {
   const exDays = exDates.size
   const totalMin = exerciseRecords.reduce((s: number, r: any) => s + (Number(r.durationMin) || 0), 0)
   const totalKcal = exerciseRecords.reduce((s: number, r: any) => s + (Number(r.caloriesBurned) || 0), 0)
-    || (exDays > 0 ? Math.round(268 * exDays) : 1340)
-  const prevMin = prevExerciseRecords.reduce((s: number, r: any) => s + (Number(r.durationMin) || 0), 0) || R.exercise.prevMin
+  const prevMin = prevExerciseRecords.reduce((s: number, r: any) => s + (Number(r.durationMin) || 0), 0)
   R.exercise = {
-    days: exDays || 5,
-    totalMin: totalMin || 210,
+    days: exDays,
+    totalMin,
     totalKcal,
     prevMin,
   }
@@ -493,13 +497,13 @@ async function fetchReport() {
   R.bmr = calcBmr(userInfo.value)
 
   /* ---- 目标体重 ---- */
-  const tw = Number((userInfo.value as any).targetWeight) || 60
-  R.targetWeight = tw
-  R.startWeight = R.weights.length > 0 ? Math.max(...R.weights.map(w => w.weight), tw) + 2 : 72
+  const tw = Number((userInfo.value as any).targetWeight)
+  R.targetWeight = tw || 0
+  R.startWeight = R.weights.length > 0 ? Math.max(...R.weights.map(w => w.weight)) : 0
 
   /* ---- 文章推荐：按营养问题匹配，兜底用人群类型 ---- */
-  const overList = R.nutrients.filter(n => n.avg / n.targetMax > 1.05)
-  const lowList = R.nutrients.filter(n => n.avg / n.targetMin < 0.85)
+  const overList = R.nutrients.filter(n => n.avg > 0 && n.avg / n.targetMax > 1.05)
+  const lowList = R.nutrients.filter(n => n.avg > 0 && n.avg / n.targetMin < 0.85)
   const keyword = (overList[0] || lowList[0])?.name
   let matched = (articlesList?.list || articlesList || []).find((a: any) =>
     keyword && (String(a.title || '').includes(keyword) || String(a.summary || '').includes(keyword) || String(a.topic || '').includes(keyword))
@@ -694,8 +698,9 @@ const splitX = computed(() => {
 
 const yLabels = computed(() => {
   const allW = [...R.weights.map(w => w.weight), ...R.weightPred.map(w => w.weight)]
-  const minW = allW.length ? Math.min(...allW) : 68
-  const maxW = allW.length ? Math.max(...allW) : 71
+  if (!allW.length) return []
+  const minW = Math.min(...allW)
+  const maxW = Math.max(...allW)
   const span = Math.max(1, +(maxW - minW).toFixed(1))
   const pad = span * 0.25
   const yMin = minW - pad, yMax = maxW + pad
@@ -751,20 +756,22 @@ function buildWeightDots(arr: { date: string; weight: number }[], _isPred: boole
 /* BMR */
 const bmrData = computed(() => {
   const avg = R.calories
-  const bmr = R.bmr || 1568
-  const ratio = Math.round(avg / bmr * 100)
+  const bmr = R.bmr
+  const ratio = bmr > 0 && avg > 0 ? Math.round(avg / bmr * 100) : 0
   let statusClass = 'ok', statusText = '摄入均衡'
-  if (ratio > 110) { statusClass = 'over'; statusText = '摄入偏高' }
+  if (!bmr || !avg) { statusClass = 'none'; statusText = '暂无记录' }
+  else if (ratio > 110) { statusClass = 'over'; statusText = '摄入偏高' }
   else if (ratio < 90) { statusClass = 'low'; statusText = '摄入偏低' }
   return { avgKcal: avg, bmr, ratio, statusClass, statusText }
 })
 
-/* 营养素列表（含等级） */
+/* 营养素列表（含等级；avg=0 视为未记录，不判偏低/超标） */
 const nutriList = computed(() => R.nutrients.map(n => {
   const target = Math.round((n.targetMin + n.targetMax) / 2)
-  const pct = target > 0 ? Math.round(n.avg / target * 100) : 100
-  let level: 'over' | 'low' | 'ok' = 'ok', statusText = `达标 ${pct}%`
-  if (n.avg / n.targetMax > 1.05) { level = 'over'; statusText = `超标 ${Math.round(n.avg / n.targetMax * 100)}%` }
+  const pct = target > 0 && n.avg > 0 ? Math.round(n.avg / target * 100) : 0
+  let level: 'over' | 'low' | 'ok' | 'none' = 'ok', statusText = `达标 ${pct}%`
+  if (n.avg <= 0) { level = 'none'; statusText = '未记录' }
+  else if (n.avg / n.targetMax > 1.05) { level = 'over'; statusText = `超标 ${Math.round(n.avg / n.targetMax * 100)}%` }
   else if (n.avg / n.targetMin < 0.85) { level = 'low'; statusText = `偏低 ${pct}%` }
   return { ...n, target, pct, level, statusText }
 }))
@@ -800,7 +807,12 @@ const warnBars = computed(() => {
   if (bars.length === 0 && bmrData.value.statusClass === 'over') {
     bars.push({ type: 'hot', icon: AlertTriangle, text: '总热量摄入高于 BMR 110%，建议减少高热量密度食物或增加运动量' })
   }
-  if (bars.length === 0) bars.push({ type: 'ok', icon: CheckCircle, text: '当前营养结构合理，继续保持均衡饮食' })
+  const hasRecord = nutriList.value.some(n => n.avg > 0) || R.calories > 0
+  if (bars.length === 0) {
+    bars.push(hasRecord
+      ? { type: 'ok', icon: CheckCircle, text: '当前营养结构合理，继续保持均衡饮食' }
+      : { type: 'info', icon: Info, text: '暂无饮食记录，完成打卡后这里会给出营养分析' })
+  }
   return bars
 })
 
@@ -808,29 +820,20 @@ const articleRec = computed(() => R.articleRec)
 
 /* 目标进度 */
 const goalData = computed(() => {
-  const start = R.startWeight || Number(userInfo.value.weight) || 72
-  const current = R.weights.length ? R.weights[R.weights.length - 1].weight : Number(userInfo.value.weight) || 69
-  const target = R.targetWeight || 60
+  const start = R.startWeight || Number(userInfo.value.weight) || 0
+  const current = R.weights.length ? R.weights[R.weights.length - 1].weight : Number(userInfo.value.weight) || 0
+  const target = R.targetWeight || 0
   const totalSpan = start - target
   const lost = Math.max(0, +(start - current).toFixed(1))
-  const left = Math.max(0, +(current - target).toFixed(1))
-  const progressPct = totalSpan > 0 ? Math.max(0, Math.min(100, Math.round(lost / totalSpan * 100))) : 0
+  const left = target > 0 ? Math.max(0, +(current - target).toFixed(1)) : 0
+  const progressPct = target > 0 && totalSpan > 0 ? Math.max(0, Math.min(100, Math.round(lost / totalSpan * 100))) : 0
   return { start, current: +current.toFixed(1), target, lost, left, progressPct }
 })
 
 /* vs 行 */
 const vsData = computed(() => {
   const curCheckin = R.checkinSet.size
-  const d = reportType.value === 'weekly' ? 7 : 30
-  const today = new Date()
-  const prevSet = new Set<string>()
-  for (let i = d * 2 - 1; i >= d; i--) {
-    const dd = new Date(today); dd.setDate(today.getDate() - i)
-    const ds = fmtDate(dd)
-    /* 简化：按 mock 比例估算上周 */
-    if (Math.random() > 0.4) prevSet.add(ds)
-  }
-  const prevCheckin = Math.max(0, Math.min(d, Math.round(curCheckin * 0.7)))
+  const prevCheckin = R.prevCheckin
   return {
     checkin: { cur: curCheckin, prev: prevCheckin, diff: curCheckin - prevCheckin },
     cal: { cur: R.calories, prev: R.prevCalories, diff: R.calories - R.prevCalories },

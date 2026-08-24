@@ -18,7 +18,7 @@
                 @click="emit('update:modelValue', false)"
                 class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-morandi-soft text-morandi-lightText hover:text-morandi-text transition-colors text-lg"
               >
-                ✕
+                
               </button>
             </div>
             <p class="text-morandi-lightText mb-6">{{ localRecipe?.description }}</p>
@@ -165,14 +165,14 @@
             <!-- 食物数据库基替换建议（高脂/高GI/高热量） -->
             <div v-if="localRecipe?.foodDbSubstitutions?.length > 0" class="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200">
               <h4 class="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                <span>🔬</span> 营养优化建议
+                <span></span> 营养优化建议
               </h4>
               <div v-for="sub in localRecipe.foodDbSubstitutions" :key="sub.ingredientName"
                 class="mb-3 p-3 rounded-lg bg-white/60 border border-blue-100 last:mb-0"
               >
                 <div class="flex items-center gap-2 text-sm mb-2">
                   <span class="text-blue-700 font-medium">{{ sub.ingredientName }}</span>
-                  <span class="text-red-500 text-xs">⚠ {{ (sub.concerns || []).join('、') }}</span>
+                  <span class="text-red-500 text-xs"> {{ (sub.concerns || []).join('、') }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1.5">
                   <span class="text-xs text-gray-500 mr-1">推荐替代：</span>

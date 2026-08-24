@@ -85,17 +85,20 @@ public class ArticleController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Article> createArticle(@RequestBody Article article) {
         return ResponseEntity.ok(articleService.createArticle(article));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Article> updateArticle(@PathVariable Integer id, @RequestBody Article article) {
         Article updated = articleService.updateArticle(id, article);
         return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteArticle(@PathVariable Integer id) {
         articleService.deleteArticle(id);
         return ResponseEntity.ok().build();
@@ -112,6 +115,7 @@ public class ArticleController {
      * 返回三篇文章和质量评分。
      */
     @PostMapping("/generate")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateArticle(@RequestBody Map<String, String> request) {
         String topic = request.get("topic");
         String persona = request.get("persona");
@@ -142,6 +146,7 @@ public class ArticleController {
      * 请求体：{"motherDraft": "母稿全文", "topic": "孕妇叶酸补充", "persona": "孕妇"}
      */
     @PostMapping("/import-mother")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> importMotherDraft(@RequestBody Map<String, String> request) {
         String motherDraft = request != null ? request.get("motherDraft") : null;
         String topic = request != null ? request.get("topic") : null;
@@ -202,6 +207,7 @@ public class ArticleController {
      * 闭环流程：AI分析 → 识别问题 → 生成建议 → 存储结果 → 管理员审核 → 应用优化 → 持续迭代
      */
     @PostMapping("/regenerate-with-correction/{articleId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> regenerateWithCorrection(@PathVariable Integer articleId) {
         try {
             Map<String, Object> result = articleService.regenerateWithCorrection(articleId);
@@ -219,6 +225,7 @@ public class ArticleController {
      * 支持提交官方文档、科研文章等权威资料。
      */
     @PostMapping("/knowledge/ingest")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> ingestKnowledgeDocument(@RequestBody Map<String, Object> body) {
         String content = body != null ? String.valueOf(body.getOrDefault("content", "")) : "";
         String source = body != null ? String.valueOf(body.getOrDefault("source", "手动提交")) : "手动提交";
@@ -345,6 +352,7 @@ public class ArticleController {
      * - mode=hybrid：混合架构模式（方案C），调用 /generate-hybrid
      */
     @PostMapping("/generate-hybrid")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateHybrid(@RequestBody Map<String, Object> body) {
         String topic = body != null ? String.valueOf(body.getOrDefault("topic", "")).trim() : "";
         String persona = body != null ? String.valueOf(body.getOrDefault("target_crowd", "普通人群")).trim() : "普通人群";
@@ -375,6 +383,7 @@ public class ArticleController {
      * mode 可选值：rag（方案A，默认）/ hybrid（方案C）
      */
     @PostMapping("/generate-smart")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateSmart(@RequestBody Map<String, Object> body) {
         String topic = body != null ? String.valueOf(body.getOrDefault("topic", "")).trim() : "";
         String persona = body != null ? String.valueOf(body.getOrDefault("target_crowd", "普通人群")).trim() : "普通人群";
@@ -410,6 +419,7 @@ public class ArticleController {
      * 请求体：{"topic": "补钙", "persona": "老年人"}
      */
     @PostMapping("/generate-async")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateArticleAsync(@RequestBody Map<String, String> request) {
         String topic = request != null ? request.get("topic") : null;
         String persona = request != null ? request.get("persona") : null;
@@ -438,6 +448,7 @@ public class ArticleController {
      * 请求体：{"topic": "补钙", "target_crowd": "老年人"}
      */
     @PostMapping("/generate-hybrid-async")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateHybridAsync(@RequestBody Map<String, Object> body) {
         String topic = body != null ? String.valueOf(body.getOrDefault("topic", "")).trim() : "";
         String persona = body != null ? String.valueOf(body.getOrDefault("target_crowd", "普通人群")).trim() : "普通人群";
@@ -463,6 +474,7 @@ public class ArticleController {
      * 异步自纠错重新生成：立即返回 taskId。
      */
     @PostMapping("/regenerate-async/{articleId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> regenerateAsync(@PathVariable Integer articleId) {
         String taskId = asyncArticleTaskService.submitRegenerate(articleId);
         Map<String, Object> resp = new LinkedHashMap<String, Object>();

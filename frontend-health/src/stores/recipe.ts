@@ -8,7 +8,8 @@ export const useRecipeStore = defineStore('recipe', {
   state: () => ({
     recipes: [] as any[],
     selectedRecipe: null as any | null,
-    favorites: [] as number[] // 收藏的菜谱ID集合
+    favorites: [] as number[], // 收藏的展示ID集合（系统菜谱ID 或 收藏记录主键）
+    savedMap: {} as Record<string, number> // 展示ID → 收藏记录主键(saved_recipe.id)，用于取消收藏时精确定位
   }),
   actions: {
     async fetchRecipes() {
@@ -63,10 +64,14 @@ export const useRecipeStore = defineStore('recipe', {
       const { api } = await import('../api')
       try {
         if (isFav) {
-          await api.recipe.deleteSaved(id)
+          // 取消收藏：优先用"系统菜谱ID → 收藏记录主键"映射精确定位，
+          // 映射丢失时后端也会按来源系统菜谱ID兜底删除，避免删错别的收藏
+          const savedId = this.savedMap[String(id)] ?? id
+          await api.recipe.deleteSaved(savedId)
           this.favorites = this.favorites.filter(fid => fid !== id)
+          delete this.savedMap[String(id)]
         } else {
-          await api.recipe.save({
+          const saved: any = await api.recipe.save({
             title: recipe.name || recipe.recipeName || '',
             steps: JSON.stringify(recipe.steps || []),
             ingredients: JSON.stringify(recipe.ingredients || recipe.recipeIngredients || []),
@@ -78,9 +83,14 @@ export const useRecipeStore = defineStore('recipe', {
               fiber: recipe.fiber ?? 0,
               tags: recipe.tags || []
             }),
-            source: 'system'
+            source: 'system',
+            // 记录来源系统菜谱ID，取消收藏时精确删除，避免用系统ID误删其他收藏
+            originalRecipeId: id
           })
           this.favorites = [...this.favorites, id]
+          if (saved?.id != null) {
+            this.savedMap[String(id)] = saved.id
+          }
         }
         // 清除收藏缓存
         removeCache(CACHE_KEY_FAVORITES)
@@ -97,14 +107,23 @@ export const useRecipeStore = defineStore('recipe', {
       const { api } = await import('../api')
       try {
         const data: any = await api.recipe.mySaved()
-        const ids = (Array.isArray(data) ? data : [])
-          .map((r: any) => r.recipeId ?? r.id ?? r.originalId)
-          .filter((id: any) => id != null)
+        const ids: number[] = []
+        const map: Record<string, number> = {}
+        ;(Array.isArray(data) ? data : []).forEach((r: any) => {
+          // 收藏记录主键（AI生成/无原ID时作为展示ID）
+          const pk = r.id
+          // 系统菜谱：展示ID用原菜谱ID，并记录 pk 映射；否则用收藏主键
+          const displayId = r.originalRecipeId ?? pk
+          if (pk != null) map[String(displayId)] = pk
+          if (displayId != null) ids.push(displayId)
+        })
         this.favorites = ids
+        this.savedMap = map
         setCache(CACHE_KEY_FAVORITES, ids, 10)
       } catch (e) {
         console.warn('获取收藏菜谱失败', e)
         this.favorites = []
+        this.savedMap = {}
       }
     },
     async searchRecipes(keyword: string) {

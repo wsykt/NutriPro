@@ -50,6 +50,9 @@ public class User {
     @Column(name = "elderly_mode", columnDefinition = "INTEGER DEFAULT 0 CHECK(elderly_mode IN (0, 1))")
     private Integer elderlyMode = 0;
 
+    @Column(name = "avatar")
+    private String avatar;
+
     public User() {}
 
     public User(String username, String password) {
@@ -85,4 +88,6 @@ public class User {
     public void setTastePreference(String tastePreference) { this.tastePreference = tastePreference; }
     public Integer getElderlyMode() { return elderlyMode; }
     public void setElderlyMode(Integer elderlyMode) { this.elderlyMode = elderlyMode; }
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
 }

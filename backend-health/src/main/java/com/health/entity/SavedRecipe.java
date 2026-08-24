@@ -29,6 +29,14 @@ public class SavedRecipe {
     @Column(name = "persona_tag")
     private String personaTag;
 
+    /** 收藏来源：system=系统菜谱，generated=AI生成 */
+    @Column(name = "source")
+    private String source;
+
+    /** 来源系统菜谱ID（收藏系统菜谱时记录，用于取消收藏时精确删除；AI生成菜谱为空） */
+    @Column(name = "original_recipe_id")
+    private Integer originalRecipeId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -48,6 +56,10 @@ public class SavedRecipe {
     public void setNutritionSummary(String nutritionSummary) { this.nutritionSummary = nutritionSummary; }
     public String getPersonaTag() { return personaTag; }
     public void setPersonaTag(String personaTag) { this.personaTag = personaTag; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public Integer getOriginalRecipeId() { return originalRecipeId; }
+    public void setOriginalRecipeId(Integer originalRecipeId) { this.originalRecipeId = originalRecipeId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

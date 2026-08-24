@@ -19,7 +19,7 @@
         <!-- 左侧介绍 -->
         <div class="hidden md:block md:sticky md:top-28">
           <h1 class="text-4xl font-bold leading-tight mb-6">
-            开始你的健康之旅 ✨<br />
+            开始你的健康之旅 <br />
             <span class="text-morandi-accent">创建你的专属账号</span>
           </h1>
           <p class="text-morandi-lightText leading-relaxed mb-8 text-base">
@@ -28,21 +28,21 @@
 
           <div class="space-y-4">
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">🍎</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl"></div>
               <div>
                 <h3 class="font-semibold mb-1">膳食营养记录</h3>
                 <p class="text-sm text-morandi-lightText">支持上百种食物的热量与营养计算</p>
               </div>
             </div>
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">🏃</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl"></div>
               <div>
                 <h3 class="font-semibold mb-1">多样化人群适配</h3>
                 <p class="text-sm text-morandi-lightText">青少年、老年人、孕妇等人群均可使用，记录个性化数据</p>
               </div>
             </div>
             <div class="glass rounded-2xl p-5 flex items-start gap-4">
-              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl">🧘</div>
+              <div class="w-10 h-10 rounded-xl bg-morandi-accent/15 text-morandi-accent flex items-center justify-center text-xl"></div>
               <div>
                 <h3 class="font-semibold mb-1">个性化健康方案</h3>
                 <p class="text-sm text-morandi-lightText">基于你的身高体重与人群类型</p>
@@ -54,7 +54,7 @@
         <!-- 右侧注册表单 -->
         <div class="glass rounded-2xl p-8 md:p-10 shadow-lg w-full max-w-lg mx-auto">
           <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-morandi-accent/15 text-morandi-accent text-2xl mb-4">🌱</div>
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-morandi-accent/15 text-morandi-accent text-2xl mb-4"></div>
             <h1 class="text-2xl font-bold text-morandi-text mb-2">创建新账号</h1>
             <p class="text-sm text-morandi-lightText">完善以下信息，立即开启你的健康管理</p>
           </div>

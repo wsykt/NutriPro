@@ -493,32 +493,33 @@ function extractToc() {
   toc.value = items
 }
 
-// ===== 滚动跟随目录 =====
-let observer: IntersectionObserver | null = null
+// ===== 滚动跟随目录（scroll-spy：取最后一个越过阈值的标题为当前区块） =====
+let spyCleanup: (() => void) | null = null
 function setupObserver() {
-  if (observer) observer.disconnect()
-  observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        const id = (e.target as HTMLElement).id
-        if (id) activeId.value = id
+  if (spyCleanup) spyCleanup()
+  const pick = () => {
+    const heads: HTMLElement[] = []
+    contentCards.value.forEach(c => {
+      if (c.h2Id) {
+        const el = document.getElementById(c.h2Id)
+        if (el) heads.push(el)
       }
     })
-  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 })
-
-  nextTick(() => {
-    // Observe all h2 (card divs) and h3 elements
-    contentCards.value.forEach(card => {
-      if (card.h2Id) {
-        const el = document.getElementById(card.h2Id)
-        if (el) observer!.observe(el)
-      }
-    })
-    const h3s = contentRef.value?.querySelectorAll('.card-body h3[id]')
-    h3s?.forEach(h => {
-      observer!.observe(h)
-    })
-  })
+    contentRef.value?.querySelectorAll('.card-body h3[id]').forEach(h => heads.push(h as HTMLElement))
+    let current = ''
+    for (const el of heads) {
+      if (el.getBoundingClientRect().top <= 140) current = el.id // 最后一个越过阈值者 = 正在阅读区块
+    }
+    if (current) activeId.value = current
+  }
+  const onScroll = () => pick()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll, { passive: true })
+  spyCleanup = () => {
+    window.removeEventListener('scroll', onScroll)
+    window.removeEventListener('resize', onScroll)
+  }
+  nextTick(pick)
 }
 
 // ===== 术语事件绑定 =====
@@ -555,7 +556,7 @@ function bindCiteEvents() {
   })
 }
 
-onUnmounted(() => observer?.disconnect())
+onUnmounted(() => spyCleanup?.())
 
 // ===== 导航 =====
 function switchLen(len: LengthType) {

@@ -69,6 +69,18 @@ public class AiChatClientService {
      * @param errorLabel   错误前缀（如「语音解析」）
      */
     public Map<String, Object> postForMap(String path, Map<String, Object> requestBody, String errorLabel) {
+        return postForMap(path, requestBody, errorLabel, false);
+    }
+
+    /**
+     * 长耗时版 postForMap：运动建议等需本地 Ollama 推理的功能使用 300s 长超时模板，
+     * 避免 30s socket 超时导致本地 LLM 生成中途断开。
+     */
+    public Map<String, Object> postForMapLong(String path, Map<String, Object> requestBody, String errorLabel) {
+        return postForMap(path, requestBody, errorLabel, true);
+    }
+
+    private Map<String, Object> postForMap(String path, Map<String, Object> requestBody, String errorLabel, boolean useLongTimeout) {
         if (circuitBreaker.isOpen()) {
             log.warn("AI服务熔断保护中，跳过{}调用", errorLabel);
             Map<String, Object> errorMap = new LinkedHashMap<>();
@@ -81,7 +93,7 @@ public class AiChatClientService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<String> response = (useLongTimeout ? restTemplateLong : restTemplate).postForEntity(
                     restClientConfig.getAiBaseUrl() + path, entity, String.class);
 
             if (response.getBody() == null) {
@@ -122,7 +134,7 @@ public class AiChatClientService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            // 母稿生成属长文本任务，使用 120s 长超时模板（本地 Ollama 生成长文耗时超过 30s）
+            // 母稿生成属长文本任务，使用 300s 长超时模板（本地 Ollama 生成长文可能超过 30s）
             ResponseEntity<String> response = restTemplateLong.postForEntity(
                     restClientConfig.getAiBaseUrl() + "/chat", entity, String.class);
 
@@ -189,7 +201,7 @@ public class AiChatClientService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            // B方案含本地 Ollama 推理（Stage1 框架 + Stage3 校验），耗时较长，使用 120s 长超时模板
+            // B方案含本地 Ollama 推理（Stage1 框架 + Stage3 校验），耗时较长，使用 300s 长超时模板
             ResponseEntity<String> response = restTemplateLong.postForEntity(
                     restClientConfig.getAiBaseUrl() + "/articles/mother-draft", entity, String.class);
 
@@ -240,7 +252,8 @@ public class AiChatClientService {
 
             HttpEntity<String> entity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            // 食谱生成走云端 Agent 编排，实测约 47s，必须用 300s 长超时模板，否则 30s 即超时并误触发熔断
+            ResponseEntity<String> response = restTemplateLong.postForEntity(
                     restClientConfig.getAiBaseUrl() + "/chat", entity, String.class);
 
             if (response.getBody() == null) {

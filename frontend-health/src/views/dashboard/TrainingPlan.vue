@@ -293,7 +293,7 @@
             </div>
             <ul class="space-y-2">
               <li v-for="(tip, i) in currentExercise.tips" :key="i" class="flex gap-2 text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded-lg">
-                <span class="text-amber-500 shrink-0">⚠</span>
+                <span class="text-amber-500 shrink-0"></span>
                 <span>{{ tip }}</span>
               </li>
             </ul>
@@ -485,7 +485,7 @@ function localGenerate(question: string): string {
   const stats = weekStats.value
   const recent = stats.recent
   if (recent.length === 0) {
-    return `⚠ 后端 AI 暂时不可用，以下是本地建议：
+    return ` 后端 AI 暂时不可用，以下是本地建议：
 
 你近 7 日还没有训练记录。建议从基础动作开始：
 • 胸部：卧推 3组×8-12次
@@ -503,18 +503,18 @@ function localGenerate(question: string): string {
     if (!trained.has(g)) weakGroups.push(g)
   })
 
-  let advice = `⚠ 后端 AI 暂时不可用，以下是基于你训练数据的本地分析：\n\n`
-  advice += `📊 近 7 日训练概况：\n`
+  let advice = ` 后端 AI 暂时不可用，以下是基于你训练数据的本地分析：\n\n`
+  advice += ` 近 7 日训练概况：\n`
   advice += `• 训练 ${stats.count} 次，共 ${stats.duration} 分钟，消耗 ${stats.calories} kcal\n`
   advice += `• 总组数 ${stats.sets} 组\n`
   advice += `• 训练部位：${stats.byGroup.map(g => `${g.name}(${g.count})`).join('、')}\n\n`
 
   if (weakGroups.length > 0) {
-    advice += `⚠ 训练不足的部位：${weakGroups.join('、')}\n`
+    advice += ` 训练不足的部位：${weakGroups.join('、')}\n`
     advice += `建议下周增加这些部位的训练。\n\n`
   }
 
-  advice += `💡 调整建议：\n`
+  advice += ` 调整建议：\n`
   if (/增肌|肌肉|力量/.test(question)) {
     advice += `• 增肌期建议每个部位每周训练 2 次\n`
     advice += `• 复合动作优先：深蹲、硬拉、卧推、引体向上\n`

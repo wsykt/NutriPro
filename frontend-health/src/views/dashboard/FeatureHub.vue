@@ -162,7 +162,7 @@ import { api } from '@/api'
 import {
   User, Users, Activity, FileText, UsersRound,
   Utensils, PlusCircle, PieChart, Search,
-  HeartPulse, BarChart3, MapPin, Dumbbell,
+  HeartPulse, BarChart3, Dumbbell,
   BookOpen, Newspaper, MessageCircle, ClipboardList, ChefHat,
   Flame, Scale, LayoutGrid, ArrowRight
 } from 'lucide-vue-next'
@@ -248,10 +248,9 @@ const allGroups = [
     { to: '/dashboard/food-add', icon: PlusCircle, name: '添加食材', desc: '录入新食材到库' },
     { to: '/dashboard/family-input', icon: Users, name: '亲属代录', desc: '替家人记录饮食' },
   ]},
-  { key: 'health', title: '健康监测', desc: '报告、运动与周边', icon: HeartPulse, items: [
+  { key: 'health', title: '健康监测', desc: '报告与运动', icon: HeartPulse, items: [
     { to: '/dashboard/health-report', icon: BarChart3, name: '健康报告', desc: '周报/月报健康回顾' },
     { to: '/dashboard/muscle-chart', icon: Dumbbell, name: '运动管理', desc: '训练记录与围度变化' },
-    { to: '/dashboard/gym', icon: MapPin, name: '附近地图', desc: '发现周边健身场所' },
   ]},
   { key: 'knowledge', title: '知识中心', desc: '科普与智能助手', icon: BookOpen, items: [
     { to: '/dashboard/articles', icon: Newspaper, name: '科普文章', desc: '循证营养学主题阅读' },

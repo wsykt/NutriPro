@@ -8,7 +8,7 @@
         class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-morandi-lightText hover:text-red-500 transition-colors text-sm"
         title="删除"
       >
-        🗑
+        
       </button>
     </div>
     <p class="text-sm text-morandi-lightText mb-4 line-clamp-2">{{ recipe.description }}</p>

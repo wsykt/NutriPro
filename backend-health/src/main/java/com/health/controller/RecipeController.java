@@ -6,6 +6,7 @@ import com.health.entity.RecipeIngredient;
 import com.health.service.RecipeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -53,6 +54,7 @@ public class RecipeController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Recipe>> createRecipe(
             @RequestBody Map<String, Object> body) {
         Recipe recipe = new Recipe();
@@ -76,6 +78,7 @@ public class RecipeController {
     }
 
     @PutMapping("/{recipeId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Recipe>> updateRecipe(
             @PathVariable Integer recipeId,
             @RequestBody Map<String, Object> body) {
@@ -103,6 +106,7 @@ public class RecipeController {
     }
 
     @DeleteMapping("/{recipeId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteRecipe(@PathVariable Integer recipeId) {
         recipeService.deleteRecipe(recipeId);
         return ResponseEntity.ok(ApiResponse.success(null));

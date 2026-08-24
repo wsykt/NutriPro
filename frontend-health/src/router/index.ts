@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 import { getToken, setToken, setCurrentUserId } from '@/utils/storage'
+import { useUserStore } from '@/stores/user'
 import Home from '@/views/Home.vue'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
@@ -18,10 +19,12 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Dashboard',
     component: Dashboard,
     meta: { requiresAuth: true },
-    redirect: '/dashboard/demo',
+    redirect: '/dashboard/home',
     children: [
       { path: 'hub', component: () => import('@/views/dashboard/FeatureHub.vue') },
-      { path: 'demo', component: () => import('@/views/dashboard/DashboardDemo.vue') },
+      // 首页（原 demo 命名，已更名 home；保留旧路径重定向兼容历史链接）
+      { path: 'home', component: () => import('@/views/dashboard/DashboardDemo.vue') },
+      { path: 'demo', redirect: '/dashboard/home' },
       { path: 'profile', component: () => import('@/views/dashboard/Profile.vue') },
       { path: 'food-input', component: () => import('@/views/dashboard/FoodInput.vue') },
       { path: 'food-add', component: () => import('@/views/dashboard/FoodAdd.vue') },
@@ -36,7 +39,6 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'feature-hub', redirect: '/dashboard/profile' },
       // 已合并：健康教育 → 科普文章
       { path: 'health-education', redirect: '/dashboard/articles' },
-      { path: 'gym', component: () => import('@/views/dashboard/NearGym.vue') },
       { path: 'family-relation', component: () => import('@/views/dashboard/FamilyRelation.vue') },
       { path: 'metrics-history', component: () => import('@/views/dashboard/MetricsHistory.vue') },
       { path: 'health-history', component: () => import('@/views/dashboard/HealthHistory.vue') },
@@ -66,26 +68,42 @@ const router = createRouter({
   }
 })
 
-// 登录鉴权守卫 - 开发模式：绕过登录，直接注入模拟用户
-router.beforeEach((to, _from, next) => {
-  // 开发模式：自动设置模拟登录态（仅 npm run dev 时生效，生产构建自动关闭）
+// 登录鉴权守卫 - 开发模式：仅在访问受保护路由且无 token 时注入模拟登录态
+// （不对公开页/项目介绍首页(/)/登录页强制注入，否则未登录永远看不到介绍页，且登出后立刻被 mock 复活）
+router.beforeEach(async (to, _from, next) => {
   const DEV_MODE = import.meta.env.DEV
-  if (DEV_MODE) {
-    if (!getToken()) {
-      setToken('dev-mock-token')
-      setCurrentUserId(1)
-    }
+  let justInjected = false
+  if (DEV_MODE && to.meta.requiresAuth && !getToken()) {
+    setToken('dev-mock-token')
+    setCurrentUserId(1)
+    justInjected = true
   }
 
   const token = getToken()
   if (to.meta.requiresAuth && !token) {
     next('/login')
-  } else if (to.path === '/' && token) {
+    return
+  }
+
+  // 管理后台路由守卫：仅 admin 角色可访问
+  if (to.path === '/admin') {
+    const userStore = useUserStore()
+    // 刷新页面时 store 尚未初始化，先拉取用户信息再判断
+    if (!userStore.user && token) {
+      await userStore.init()
+    }
+    if (!userStore.isAdmin) {
+      next('/dashboard')
+      return
+    }
+  }
+
+  if (to.path === '/' && token && !justInjected) {
     // 已登录用户访问首页时，跳转到 dashboard，避免两个导航栏叠加
     next('/dashboard')
-  } else {
-    next()
+    return
   }
+  next()
 })
 
 export default router

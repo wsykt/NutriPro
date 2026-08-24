@@ -211,6 +211,7 @@ class ModeRouter:
         if high_performance:
             # ============= 高性能模式：直接 C 方案，跳过校验；云端失败自动回退本地兜底 =============
             t0 = time.time()
+            resp_extra = {}
             try:
                 result = self._run_cloud(func_type, timeout=settings.LLM_TIMEOUT_HIGH_PERF, **kwargs)
                 timing["cloud_ms"] = round((time.time() - t0) * 1000)
@@ -233,7 +234,7 @@ class ModeRouter:
                 "timing_ms": timing,
                 "validation": {"skipped": True, "reason": "high_performance模式"},
             }
-            if "resp_extra" in dir():
+            if resp_extra:
                 resp.update(resp_extra)
             # 闭环：C 方案结果存入向量知识库（含检索+embedding+写库，耗时）
             # 高性能模式 → 后台线程执行，主流程立即返回；失败仅记日志

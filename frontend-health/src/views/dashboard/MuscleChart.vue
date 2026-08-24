@@ -379,7 +379,7 @@
     <!-- 保存成功提示 -->
     <Transition name="fade">
       <div v-if="savedTip" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-morandi-accent text-white px-5 py-2.5 rounded-xl shadow-lg text-sm font-medium">
-        ✓ 训练记录已保存，可在「训练计划」查看
+         训练记录已保存，可在「训练计划」查看
       </div>
     </Transition>
   </div>

@@ -79,7 +79,7 @@ describe('User Store', () => {
 
     it('无 token 响应应返回失败', async () => {
       const { api } = await import('@/api')
-      vi.mocked(api.auth.login).mockResolvedValue({})
+      vi.mocked(api.auth.login).mockResolvedValue({} as any)
 
       const store = useUserStore()
       const result = await store.login('testuser', 'password')

@@ -31,9 +31,9 @@ class Settings:
     # 2048 → 8192，容纳复杂 prompt（知识库检索+健康快照+NLU）
     OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "8192"))
     OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.7"))
-    # 本地模式独立超时：先不设硬性限制，用较大值观察实际耗时
-    # 后续根据测试结果调到 45s 或 60s
-    OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "180"))  # 3分钟兜底
+    # 本地模式独立超时：本地大模型（qwen2.5-7b）在复杂 prompt 下耗时较长，
+    # 放宽到 300s 以避免普通模式（A方案本地改写/Stage1框架）被超时误杀。
+    OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "300"))  # 5分钟兜底
 
     # ---- 向量模型 ----
     EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "./models/bge-base-zh-v1.5")

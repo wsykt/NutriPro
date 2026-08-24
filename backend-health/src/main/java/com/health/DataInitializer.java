@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -71,15 +72,27 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initAdminUser() {
-        // 安全加固：生产模式（设置了 JWT_SECRET 环境变量）不创建 admin/admin123 演示账号，
-        // 管理员口令应通过环境变量 ADMIN_PASSWORD 单独配置，避免弱口令账号上线。
-        String jwtSecret = System.getenv("JWT_SECRET");
-        if (jwtSecret != null && !jwtSecret.trim().isEmpty()) {
-            log.info("检测到 JWT_SECRET 环境变量（生产模式），跳过 admin 演示账号创建，请通过环境变量 ADMIN_PASSWORD 设置管理员口令");
+        // 安全加固：不再内置固定弱口令 admin/admin123。
+        // 口令优先级：ADMIN_PASSWORD 环境变量 > 随机生成强口令（打印日志，仅此一次）。
+        // 生产模式（设置了 JWT_SECRET）不自动创建 admin，由运维通过 ADMIN_PASSWORD 初始化。
+        String adminPassword = System.getenv("ADMIN_PASSWORD");
+        boolean prodMode = isEnvNonBlank("JWT_SECRET");
+        boolean hasAdminPassword = isEnvNonBlank("ADMIN_PASSWORD");
+
+        if (prodMode && !hasAdminPassword) {
+            log.warn("生产模式（检测到 JWT_SECRET）：请通过环境变量 ADMIN_PASSWORD 配置管理员口令，未配置则跳过 admin 自动初始化");
             return;
         }
-        if (!userRepository.existsByUsername("admin")) {
-            User admin = new User("admin", passwordEncoder.encode("admin123"));
+
+        String rawPassword = hasAdminPassword ? adminPassword.trim() : generateRandomPassword();
+        upsertAdmin(rawPassword, hasAdminPassword);
+    }
+
+    /** 创建 admin（不存在时）；若已存在且口令仍是已知默认弱口令 admin123，强制轮换。 */
+    private void upsertAdmin(String rawPassword, boolean passwordFromEnv) {
+        User admin = userRepository.findByUsername("admin").orElse(null);
+        if (admin == null) {
+            admin = new User("admin", passwordEncoder.encode(rawPassword));
             admin.setGender("男");
             admin.setHeight(170.0);
             admin.setWeight(65.0);
@@ -87,8 +100,32 @@ public class DataInitializer implements CommandLineRunner {
             admin.setCrowdType("普通人");
             admin.setRole("admin");
             userRepository.save(admin);
-            log.info("管理员账号已初始化");
+            log.info("管理员账号 admin 已初始化");
+            if (!passwordFromEnv) {
+                log.warn("管理员口令未通过 ADMIN_PASSWORD 配置，已生成随机口令：{}（请登录后立即修改，或重启时设置 ADMIN_PASSWORD 环境变量）", rawPassword);
+            }
+            return;
         }
+        if (passwordEncoder.matches("admin123", admin.getPassword())) {
+            admin.setPassword(passwordEncoder.encode(rawPassword));
+            userRepository.save(admin);
+            log.warn("检测到 admin 仍使用已知默认弱口令 admin123，已强制轮换{}", passwordFromEnv ? "" : "，新口令：" + rawPassword);
+        }
+    }
+
+    private boolean isEnvNonBlank(String name) {
+        String value = System.getenv(name);
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private String generateRandomPassword() {
+        final String charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) {
+            sb.append(charset.charAt(random.nextInt(charset.length())));
+        }
+        return sb.toString();
     }
 
     private void initDemoUsers() {

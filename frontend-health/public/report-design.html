@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>周报设计稿 v5 · NutriPro</title>
+<style>
+  :root {
+    --green: #2F5D4A;
+    --green-deep: #1F4636;
+    --amber: #E07A3F;
+    --blue: #60A5FA;
+    --red: #D97B6C;
+    --text: #38423C;
+    --text-light: #8A958C;
+    --bg: #F3F2ED;
+    --panel-bg: rgba(255,255,255,.92);
+    --panel-border: rgba(231,226,216,.8);
+    --panel-shadow: 0 1px 3px rgba(31,42,36,.06), 0 4px 14px rgba(31,42,36,.05);
+    --panel-hover-shadow: 0 16px 36px -12px rgba(47,93,74,.16);
+    --r: 18px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(1000px 400px at 15% -5%, rgba(47,93,74,.06), transparent 60%),
+      radial-gradient(800px 360px at 90% 0%, rgba(224,122,63,.05), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 28px 16px 72px;
+  }
+  .page { max-width: 960px; margin: 0 auto; }
+
+  .hero { display: flex; align-items: center; gap: 14px; padding: 14px 0 20px; }
+  .hero .greet-mark {
+    width: 48px; height: 48px; border-radius: 16px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+    background: linear-gradient(135deg, #2F5D4A 0%, #1F4636 100%);
+    box-shadow: 0 10px 24px rgba(47,93,74,.25);
+  }
+  .hero h1 {
+    font-size: 25px; font-weight: 800; color: #2A332E; letter-spacing: .3px;
+    font-family: "Noto Serif SC","Source Han Serif SC","Songti SC",serif;
+  }
+  .hero .sub { color: var(--text-light); margin-top: 4px; font-size: 13px; }
+  .hero .sub b { color: var(--green); font-weight: 600; }
+  .hero .save-btn {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 12px; border: 1px solid var(--panel-border);
+    background: rgba(255,255,255,.7); color: var(--green); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: all .25s ease;
+  }
+  .hero .save-btn:hover { background: #fff; box-shadow: 0 4px 14px rgba(47,93,74,.12); transform: translateY(-1px); }
+
+  .tabs { display: flex; gap: 8px; margin: 4px 0 22px; }
+  .tab {
+    padding: 9px 22px; border-radius: 12px; border: 1px solid #E7E2D8;
+    background: rgba(255,255,255,.7); color: #7A847C; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .28s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 1px 3px rgba(0,0,0,.03); display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { transform: translateY(-1px); border-color: #cfccc2; }
+  .tab.active {
+    background: linear-gradient(135deg, var(--green), var(--green-deep));
+    color: #fff; border-color: transparent; box-shadow: 0 6px 20px rgba(47,93,74,.32);
+  }
+
+  /* ===== feature-panel 统一卡片 ===== */
+  .panel {
+    background: var(--panel-bg);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--r);
+    box-shadow: var(--panel-shadow);
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1), box-shadow .35s ease, border-color .35s ease;
+  }
+  .panel:hover {
+    transform: translateY(-3px);
+    border-color: rgba(47,93,74,.2);
+    box-shadow: var(--panel-hover-shadow);
+  }
+  .panel .bg-icon {
+    position: absolute; right: -16px; bottom: -16px; opacity: .05;
+    color: var(--green); pointer-events: none; z-index: 0;
+    transition: transform .5s cubic-bezier(.4,0,.2,1);
+  }
+  .panel:hover .bg-icon { transform: scale(1.1); }
+  .panel > *:not(.bg-icon) { position: relative; z-index: 1; }
+
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .card-head .icon-box {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(47,93,74,.08); color: var(--green);
+  }
+  .card-head h3 { font-size: 14.5px; font-weight: 600; color: #33403A; font-family: "Noto Serif SC","Source Han Serif SC",serif; }
+
+  /* ===== 三卡一排：打卡 / 体重对比 / 运动对比 ===== */
+  .top-row { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+
+  /* 周打卡热力图：日历风格，格子贴紧 */
+  .heat-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; padding: 0; background: #E0DCD0; border-radius: 4px; overflow: hidden; }
+  .heat-cell {
+    aspect-ratio: 1; border-radius: 0;
+    background: #EEEBE0;
+    border: none; cursor: pointer; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: #A7A18F;
+    transition: background .18s ease, transform .18s ease;
+  }
+  .heat-cell:hover { transform: scale(1.15); z-index: 5; position: relative; border-radius: 2px; }
+  .heat-cell.lv0 { background: #EEEBE0; color: #BDB7A6; }
+  .heat-cell.lv1 { background: #3B8A5E; color: #F1F8F3; }
+  .heat-cell.lv1:hover { box-shadow: 0 2px 8px rgba(47,93,74,.35); }
+  .heat-cell.lv0:hover { background: #E4E0D4; }
+
+  /* 周标签：贴紧格子下方 */
+  .heat-dow {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    margin-top: 3px;
+  }
+  .heat-dow span {
+    text-align: center;
+    font-size: 8px; color: var(--text-light); font-weight: 500;
+  }
+
+  /* 月打卡日历：更紧凑的小方块 */
+  .heat-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; padding: 0; background: #E0DCD0; border-radius: 4px; overflow: hidden; }
+  .cal-dow {
+    text-align: center; font-size: 7.5px; color: var(--text-light);
+    font-weight: 600; padding: 1px 0 2px; background: transparent;
+  }
+  .cal-dow.we { color: #C9792F; }
+  .heat-calendar .heat-cell {
+    width: auto; height: auto; aspect-ratio: 1; border-radius: 0;
+    font-size: 7px; font-weight: 700;
+  }
+  .heat-calendar .heat-cell:hover { transform: scale(1.15); z-index: 5; position: relative; border-radius: 2px; }
+  .heat-calendar .heat-cell.placeholder {
+    background: #F5F3EE; color: transparent; cursor: default; pointer-events: none;
+  }
+  .heat-calendar .heat-cell.placeholder:hover { transform: none; box-shadow: none; }
+
+  /* 体重目标进度条 */
+  .goal-bar { margin-top: 10px; padding: 10px 12px; background: linear-gradient(135deg, #F5F3EE 0%, #EFF2EC 100%); border-radius: 10px; }
+  .goal-bar .gb-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+  .goal-bar .gb-top .lbl { color: #8A8578; }
+  .goal-bar .gb-top .cur { color: #33403A; font-weight: 700; font-size: 18px; }
+  .goal-bar .gb-top .cur small { font-size: 11px; font-weight: 500; color: #A5A090; margin-left: 2px; }
+  .goal-bar .gb-track { height: 8px; background: #E0DCD0; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+  .goal-bar .gb-fill { height: 100%; background: linear-gradient(90deg, #7FBF9A, #3B8A5E); border-radius: 4px; transition: width 1s cubic-bezier(.22,1,.36,1); }
+  .goal-bar .gb-ticks { display: flex; justify-content: space-between; font-size: 9.5px; color: #A5A090; }
+  .goal-bar .gb-ticks span { text-align: center; width: 33.3%; }
+  .goal-bar .gb-ticks span.cur { color: #3B8A5E; font-weight: 600; }
+
+  /* BMR 纯文字比例 */
+  .bmr-ratio {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; background: #F5F3EE; border-radius: 8px;
+    margin-bottom: 10px; font-size: 11px; color: var(--text-light); line-height: 1.5;
+  }
+  .bmr-ratio b { color: var(--text-main); font-weight: 600; }
+  .bmr-ratio .bmr-status { font-weight: 600; }
+  .bmr-ratio .bmr-status.ok { color: #3B8A5E; }
+  .bmr-ratio .bmr-status.over { color: #C9792F; }
+  .bmr-ratio .bmr-status.low { color: #4A90B8; }
+
+  /* 营养环形图：4 个独立小环形图（ECharts） */
+  .nutri-donut { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 4px; margin: 4px 0; }
+  .nd-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 8px; background: #FAF8F3; }
+  .nd-chart { width: 50px; height: 50px; flex-shrink: 0; }
+  .nd-info { flex: 1; min-width: 0; }
+  .nd-info .nd-name { font-size: 11px; font-weight: 600; color: var(--text-main); margin-bottom: 1px; }
+  .nd-info .nd-val { font-size: 10px; color: var(--text-light); line-height: 1.4; }
+  .nd-info .nd-val b { color: var(--text-main); font-weight: 600; }
+  .nd-info .nd-tag { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; display: inline-block; margin-top: 2px; }
+  .nd-tag.ok { background: #E8F5E9; color: #2E7D32; }
+  .nd-tag.over { background: #FFF3E0; color: #C9792F; }
+  .nd-tag.low { background: #E3F2FD; color: #4A90B8; }
+
+  /* 科普推荐卡片 */
+  .article-rec {
+    margin-top: 12px; padding: 12px 14px;
+    background: linear-gradient(135deg, #FFF8E7 0%, #FFF3E0 100%);
+    border: 1px solid #FFE0B2; border-radius: 10px;
+    display: flex; gap: 10px; align-items: flex-start;
+    cursor: pointer; transition: transform .2s;
+  }
+  .article-rec:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .article-rec .ar-tag {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+    background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+    display: flex; align-items: center; justify-content: center;
+    color: #C9792F;
+  }
+  .article-rec .ar-tag svg { width: 20px; height: 20px; }
+  .article-rec .ar-body .ar-title { font-size: 13px; font-weight: 600; color: #33403A; margin-bottom: 3px; }
+  .article-rec .ar-body .ar-desc { font-size: 11px; color: #8A8578; line-height: 1.5; }
+  .article-rec .ar-body .ar-meta { font-size: 10px; color: #C9A04B; margin-top: 4px; font-weight: 500; }
+
+  .cmp-item .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #F0EEE8; font-size: 12.5px; }
+  .cmp-item .row:last-child { border-bottom: none; }
+  .cmp-item .lbl { color: #8A8578; font-weight: 500; }
+  .cmp-item .val { font-weight: 700; color: #33403A; font-size: 15px; }
+  .cmp-item .val small { font-size: 10.5px; color: #A5A090; font-weight: 500; margin-left: 2px; }
+  .cmp-item .val.high { color: #C9792F; }
+  .cmp-item .val.low { color: #3B8A5E; }
+
+  /* 打卡气泡提示（轻量 tooltip） */
+  .cell-tip {
+    position: fixed; z-index: 999; pointer-events: none;
+    background: rgba(30,40,34,.92); color: #fff;
+    padding: 8px 12px; border-radius: 10px; font-size: 11px; line-height: 1.6;
+    white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    opacity: 0; transform: translateY(6px);
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .cell-tip.show { opacity: 1; transform: translateY(0); }
+  .cell-tip b { color: #BEE3CB; font-weight: 700; }
+  .cell-tip .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+  .cell-tip .row + .row { margin-top: 2px; }
+  .cell-tip .sep { height: 1px; background: rgba(255,255,255,.12); margin: 5px 0; }
+
+  .heat-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 11px; border-top: 1px dashed #E7E2D8; }
+  .heat-foot .stat { font-size: 11px; color: var(--text-light); }
+  .heat-foot .stat b { font-size: 16px; color: #24302A; font-weight: 800; font-family: "Noto Serif SC",serif; }
+  .score-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(224,122,63,.12); color: #B3662F;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  }
+
+  /* 对比卡 */
+  .cmp-item { background: #fff; border: 1px solid var(--panel-border); border-radius: 14px; padding: 13px 15px; }
+  .cmp-item .k { font-size: 11px; color: var(--text-light); font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .cmp-item .k .mini-ic { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .cmp-item .row { display: flex; justify-content: space-between; align-items: center; padding: 3.5px 0; }
+  .cmp-item .row .lbl { font-size: 11px; color: #5A655D; }
+  .cmp-item .row .val { font-size: 14px; font-weight: 800; color: #24302A; font-family: "Noto Serif SC",serif; }
+  .cmp-item .row .val small { font-size: 9.5px; font-weight: 400; color: var(--text-light); font-family: sans-serif; }
+  .cmp-item .row .val.high { color: #C05C4E; }
+  .cmp-item .row .val.low { color: #3F7B58; }
+  .cmp-item .row .val .trend-mini { font-size: 10px; font-weight: 700; margin-left: 4px; }
+  .t-up { color: #4E8A66; } .t-down { color: #C9792F; }
+
+  /* ===== 双栏：体重趋势 / 营养达标 ===== */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .weight-chart { position: relative; }
+  .weight-chart svg { width: 100%; height: auto; overflow: visible; display: block; }
+  .axis-label { font-size: 10px; fill: #A5AEA6; font-weight: 500; }
+  .grid-line { stroke: #ECE9E1; stroke-width: 1; stroke-dasharray: 3 4; }
+  .dot-hit { fill: transparent; stroke: transparent; stroke-width: 14; cursor: pointer; transition: fill .2s; }
+  .dot-hit:hover { fill: rgba(94,156,118,.10); }
+  .weight-legend { display: flex; gap: 16px; margin-bottom: 8px; font-size: 11px; color: var(--text-light); }
+  .weight-legend span { display: flex; align-items: center; gap: 5px; }
+  .weight-legend i { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+  .weight-footer {
+    font-size: 11.5px; color: #4E7D5E; font-weight: 600; margin-top: 10px;
+    padding-top: 11px; border-top: 1px dashed #E7E2D8;
+  }
+  .tip {
+    position: absolute; background: rgba(30,40,34,.92); color: #fff;
+    padding: 8px 12px; border-radius: 10px; font-size: 11px; line-height: 1.55;
+    pointer-events: none; opacity: 0; transform: translateY(6px);
+    transition: opacity .2s ease, transform .2s ease; z-index: 10;
+    white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  }
+  .tip.show { opacity: 1; transform: translateY(0); }
+  .tip b { color: #BEE3CB; }
+
+  .nutri-row { margin-bottom: 14px; }
+  .nutri-row:last-child { margin-bottom: 0; }
+  .nutri-top { display: flex; justify-content: space-between; font-size: 11.5px; margin-bottom: 5px; gap: 8px; }
+  .nutri-top .name { color: #57615A; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .nutri-top .name .status-tag { font-size: 9px; padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+  .st-ok { background: rgba(94,156,118,.14); color: #3F7B58; }
+  .st-over { background: rgba(224,122,63,.14); color: #B3662F; }
+  .st-low { background: rgba(96,165,250,.14); color: #3D6FA8; }
+  .nutri-top .val b { color: #24302A; }
+  .nutri-top .val { color: var(--text-light); text-align: right; }
+  .bar { height: 8px; background: rgba(15,23,42,.06); border-radius: 99px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 99px; width: 0; transition: width 1.1s cubic-bezier(.22,1,.36,1); }
+  .bar-green { background: linear-gradient(90deg,#7FB894,#4E9670); }
+  .bar-amber { background: linear-gradient(90deg,#EAC08A,#D9A04B); }
+  .bar-over { background: linear-gradient(90deg,#EFAD9C,#E0826C); }
+
+  /* ===== 健康档案 + vs ===== */
+  .profile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .profile-item {
+    text-align: center; padding: 12px 4px 10px; border-radius: 13px;
+    background: #F8F7F3; border: 1px solid rgba(0,0,0,.02);
+    transition: background .25s ease;
+  }
+  .profile-item:hover { background: #F2F1EB; }
+  .profile-item .k { font-size: 10px; color: var(--text-light); font-weight: 500; }
+  .profile-item .v { font-size: 15.5px; font-weight: 800; color: #24302A; margin-top: 4px; font-family: "Noto Serif SC",serif; }
+  .profile-item .v small { font-size: 10px; font-weight: 400; color: var(--text-light); font-family: sans-serif; }
+  .profile-item .v.empty { font-size: 13px; font-weight: 500; color: #B5BDB7; }
+  .vs-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #E7E2D8; }
+  .vs-cell { text-align: center; }
+  .vs-cell .k { font-size: 10.5px; color: var(--text-light); }
+  .vs-cell .v { font-size: 18px; font-weight: 800; color: #24302A; margin-top: 4px; font-family: "Noto Serif SC",serif; }
+  .vs-cell .v small { font-size: 10px; font-weight: 400; color: var(--text-light); font-family: sans-serif; }
+  .vs-cell .d { font-size: 10px; margin-top: 3px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+  .d-up { color: #4E8A66; } .d-down { color: #C9792F; } .d-flat { color: #8A958C; }
+
+  /* ===== 健康总结 + AI ===== */
+  .summary {
+    background: linear-gradient(135deg, #EBF3ED, #E3EEE6);
+    border: 1px solid #D5E4D8; border-radius: 16px; padding: 20px; margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .summary h3 { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-family: "Noto Serif SC",serif; }
+  .summary h3 .ic { width: 28px; height: 28px; border-radius: 9px; background: rgba(224,122,63,.14); color: var(--amber); display: flex; align-items: center; justify-content: center; }
+  .summary ul { list-style: none; }
+  .summary li {
+    font-size: 12.5px; color: #49554E; line-height: 1.75;
+    padding-left: 18px; position: relative; margin-bottom: 4px;
+  }
+  .summary li::before {
+    content: ''; position: absolute; left: 2px; top: 8px;
+    width: 6px; height: 6px; border-radius: 2px; background: var(--amber); transform: rotate(45deg);
+  }
+  .ai-btn {
+    margin-top: 14px; display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 18px; border-radius: 12px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--green), var(--green-deep)); color: #fff;
+    font-size: 12.5px; font-weight: 700;
+    box-shadow: 0 6px 18px rgba(47,93,74,.25);
+    transition: all .28s cubic-bezier(.22,1,.36,1);
+  }
+  .ai-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(47,93,74,.35); }
+  .ai-btn .note { font-size: 10.5px; font-weight: 400; opacity: .8; }
+
+  /* ===== 按钮 ===== */
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn {
+    padding: 15px; border-radius: 14px; border: none; font-size: 13.5px; font-weight: 700;
+    cursor: pointer; transition: all .28s cubic-bezier(.22,1,.36,1);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--green), var(--green-deep)); color: #fff;
+    box-shadow: 0 8px 22px rgba(47,93,74,.28);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(47,93,74,.38); }
+  .btn-ghost { background: rgba(239,238,233,.9); color: #6B756D; border: 1px solid #E3E0D8; }
+  .btn-ghost:hover { background: #E7E5DF; transform: translateY(-2px); }
+
+  /* ===== Toast ===== */
+  .toast-wrap { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+  .toast {
+    padding: 12px 18px; border-radius: 14px;
+    background: rgba(30,40,34,.94); color: #fff; font-size: 13px; font-weight: 600;
+    box-shadow: 0 12px 36px rgba(0,0,0,.28);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; gap: 10px;
+    transform: translateY(-18px); opacity: 0; transition: all .28s cubic-bezier(.22,1,.36,1);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: rgba(47,93,74,.95); }
+  .toast.info { background: rgba(43,84,152,.95); }
+  .toast .ic { width: 22px; height: 22px; border-radius: 7px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .tab, .actions, .save-btn, .ai-btn, .toast-wrap, .cell-tip { display: none !important; }
+    .panel, .cmp-item { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    .hero { padding-top: 0; }
+    .heat-cell.on { color: #000 !important; background: #D9ECD2 !important; box-shadow: none !important; }
+  }
+  @media (max-width: 800px) {
+    .top-row { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .profile-grid { grid-template-columns: repeat(2, 1fr); }
+    .heat-calendar { gap: 3px; }
+    .heat-calendar .heat-cell { height: 28px; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+<div class="page">
+
+  <div class="hero">
+    <div class="greet-mark" id="heroIcon"></div>
+    <div>
+      <h1 id="heroTitle">admin 的饮食 &amp; 运动健康打卡</h1>
+      <p class="sub">身高 <b>170</b> cm · 体重 <b>65.0</b> kg · BMI <b>22.5</b> · 普通人</p>
+    </div>
+    <button class="save-btn" id="saveBtn"></button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabWeekly" onclick="switchTab('weekly')"></button>
+    <button class="tab" id="tabMonthly" onclick="switchTab('monthly')"></button>
+  </div>
+
+  <!-- 三卡一排：打卡 / 体重对比 / 运动对比 -->
+  <div class="top-row">
+
+    <!-- 打卡记录 -->
+    <div class="panel" style="margin-bottom:0">
+      <div class="bg-icon" id="bgAct"></div>
+      <div class="card-head">
+        <div class="icon-box" id="heatIcon"></div>
+        <h3 id="heatTitle">本周打卡记录</h3>
+      </div>
+      <div id="heatWrap"></div>
+      <div class="heat-foot">
+        <div class="stat">打卡 <b id="hChecked">6</b>/<span id="hTotal">7</span> 天</div>
+      </div>
+    </div>
+
+    <!-- 体重对比 -->
+    <div class="panel" style="margin-bottom:0">
+      <div class="bg-icon" id="bgTrend"></div>
+      <div class="card-head">
+        <div class="icon-box" id="wCmpIcon"></div>
+        <h3 id="wCmpTitle">本周体重对比</h3>
+      </div>
+      <div class="cmp-item" style="border:none;padding:0;background:transparent" id="wCmp"></div>
+    </div>
+
+    <!-- 运动对比 -->
+    <div class="panel" style="margin-bottom:0">
+      <div class="bg-icon" id="bgEx"></div>
+      <div class="card-head">
+        <div class="icon-box" id="exCmpIcon"></div>
+        <h3 id="exCmpTitle">本周运动对比</h3>
+      </div>
+      <div style="font-size:11.5px;color:#8A8578;line-height:1.65;padding:0 0 8px;">
+        <span id="exSummary" style="color:#33403A;font-weight:500;"></span>
+      </div>
+      <div class="cmp-item" style="border:none;padding:0;background:transparent" id="exCmp"></div>
+    </div>
+  </div>
+
+  <!-- 双栏：体重趋势 / 营养达标 -->
+  <div class="two-col">
+    <div class="panel">
+      <div class="bg-icon" id="bgWt"></div>
+      <div class="card-head">
+        <div class="icon-box" id="weightIcon"></div>
+        <h3 id="weightTitle">本周体重趋势</h3>
+      </div>
+      <div class="weight-legend">
+        <span><i style="background:#5E9C76"></i>体重 (kg)</span>
+        <span><i style="background:#E0B877;border:1px dashed #C9A04B"></i>预测</span>
+      </div>
+      <div class="weight-chart">
+        <svg id="weightSvg" viewBox="0 0 380 200"></svg>
+        <div class="tip" id="weightTip"></div>
+      </div>
+      <div class="weight-footer" id="weightFoot">周期内减重 0.8 kg，距离目标还差 9.0 kg</div>
+      <!-- BMR 摄入比 -->
+      <div class="bmr-ratio" id="bmrRatio" style="margin-top:8px;margin-bottom:0"></div>
+    </div>
+
+    <div class="panel">
+      <div class="bg-icon" id="bgNut"></div>
+      <div class="card-head">
+        <div class="icon-box" id="nutriIcon"></div>
+        <h3 id="nutriTitle">本周营养达标</h3>
+      </div>
+      <!-- 营养环形图（ECharts） -->
+      <div class="nutri-donut" id="nutriDonut"></div>
+      <div class="weight-footer" id="nutriFoot">脂肪摄入偏高，建议减少油炸与肥肉</div>
+      <!-- 科普文章推荐 -->
+      <div class="article-rec" id="articleRec" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- 健康档案 + vs -->
+  <div class="panel" style="background:#fff">
+    <div class="bg-icon" id="bgHeart"></div>
+    <div class="card-head">
+      <div class="icon-box" id="profileIcon"></div>
+      <h3>健康档案</h3>
+    </div>
+    <div class="profile-grid">
+      <div class="profile-item"><div class="k">年龄</div><div class="v">30<small> 岁</small></div></div>
+      <div class="profile-item"><div class="k">身高</div><div class="v">170<small> cm</small></div></div>
+      <div class="profile-item"><div class="k">体重</div><div class="v">65.0<small> kg</small></div></div>
+      <div class="profile-item"><div class="k">BMI</div><div class="v">22.5</div></div>
+      <div class="profile-item"><div class="k">基础代谢 BMR</div><div class="v">1568<small> kcal</small></div></div>
+      <div class="profile-item"><div class="k">目标体重</div><div class="v">60<small> kg</small></div></div>
+      <div class="profile-item"><div class="k">血压</div><div class="v empty">未记录</div></div>
+      <div class="profile-item"><div class="k">血糖</div><div class="v empty">未记录</div></div>
+    </div>
+    <!-- 目标进度条 -->
+    <div class="goal-bar" id="goalBar"></div>
+    <div class="vs-row" id="vsRow"></div>
+  </div>
+
+  <!-- 健康总结 + AI -->
+  <div class="summary">
+    <h3><span class="ic" id="sumIcon"></span><span id="summaryTitle">本周健康总结</span></h3>
+    <ul id="adviceList"></ul>
+    <button class="ai-btn" onclick="askAI()" id="aiBtn"></button>
+  </div>
+
+  <!-- 按钮 -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="searchRecipes()" id="recipeBtn"></button>
+    <button class="btn btn-ghost" onclick="doPrint()" id="printBtn"></button>
+  </div>
+
+</div>
+
+<!-- 打卡 cell tooltip -->
+<div class="cell-tip" id="cellTip"></div>
+<!-- Toast 容器 -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+  /* ===== SVG icon 库（inline） ===== */
+  const ic = {
+    calendar:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"4\" rx=\"2\"/><path d=\"M8 2v4\"/><path d=\"M16 2v4\"/><path d=\"M3 10h18\"/></svg>",
+    flame:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z\"/></svg>",
+    leaf:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z\"/><path d=\"M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12\"/></svg>",
+    dumbbell:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.4 14.4 9.6 9.6\"/><path d=\"M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z\"/><path d=\"m21.5 21.5-1.4-1.4\"/><path d=\"M3.9 3.9 2.5 2.5\"/></svg>",
+    trendDown:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"22 17 13.5 8.5 8.5 13.5 2 7\"/><polyline points=\"16 17 22 17 22 11\"/></svg>",
+    activity:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2\"/></svg>",
+    apple:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z\"/><path d=\"M10 2c1 .5 2 2 2 5\"/></svg>",
+    heart:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\"/></svg>",
+    search:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg>",
+    printer:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\"/><path d=\"M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6\"/><rect x=\"6\" y=\"14\" width=\"12\" height=\"8\" rx=\"1\"/></svg>",
+    sparkle:"<svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6L12 2z\"/><path d=\"M19 15l.8 2.7L22.5 18.5l-2.7.8L19 22l-.8-2.7-2.7-.8 2.7-.8L19 15z\"/></svg>",
+    save:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z\"/><path d=\"M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7\"/><path d=\"M7 3v4a1 1 0 0 0 1 1h7\"/></svg>",
+    bot:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"10\" x=\"3\" y=\"7\" rx=\"2\"/><path d=\"M12 3v4\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><path d=\"M12 17v4\"/><path d=\"M7 12h.01\"/><path d=\"M17 12h.01\"/></svg>",
+    up:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m5 12 7-7 7 7\"/><path d=\"M12 19V5\"/></svg>",
+    down:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14\"/><path d=\"m19 12-7 7-7-7\"/></svg>",
+    check:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>",
+    info:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg>",
+    download:"<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/></svg>",
+  };
+  const s = (k, w, h) => {
+    const size = w || h ? `width=\"${w||16}\" height=\"${h||16}\"` : '';
+    return ic[k].replace('<svg', '<svg ' + size);
+  };
+
+  /* ===== 数据：周/月 ===== */
+  const profile = {
+    name: 'admin', age: 30, height: 170, weight: 65.0, bmi: 22.5, bmr: 1568, target: 60,
+    crowd: '普通人',
+  };
+
+  /* 每周模拟数据（周一到周日 + 下 3 天预测） */
+  const weeklyHeatDaily = [
+    { day: '一', date: '08/10', on: true, meals: '早·午·晚', cal: 1652, pro: 118, ex: '快走 40min', kcalBurnt: 280 },
+    { day: '二', date: '08/11', on: true, meals: '早·晚', cal: 1403, pro: 92, ex: null, kcalBurnt: 0 },
+    { day: '三', date: '08/12', on: true, meals: '早·午·晚', cal: 1712, pro: 124, ex: '游泳 60min', kcalBurnt: 520 },
+    { day: '四', date: '08/13', on: true, meals: '早·午·晚', cal: 1588, pro: 110, ex: '瑜伽 45min', kcalBurnt: 180 },
+    { day: '五', date: '08/14', on: true, meals: '早·午·晚', cal: 1695, pro: 121, ex: '慢跑 40min', kcalBurnt: 360 },
+    { day: '六', date: '08/15', on: true, meals: '午·晚', cal: 1520, pro: 96, ex: null, kcalBurnt: 0 },
+    { day: '日', date: '08/16', on: false, meals: '', cal: 0, pro: 0, ex: null, kcalBurnt: 0 },
+  ];
+
+  /* 本月 30 天打卡（从 08/01 周五 → 08/30 周六） */
+  const MONTH_DOW_OFFSET = 4; // 08/01 是周五，周索引(一=0) = 4
+  const MONTH_DAYS = 30;
+  const MONTH_ON_MAP = [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1];
+
+  /* 模拟：给本月前 23 天打卡填假数据 */
+  const monthlyHeatDaily = [];
+  let cal0 = 1680;
+  for (let i = 0; i < MONTH_DAYS; i++) {
+    const on = !!MONTH_ON_MAP[i];
+    const d = new Date(2026, 7, i + 1);
+    const dStr = String(d.getMonth() + 1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+    monthlyHeatDaily.push({
+      day: String(i + 1),
+      date: dStr,
+      on: on,
+      meals: on ? ['早·午·晚','早·晚','早·午'][i % 3] : '',
+      cal: on ? Math.round(cal0 + (Math.sin(i) * 140) - 20 + (i % 5) * 22) : 0,
+      pro: on ? Math.round(105 + (Math.sin(i * 1.3) * 22)) : 0,
+      ex: on && (i % 3 === 0) ? ['快走','慢跑','力量训练','游泳','骑行'][i % 5] + ' ' + (30 + (i % 5) * 10) + 'min' : null,
+      kcalBurnt: on && (i % 3 === 0) ? 180 + (i % 5) * 80 : 0,
+    });
+  }
+
+  const data = {
+    weekly: {
+      heroSuffix: '饮食 & 运动周报',
+      saveBtn: '保存本期周报',
+      heatTitle: '本周打卡记录', weightTitle: '本周体重趋势', nutriTitle: '本周营养达标',
+      profile: { age: 30, height: 170, weight: 69.0, bmi: 24.0, bmr: 1568, goalWeight: 60, startWeight: 72 },
+      bmrIntake: 103, /* 平均摄入/BMR 百分比 */
+      avgDailyCalorie: 1617,
+      summaryTitle: '本周健康总结',
+      aiText: ['让 AI 分析本周数据', '含饮食 / 运动 / 体重'],
+      wCmpTitle: '本周体重对比',
+      wCmp: {
+        rows: [
+          { lbl: '最高体重', val: 69.8, unit: 'kg', cls: 'high' },
+          { lbl: '最低体重', val: 69.0, unit: 'kg', cls: 'low' },
+          { lbl: '周期变化', val: -0.8, unit: 'kg', trend: { dir: 'down', text: '减重' } },
+          { lbl: '日均波动', val: 0.13, unit: 'kg', cls: 'low' },
+        ]
+      },
+      exCmpTitle: '本周运动对比',
+      exCmp: {
+        rows: [
+          { lbl: '运动天数', val: 5, unit: '天' },
+          { lbl: '总时长', val: 210, unit: 'min', trend: { dir: 'up', text: '达标' } },
+          { lbl: '平均每次', val: 42, unit: 'min' },
+          { lbl: '消耗热量', val: 1340, unit: 'kcal', cls: 'low' },
+        ]
+      },
+      checkin: 6, checkinBase: 4, checkinDelta: '+2', checkinTrendText: '较上周 多 2 天', calorie: 1617, calorieBase: 1702, calorieDelta: '-85', exerciseMin: 210, exerciseMinBase: 165, exerciseDelta: '+45', exerciseTrend: '较上周 +45', avgScore: 82, streak: 5,
+
+      heat: weeklyHeatDaily,
+      weights: [69.8, 69.6, 69.4, 69.5, 69.2, 69.1, 69.0],
+      wLabels: ['08/10','08/11','08/12','08/13','08/14','08/15','08/16','08/17','08/18','08/19'],
+      pred: [68.9, 68.8, 68.7],
+      weightFoot: '周期内减重 0.8 kg，距离目标还差 9.0 kg',
+      nutri: [
+        { name: '蛋白质', cur: 116, tar: 72, pct: 161, status: 'over', statusText: '超标', range: '65-78 g' },
+        { name: '脂肪', cur: 68, tar: 58, pct: 117, status: 'over', statusText: '超标', range: '52-65 g' },
+        { name: '碳水化合物', cur: 168, tar: 228, pct: 74, status: 'low', statusText: '偏低', range: '195-260 g' },
+        { name: '膳食纤维', cur: 26, tar: 28, pct: 93, status: 'ok', statusText: '达标', range: '20-35 g' },
+      ],
+      nutriFoot: '脂肪摄入偏高，建议减少油炸与肥肉，增加深海鱼',
+      advice: [
+        '本周打卡 6 天，出勤率 86%，坚持得很好！',
+        '脂肪摄入偏高（117%），建议减少油炸食品与肥肉，增加鱼类（Omega-3）。',
+        '碳水摄入偏低（74%），训练日建议补充全谷物（燕麦/糙米）或薯类主食。',
+        '体重平稳下降 0.8 kg（-1.1%），处于健康减重区间（0.5-1kg/周），继续保持。',
+        '周四瑜伽 + 周五慢跑心肺组合搭配合理，建议下周加入 1 次力量训练。',
+      ],
+    },
+    monthly: {
+      heroSuffix: '饮食 & 运动月报',
+      saveBtn: '保存本期月报',
+      heatTitle: '本月打卡日历', weightTitle: '近 4 周体重趋势', nutriTitle: '本月营养达标',
+      profile: { age: 30, height: 170, weight: 69.0, bmi: 24.0, bmr: 1568, goalWeight: 60, startWeight: 72.8 },
+      bmrIntake: 99, /* 平均摄入/BMR 百分比 */
+      avgDailyCalorie: 1550,
+      summaryTitle: '本月健康总结',
+      aiText: ['让 AI 分析本月数据', '含趋势 / 达标 / 目标分析'],
+      wCmpTitle: '本月体重对比',
+      wCmp: {
+        rows: [
+          { lbl: '最高体重', val: 70.8, unit: 'kg', cls: 'high' },
+          { lbl: '最低体重', val: 69.0, unit: 'kg', cls: 'low' },
+          { lbl: '周期变化', val: -1.8, unit: 'kg', trend: { dir: 'down', text: '减重' } },
+          { lbl: '周均减重', val: 0.45, unit: 'kg', cls: 'low' },
+        ]
+      },
+      exCmpTitle: '本月运动对比',
+      exCmp: {
+        rows: [
+          { lbl: '运动天数', val: 18, unit: '天' },
+          { lbl: '总时长', val: 810, unit: 'min', trend: { dir: 'up', text: '提升' } },
+          { lbl: '平均每次', val: 45, unit: 'min' },
+          { lbl: '消耗热量', val: 5860, unit: 'kcal', cls: 'low' },
+        ]
+      },
+      checkin: 23, checkinBase: 19, checkinDelta: '+4', checkinTrendText: '较上月 多 4 天', calorie: 1550, calorieBase: 1610, calorieDelta: '-60', exerciseMin: 810, exerciseMinBase: 720, exerciseDelta: '+90', exerciseTrend: '较上月 +90', avgScore: 76, streak: 8,
+
+      heat: monthlyHeatDaily,
+      weights: [70.8, 70.5, 70.2, 69.9, 69.8, 69.6, 69.4, 69.3, 69.1, 69.0],
+      wLabels: ['08/01','08/04','08/07','08/10','08/13','08/16','08/19','08/22','08/25','08/28','08/31','09/03','09/06'],
+      pred: [68.9, 68.8, 68.7],
+      weightFoot: '本月减重 1.8 kg（-2.5%），距离目标还差 9.0 kg',
+      nutri: [
+        { name: '蛋白质', cur: 118, tar: 72, pct: 164, status: 'over', statusText: '超标', range: '65-78 g' },
+        { name: '脂肪', cur: 64, tar: 58, pct: 110, status: 'over', statusText: '超标', range: '52-65 g' },
+        { name: '碳水化合物', cur: 172, tar: 228, pct: 75, status: 'low', statusText: '偏低', range: '195-260 g' },
+        { name: '膳食纤维', cur: 27, tar: 28, pct: 96, status: 'ok', statusText: '达标', range: '20-35 g' },
+      ],
+      nutriFoot: '脂肪摄入偏高、碳水偏低，建议调整三餐主食占比',
+      advice: [
+        '本月打卡 23 天，出勤率 77%，整体非常自律，休息日也建议做轻度记录。',
+        '脂肪 110% 连续 3 周偏高，建议将烹饪油替换为橄榄油，并减少红肉频率。',
+        '碳水 75% 偏低，训练日（共 18 天）建议在训练后 1 小时补充 40-60g 快碳。',
+        '本月减重 1.8 kg（月均 2.5%），处于健康减重区间（3-5%/月）。',
+        '有氧运动占比 72%，建议下月增加 2-3 次力量训练以保持肌肉量与基础代谢。',
+      ],
+    }
+  };
+
+  /* ===== 初始化图标（页面加载后注入 SVG） ===== */
+  function installIcons() {
+    const map = {
+      heroIcon: { k: 'leaf', w: 14, h: 14 },
+      saveBtn: { k: 'save', w: 16, h: 16, label: '保存本期周报' },
+      tabWeekly: { k: 'calendar', w: 14, h: 14, label: '周报' },
+      tabMonthly: { k: 'calendar', w: 14, h: 14, label: '月报' },
+      bgAct: { k: 'activity', w: 120, h: 120 },
+      heatIcon: { k: 'activity', w: 16, h: 16 },
+      bgTrend: { k: 'trendDown', w: 110, h: 110 },
+      wCmpIcon: { k: 'trendDown', w: 16, h: 16 },
+      bgEx: { k: 'dumbbell', w: 110, h: 110 },
+      exCmpIcon: { k: 'dumbbell', w: 14, h: 14, color: true },
+      bgWt: { k: 'trendDown', w: 130, h: 130 },
+      weightIcon: { k: 'trendDown', w: 16, h: 16 },
+      bgNut: { k: 'apple', w: 130, h: 130 },
+      nutriIcon: { k: 'apple', w: 16, h: 16, color: true },
+      bgHeart: { k: 'heart', w: 130, h: 130 },
+      profileIcon: { k: 'heart', w: 16, h: 16, profileColor: true },
+      sumIcon: { k: 'sparkle', w: 14, h: 14 },
+      aiBtn: { k: 'bot', w: 16, h: 16, labels: ['让 AI 分析本周数据', '含饮食 / 运动 / 体重'] },
+      recipeBtn: { k: 'search', w: 16, h: 16, label: '搜索健康菜谱' },
+      printBtn: { k: 'printer', w: 16, h: 16, label: '打印 / 保存 PDF' },
+    };
+    Object.keys(map).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const cfg = map[id];
+      let html = '';
+      if (cfg.color) {
+        el.style.background = 'rgba(96,165,250,.12)';
+        el.style.color = '#3D7BD1';
+      }
+      if (cfg.profileColor) {
+        el.style.background = 'rgba(224,122,63,.12)';
+        el.style.color = '#C9682F';
+      }
+      html = s(cfg.k, cfg.w, cfg.h);
+      if (cfg.label) {
+        html = html + '<span>' + cfg.label + '</span>';
+      }
+      if (cfg.labels) {
+        html = html + '<span>' + cfg.labels[0] + '</span><span class="note">' + cfg.labels[1] + '</span>';
+      }
+      el.innerHTML = html;
+    });
+  }
+
+  /* ===== 体重折线 ===== */
+  function smoothPath(pts) {
+    if (pts.length < 3) return pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    let d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ' C' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ',' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ',' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+
+  function renderWeight(weights, pred, labels, compact) {
+    const svg = document.getElementById('weightSvg');
+    const tip = document.getElementById('weightTip');
+    const W = 380, H = compact ? 160 : 200, padL = 36, padR = 14, padT = 14, padB = 28;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    const n = weights.length;
+    const total = n + pred.length;
+    const all = weights.concat(pred);
+    const min = Math.floor(Math.min(...all) - 0.3), max = Math.ceil(Math.max(...all) + 0.3);
+    /* X 轴：0 ~ total-1，历史占 0~n-1，预测占 n~total-1（不重叠） */
+    const x = i => padL + (i / (total - 1)) * (W - padL - padR);
+    const y = v => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
+
+    let g = '';
+    /* Y 轴网格 — 5 条线，数据更细分 */
+    for (let i = 0; i <= 4; i++) {
+      const val = min + (max - min) * i / 4;
+      const yy = padT + (1 - i / 4) * (H - padT - padB);
+      g += '<line x1="' + padL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + yy.toFixed(1) + '" class="grid-line"/>';
+      g += '<text x="' + (padL - 7) + '" y="' + (yy + 3.5).toFixed(1) + '" text-anchor="end" class="axis-label">' + val.toFixed(1) + '</text>';
+    }
+
+    /* 预测区域背景（浅色区分） */
+    if (pred.length > 0) {
+      const px0 = x(n - 1), px1 = x(total - 1);
+      g += '<rect x="' + px0.toFixed(1) + '" y="' + padT + '" width="' + (px1 - px0).toFixed(1) + '" height="' + (H - padT - padB) + '" fill="rgba(224,184,119,.06)" rx="2"/>';
+      /* 分隔虚线 */
+      g += '<line x1="' + px0.toFixed(1) + '" y1="' + padT + '" x2="' + px0.toFixed(1) + '" y2="' + (H - padB) + '" stroke="#E0B877" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>';
+    }
+
+    const mainPts = weights.map((v, i) => [x(i), y(v)]);
+    /* 预测从最后一个历史点开始连线（平滑过渡），但占独立的 X 位置 */
+    const predPts = pred.map((v, i) => [x(n + i), y(v)]);
+    const connPts = [mainPts[mainPts.length - 1]].concat(predPts);
+
+    /* 区域填充（仅历史部分） */
+    const area = smoothPath(mainPts) + ' L' + x(n - 1).toFixed(1) + ' ' + (H - padB) + ' L' + x(0).toFixed(1) + ' ' + (H - padB) + ' Z';
+    g += '<defs><linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">' +
+         '<stop offset="0%" stop-color="#5E9C76" stop-opacity=".16"/>' +
+         '<stop offset="100%" stop-color="#5E9C76" stop-opacity="0"/></linearGradient></defs>';
+    g += '<path d="' + area + '" fill="url(#areaG)"/>';
+    /* 预测虚线 */
+    g += '<path d="' + smoothPath(connPts) + '" fill="none" stroke="#E0B877" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"/>';
+    /* 历史实线 */
+    g += '<path d="' + smoothPath(mainPts) + '" fill="none" stroke="#5E9C76" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+
+    /* 历史点 */
+    weights.forEach((v, i) => {
+      g += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="' + (compact ? 3 : 4) + '" fill="#fff" stroke="#5E9C76" stroke-width="2"/>';
+      g += '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="9" class="dot-hit" data-w="' + v + '" data-i="' + i + '"/>';
+    });
+    /* 预测点 — 也加 hit circle 支持 hover */
+    pred.forEach((v, i) => {
+      g += '<circle cx="' + x(n + i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="' + (compact ? 2.5 : 3.4) + '" fill="#fff" stroke="#E0B877" stroke-width="1.8"/>';
+      g += '<circle cx="' + x(n + i).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="9" class="dot-hit pred-hit" data-w="' + v + '" data-i="' + (n + i) + '"/>';
+    });
+
+    /* X 轴标签：智能间隔 */
+    const labelIdx = [];
+    if (labels.length <= 8) { for (let i = 0; i < labels.length; i++) labelIdx.push(i); }
+    else { const step = Math.ceil(labels.length / 6); for (let i = 0; i < labels.length; i += step) labelIdx.push(i); if (labelIdx[labelIdx.length-1] !== labels.length-1) labelIdx.push(labels.length-1); }
+    labelIdx.forEach(i => {
+      const isPred = i >= n;
+      g += '<text x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" class="axis-label"' + (isPred ? ' style="fill:#C9A04B"' : '') + '>' + (labels[i] || '') + '</text>';
+    });
+
+    svg.innerHTML = g;
+    svg.querySelectorAll('.dot-hit').forEach(dot => {
+      dot.addEventListener('mouseenter', () => {
+        const w = dot.dataset.w, i = +dot.dataset.i;
+        const cx = parseFloat(dot.getAttribute('cx')), cy = parseFloat(dot.getAttribute('cy'));
+        const rect = svg.getBoundingClientRect();
+        const sx = rect.width / W, sy = rect.height / H;
+        const isPred = dot.classList.contains('pred-hit');
+        const label = labels[i] || '';
+        const prefix = isPred ? '<span style="color:#C9A04B">预测</span> ' : '';
+        tip.innerHTML = prefix + '<b>' + label + '</b><br/>体重 <b>' + w + '</b> kg';
+        tip.style.left = (cx * sx - 40) + 'px';
+        tip.style.top = (cy * sy - 50) + 'px';
+        tip.classList.add('show');
+      });
+      dot.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    });
+  }
+
+  /* ===== 营养条 ===== */
+  function renderNutri(rows) {
+    const box = document.getElementById('nutriRows');
+    box.innerHTML = '';
+    rows.forEach((r, idx) => {
+      const pct = Math.min(r.pct, 100);
+      const stCls = r.status === 'ok' ? 'st-ok' : r.status === 'over' ? 'st-over' : 'st-low';
+      const barCls = r.status === 'over' ? 'bar-over' : r.status === 'ok' ? 'bar-green' : 'bar-amber';
+      const row = document.createElement('div');
+      row.className = 'nutri-row';
+      row.innerHTML = '<div class="nutri-top"><span class="name">' + r.name + '<span class="status-tag ' + stCls + '">' + r.statusText + '</span></span>' +
+        '<span class="val"><b>' + r.cur + '</b> / ' + r.tar + 'g · ' + r.range + '</span></div>' +
+        '<div class="bar"><div class="' + barCls + '" data-w="' + pct + '"></div></div>';
+      box.appendChild(row);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const el = row.querySelector('.bar > div');
+          if (el) el.style.width = pct + '%';
+        }, 80 + idx * 120);
+      });
+    });
+  }
+
+  /* ===== 打卡：周/月统一渲染 + hover Tooltip（简化版） ===== */
+  function attachCellTooltip(el, data) {
+    const tip = document.getElementById('cellTip');
+    el.addEventListener('mouseenter', e => {
+      const statusHtml = data.on
+        ? ('<span style="color:#7DC397">● 已打卡</span>')
+        : ('<span style="color:#C9C4B7">○ 未打卡</span>');
+      let body = '<b style="font-size:12px">' + data.date + '</b>　' + statusHtml;
+      if (data.on) {
+        body += '<div style="margin-top:4px;opacity:.92">' +
+          '热量 <b style="color:#BEE3CB">' + (data.cal || 0) + '</b> kcal';
+        if (data.ex) body += '　· 运动 <b style="color:#FFE8B8">' + data.ex + '</b>';
+        body += '</div>';
+      }
+      tip.innerHTML = body;
+      tip.classList.add('show');
+      const r = el.getBoundingClientRect();
+      tip.style.top = Math.max(12, r.top - tip.offsetHeight - 10) + 'px';
+      tip.style.left = Math.max(12, r.left + r.width / 2 - tip.offsetWidth / 2) + 'px';
+    });
+    el.addEventListener('mousemove', e => {
+      const r = el.getBoundingClientRect();
+      tip.style.top = Math.max(12, r.top - tip.offsetHeight - 10) + 'px';
+    });
+    el.addEventListener('mouseleave', () => tip.classList.remove('show'));
+  }
+
+  function renderHeatWeekly(d) {
+    const wrap = document.getElementById('heatWrap');
+    wrap.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'heat-row';
+    d.heat.forEach(h => {
+      const cell = document.createElement('div');
+      cell.className = 'heat-cell lv' + (h.on ? '1' : '0');
+      cell.textContent = (h.date || '').replace(/^0?\d+\//, ''); // 只显示"日"，比如 08/10 → 10
+      attachCellTooltip(cell, h);
+      row.appendChild(cell);
+    });
+    wrap.appendChild(row);
+
+    /* 星期标签行 */
+    const dow = document.createElement('div');
+    dow.className = 'heat-dow';
+    d.heat.forEach(h => {
+      const s = document.createElement('span');
+      s.textContent = h.day;
+      dow.appendChild(s);
+    });
+    wrap.appendChild(dow);
+  }
+
+  const DOW = ['一','二','三','四','五','六','日'];
+  function renderHeatMonthly(d) {
+    const wrap = document.getElementById('heatWrap');
+    wrap.innerHTML = '';
+    const cal = document.createElement('div');
+    cal.className = 'heat-calendar';
+    /* 星期标题（一二三四五六日，六/日橙色） */
+    for (let i = 0; i < 7; i++) {
+      const head = document.createElement('div');
+      head.className = 'cal-dow' + (i >= 5 ? ' we' : '');
+      head.textContent = DOW[i];
+      cal.appendChild(head);
+    }
+    /* 前置占位 */
+    for (let i = 0; i < MONTH_DOW_OFFSET; i++) {
+      const ph = document.createElement('div');
+      ph.className = 'heat-cell placeholder lv0';
+      cal.appendChild(ph);
+    }
+    /* 30 天小方块 + 日号 */
+    d.heat.forEach((h, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'heat-cell lv' + (h.on ? '1' : '0');
+      cell.textContent = String(i + 1);
+      attachCellTooltip(cell, h);
+      cal.appendChild(cell);
+    });
+    wrap.appendChild(cal);
+  }
+
+  /* ===== 体重对比 / 运动对比 ===== */
+  function trendMinisvg(dir) {
+    return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+      (dir === 'up'
+        ? '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>'
+        : '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>') +
+      '</svg>';
+  }
+  function renderCmp(containerId, rows) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = rows.map(r => {
+      let val = '<span class="val ' + (r.cls || '') + '">' +
+        (typeof r.val === 'number' && r.val % 1 !== 0 ? r.val.toFixed(2).replace(/\.?0+$/, '') : r.val) +
+        (r.unit ? '<small> ' + r.unit + '</small>' : '') + '</span>';
+      if (r.trend) {
+        val += ' <span class="trend-mini t-' + (r.trend.dir === 'up' ? 'up' : 'down') + '">' +
+          trendMinisvg(r.trend.dir) + ' ' + r.trend.text + '</span>';
+      }
+      return '<div class="row"><span class="lbl">' + r.lbl + '</span>' + val + '</div>';
+    }).join('');
+  }
+
+  /* ===== 运动总结语 ===== */
+  function renderExSummary(d, t) {
+    const el = document.getElementById('exSummary');
+    if (!el) return;
+    const days = d.exCmp.rows.find(r => r.lbl === '运动天数')?.val || 0;
+    const total = d.exCmp.rows.find(r => r.lbl === '总时长')?.val || 0;
+    const avg = d.exCmp.rows.find(r => r.lbl === '平均每次')?.val || 0;
+    const cal = d.exCmp.rows.find(r => r.lbl === '消耗热量')?.val || 0;
+    const avgCal = days > 0 ? Math.round(cal / days) : 0;
+    const period = t === 'monthly' ? '本月' : '本周';
+    el.innerHTML = period + '共消耗 <b style="color:#C9792F">' + cal + '</b> kcal · ' +
+      '运动 <b>' + days + '</b> 天 · 总时长 <b>' + total + '</b> min · ' +
+      '平均每次 <b>' + avg + '</b> min · 平均每次消耗 <b>' + avgCal + '</b> kcal';
+  }
+
+  /* ===== 目标进度条 ===== */
+  function renderGoalBar(d) {
+    const el = document.getElementById('goalBar');
+    if (!el || !d.profile) return;
+    const p = d.profile;
+    const start = p.startWeight;
+    const cur = p.weight;
+    const goal = p.goalWeight;
+    /* 进度：从起点到目标的完成度 */
+    const totalToLose = start - goal;
+    const lost = start - cur;
+    const progress = totalToLose > 0 ? Math.min(100, Math.max(0, Math.round((lost / totalToLose) * 100))) : 0;
+    const toGo = Math.max(0, (cur - goal)).toFixed(1);
+    const pctClass = progress >= 80 ? 'cur' : '';
+    el.innerHTML =
+      '<div class="gb-top">' +
+        '<span class="lbl">目标进度</span>' +
+        '<span>' +
+          '<span class="cur">' + cur + '<small> kg</small></span>' +
+        '</span>' +
+      '</div>' +
+      '<div class="gb-track"><div class="gb-fill" style="width:0" data-progress="' + progress + '"></div></div>' +
+      '<div class="gb-ticks">' +
+        '<span>' + start + 'kg</span>' +
+        '<span class="' + pctClass + '">已减 ' + progress + '%</span>' +
+        '<span>目标 ' + goal + 'kg</span>' +
+      '</div>' +
+      '<div style="text-align:center;font-size:10.5px;color:#8A8578;margin-top:4px">还差 <b style="color:#C9792F;font-weight:700">' + toGo + '</b> kg 达成目标</div>';
+    /* 动画 */
+    requestAnimationFrame(() => {
+      const fill = el.querySelector('.gb-fill');
+      if (fill) setTimeout(() => { fill.style.width = progress + '%'; }, 50);
+    });
+  }
+
+  /* ===== BMR 纯文字比例 ===== */
+  function renderBmrRatio(d) {
+    const el = document.getElementById('bmrRatio');
+    if (!el) return;
+    const ratio = d.bmrIntake || 100;
+    const bmr = d.profile?.bmr || 1568;
+    const avgCal = d.avgDailyCalorie || 0;
+    let cls, label;
+    if (ratio > 110) { cls = 'over'; label = '超标摄入'; }
+    else if (ratio < 85) { cls = 'low'; label = '摄入偏低'; }
+    else { cls = 'ok'; label = '摄入均衡'; }
+    el.innerHTML =
+      '日均 <b>' + avgCal + '</b> kcal / BMR <b>' + bmr + '</b> kcal = <b>' + ratio + '%</b>' +
+      '<span class="bmr-status ' + cls + '">' + label + '</span>';
+  }
+
+  /* ===== 营养环形图：4 个独立（ECharts） ===== */
+  const nutriCharts = [];
+  function renderNutriDonut(nutri) {
+    const el = document.getElementById('nutriDonut');
+    if (!el || !nutri || !nutri.length) { el.innerHTML = ''; return; }
+    /* 销毁旧实例 */
+    nutriCharts.forEach(c => c && c.dispose());
+    nutriCharts.length = 0;
+    const colors = { ok: '#3B8A5E', over: '#C9792F', low: '#4A90B8' };
+    el.innerHTML = nutri.map((n, i) =>
+      '<div class="nd-item">' +
+        '<div class="nd-chart" id="ndChart' + i + '"></div>' +
+        '<div class="nd-info">' +
+          '<div class="nd-name">' + n.name + '</div>' +
+          '<div class="nd-val"><b>' + n.cur + '</b>/' + n.tar + 'g · ' + n.range + '</div>' +
+          '<span class="nd-tag ' + n.status + '">' + n.statusText + ' ' + n.pct + '%</span>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+    /* 初始化 ECharts 环形图 */
+    nutri.forEach((n, i) => {
+      const chartEl = document.getElementById('ndChart' + i);
+      if (!chartEl) return;
+      const chart = echarts.init(chartEl);
+      const fillPct = Math.min(n.pct, 100); /* 超过 100% 按 100% 满 */
+      const color = colors[n.status] || '#999';
+      chart.setOption({
+        series: [{
+          type: 'pie',
+          radius: ['68%', '100%'],
+          center: ['50%', '50%'],
+          silent: true,
+          label: { show: false },
+          labelLine: { show: false },
+          animationDuration: 800,
+          animationEasing: 'cubicOut',
+          data: [
+            { value: fillPct, itemStyle: { color: color } },
+            { value: 100 - fillPct, itemStyle: { color: '#E8E5DC' } }
+          ],
+          startAngle: 90
+        }]
+      });
+      nutriCharts.push(chart);
+    });
+  }
+
+  /* ===== 科普文章推荐 ===== */
+  /* Lucide BookOpenText SVG 图标 */
+  const icBookOpen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/></svg>';
+
+  function renderArticleRec(d) {
+    const el = document.getElementById('articleRec');
+    if (!el) return;
+    const issues = [];
+    if (d.nutri) {
+      d.nutri.forEach(n => {
+        if (n.status === 'over') issues.push({ type: 'over', name: n.name });
+        if (n.status === 'low') issues.push({ type: 'low', name: n.name });
+      });
+    }
+    const crowdType = '普通人'; /* 可从 profile.crowd_type 获取 */
+    const articleMap = {
+      'over_脂肪': { title: '脂肪摄入偏高该如何调整', desc: '减少油炸食品与肥肉，增加深海鱼补充 Omega-3' },
+      'over_碳水化合物': { title: '碳水摄入偏高的调整方案', desc: '减少精制碳水，替换全谷物，优化主食结构' },
+      'over_蛋白质': { title: '蛋白质摄入过高的风险与应对', desc: '控制每日蛋白质量，避免加重肾脏负担' },
+      'low_碳水化合物': { title: '碳水摄入不足怎么办', desc: '训练日补充全谷物、燕麦或薯类主食' },
+      'low_蛋白质': { title: '如何科学补充蛋白质', desc: '优质蛋白来源：鸡蛋、牛奶、鱼肉、豆制品' },
+      'low_膳食纤维': { title: '膳食纤维不足的改善方法', desc: '多吃蔬菜、水果、全谷物，促进肠道健康' },
+    };
+    let rec = null;
+    for (const issue of issues) {
+      const key = issue.type + '_' + issue.name;
+      if (articleMap[key]) { rec = articleMap[key]; break; }
+    }
+    /* 如果没有匹配的问题文章，推荐人群相关 */
+    if (!rec) {
+      const crowdArticles = {
+        '普通人': { title: '普通人的健康饮食指南', desc: '均衡营养、规律作息、适量运动的核心原则' },
+        '健身': { title: '健身人群的营养补充要点', desc: '蛋白时机、碳水周期化、水分补充' },
+        '老年': { title: '老年人营养摄入建议', desc: '补钙、优质蛋白、控盐控油' },
+        '孕妇': { title: '孕期营养摄入指南', desc: '叶酸、DHA、钙铁等关键营养素补充' },
+      };
+      rec = crowdArticles[crowdType] || crowdArticles['普通人'];
+    }
+    el.style.display = 'flex';
+    el.innerHTML =
+      '<div class="ar-tag">' + icBookOpen + '</div>' +
+      '<div class="ar-body">' +
+        '<div class="ar-meta">为你推荐 · 科普文章</div>' +
+        '<div class="ar-title">' + rec.title + '</div>' +
+        '<div class="ar-desc">' + rec.desc + '</div>' +
+      '</div>';
+    el.onclick = () => {
+      alert('跳转文章详情：' + rec.title);
+    };
+  }
+
+  /* ===== 对比栏：打卡/热量/运动 ===== */
+  function renderVsRow(d) {
+    const container = document.getElementById('vsRow');
+    const vsBaseLabel = (current === 'weekly' ? '上周' : '上月');
+    container.innerHTML =
+      '<div class="vs-cell">' +
+        '<div class="k">打卡天数</div>' +
+        '<div class="v">' + d.checkin + '<small> / ' + vsBaseLabel + ' ' + d.checkinBase + '</small></div>' +
+        '<div class="d d-up">' + s('up', 12, 12) + d.checkinTrendText + '</div>' +
+      '</div>' +
+      '<div class="vs-cell">' +
+        '<div class="k">平均热量</div>' +
+        '<div class="v">' + d.calorie + '<small> kcal</small></div>' +
+        '<div class="d d-down">' + s('down', 12, 12) + '较' + vsBaseLabel + ' ' + d.calorieDelta + '</div>' +
+      '</div>' +
+      '<div class="vs-cell">' +
+        '<div class="k">运动时长</div>' +
+        '<div class="v">' + d.exerciseMin + '<small> min</small></div>' +
+        '<div class="d d-up">' + s('up', 12, 12) + '较' + vsBaseLabel + ' ' + d.exerciseDelta + '</div>' +
+      '</div>';
+  }
+
+  /* ===== 数字动画 ===== */
+  function animateCount(el, target, dur, decimals) {
+    const d = decimals || 0;
+    const start = performance.now();
+    function setVal(p) {
+      const eased = 1 - Math.pow(1 - p, 3);
+      const v = target * eased;
+      el.textContent = d > 0 ? v.toFixed(d) : Math.round(v);
+    }
+    function tick(now) {
+      const p = Math.min((now - start) / dur, 1);
+      setVal(p);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    setTimeout(() => { setVal(1); }, dur + 50);
+  }
+
+  /* ===== Toast ===== */
+  function toast(msg, type) {
+    const wrap = document.getElementById('toastWrap');
+    const t = document.createElement('div');
+    t.className = 'toast ' + (type || '');
+    t.innerHTML = '<span class="ic">' +
+      (type === 'success' ? s('check', 14, 14) : type === 'info' ? s('info', 14, 14) : s('sparkle', 14, 14)) +
+      '</span><span>' + msg + '</span>';
+    wrap.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 400);
+    }, 2600);
+  }
+
+  /* ===== 按钮功能 ===== */
+  function askAI() {
+    toast('已提交 AI 分析，稍后在 健康报告 → AI分析 中查看结果', 'success');
+  }
+  function searchRecipes() {
+    const nutriState = (data[current] && data[current].nutri) || [];
+    let keyword = '健康菜谱';
+    if (nutriState.some(n => n.status === 'low')) keyword = '高蛋白 低脂肪 全谷物 菜谱';
+    if (nutriState.some(n => n.status === 'over')) keyword = '清淡 低油 高纤维 菜谱';
+    toast('正在跳转：搜索「' + keyword + '」', 'info');
+    setTimeout(() => window.open('https://www.xiachufang.com/search/?keyword=' + encodeURIComponent(keyword), '_blank'), 900);
+  }
+  function doPrint() {
+    toast('已进入打印模式，可保存为 PDF', 'info');
+    setTimeout(() => window.print(), 400);
+  }
+  document.getElementById('saveBtn').addEventListener('click', () => {
+    toast('正在导出 ' + (current === 'weekly' ? '周报' : '月报') + ' PNG …', 'info');
+    setTimeout(() => { window.print(); }, 600);
+  });
+
+  /* ===== Tab 切换主入口 ===== */
+  let current = 'weekly';
+  function switchTab(t) {
+    current = t;
+    const d = data[t];
+    const vsBaseLabel = (t === 'weekly' ? '上周' : '上月');
+
+    /* 文案类更新 */
+    document.getElementById('heroTitle').innerHTML = profile.name + ' 的' + d.heroSuffix;
+    document.getElementById('saveBtn').innerHTML = s('save', 16, 16) + '<span>' + d.saveBtn + '</span>';
+    document.getElementById('heatTitle').textContent = d.heatTitle;
+    document.getElementById('weightTitle').textContent = d.weightTitle;
+    document.getElementById('nutriTitle').textContent = d.nutriTitle;
+    document.getElementById('summaryTitle').textContent = d.summaryTitle;
+    document.getElementById('wCmpTitle').textContent = d.wCmpTitle;
+    document.getElementById('exCmpTitle').textContent = d.exCmpTitle;
+    document.getElementById('weightFoot').textContent = d.weightFoot;
+    document.getElementById('nutriFoot').textContent = d.nutriFoot;
+    document.getElementById('aiBtn').innerHTML =
+      s('bot', 16, 16) + '<span>' + d.aiText[0] + '</span><span class="note">' + d.aiText[1] + '</span>';
+
+    /* 打卡 */
+    if (t === 'weekly') {
+      renderHeatWeekly(d);
+      document.getElementById('hTotal').textContent = '7';
+    } else {
+      renderHeatMonthly(d);
+      document.getElementById('hTotal').textContent = String(MONTH_DAYS);
+    }
+    document.getElementById('hChecked').textContent = '';
+    animateCount(document.getElementById('hChecked'), d.checkin, 700);
+
+    /* 体重对比 / 运动对比 */
+    renderCmp('wCmp', d.wCmp.rows);
+    renderCmp('exCmp', d.exCmp.rows);
+    renderExSummary(d, t);
+
+    /* 新增功能 */
+    renderGoalBar(d);
+    renderBmrRatio(d);
+    renderNutriDonut(d.nutri);
+    renderArticleRec(d);
+
+    /* 体重趋势 & 营养 */
+    renderWeight(d.weights, d.pred, d.wLabels, t === 'monthly');
+
+    /* vs row */
+    renderVsRow(d);
+
+    /* advice */
+    const adv = document.getElementById('adviceList');
+    adv.innerHTML = '';
+    d.advice.forEach(a => {
+      const li = document.createElement('li');
+      li.textContent = a;
+      adv.appendChild(li);
+    });
+
+    /* tab active state */
+    document.getElementById('tabWeekly').classList.toggle('active', t === 'weekly');
+    document.getElementById('tabMonthly').classList.toggle('active', t === 'monthly');
+
+    /* Tab 切换完成提示（仅月报提示一次） */
+    if (t === 'monthly') toast('已切换到月报视图：30 天日历 + 4 周体重趋势', 'success');
+  }
+
+  /* ===== 启动 ===== */
+  installIcons();
+  switchTab('weekly');
+</script>
+</body>
+</html>

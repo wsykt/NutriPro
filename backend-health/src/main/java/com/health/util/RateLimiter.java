@@ -45,8 +45,19 @@ public class RateLimiter {
             }
             return existing;
         });
+        // 周期清理过期 key，防止内存无限增长（配合伪造 key 的 DoS 场景）
+        cleanupExpired();
         return counter.count.incrementAndGet() <= maxRequests;
     }
+
+    /** 惰性清理：过期窗口的 key 直接移除（每次调用最多扫描一次全表，成本可控） */
+    private void cleanupExpired() {
+        if ((cleanupTick.incrementAndGet() & 63) != 0) return; // 每 64 次调用清理一次
+        long now = System.currentTimeMillis();
+        buckets.entrySet().removeIf(e -> now - e.getValue().windowStart >= windowMillis);
+    }
+
+    private final java.util.concurrent.atomic.AtomicLong cleanupTick = new java.util.concurrent.atomic.AtomicLong(0);
 
     /** 清理全部窗口（一般仅在测试或重置场景使用） */
     public void reset() {

@@ -10,7 +10,6 @@ import {
   Search,
   Users,
   Bot,
-  MapPin,
   FileText,
   Dumbbell,
   HeartHandshake,
@@ -150,7 +149,7 @@ export const level1Map: Record<Level1Key, Level1Menu> = {
   health: {
     key: 'health',
     label: '健康生活',
-    description: '健康报告、运动记录与周边地图',
+    description: '健康报告、运动记录',
     icon: Activity,
     theme: { primary: '#3b82f6' },
     children: [
@@ -160,13 +159,6 @@ export const level1Map: Record<Level1Key, Level1Menu> = {
         desc: '个人健康综合评估报告与改进建议',
         icon: FileText,
         route: '/dashboard/health-report'
-      },
-      {
-        key: 'gym',
-        label: '附近地图',
-        desc: '定位周边健身房、运动场所与健康餐厅',
-        icon: MapPin,
-        route: '/dashboard/gym'
       },
       {
         key: 'muscle-chart',

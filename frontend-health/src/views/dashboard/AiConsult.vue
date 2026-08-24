@@ -9,7 +9,7 @@
       <div class="glass rounded-2xl p-6 lg:col-span-2 flex flex-col" style="min-height: 480px">
         <div class="flex-1 overflow-y-auto mb-4 space-y-4" style="max-height: 440px">
           <div v-if="messages.length === 0" class="text-morandi-lightText text-sm text-center py-16">
-            👋 你好！我是健康助手，可以帮你分析饮食、运动和生活习惯。有什么想问的就尽管告诉我吧！
+             你好！我是健康助手，可以帮你分析饮食、运动和生活习惯。有什么想问的就尽管告诉我吧！
           </div>
           <div v-if="welcomeBadge" class="welcome-badge">
             <component :is="Sparkles" class="w-3.5 h-3.5" />
@@ -119,12 +119,37 @@ import { marked } from 'marked'
 
 marked.setOptions({ breaks: true, gfm: true })
 
+/* 安全消毒：marked v18 默认把输入中的原始 HTML 原样透传，AI 输出（或回放的对话记录）可能被
+ * 提示词注入成 <img onerror>/<script> 等，导致存储型 XSS。这里用 DOMParser 构建 DOM 后剔除
+ * 危险标签与 on* 事件属性、javascript:/data: 伪协议，再序列化。
+ */
+function sanitizeHtml(html: string): string {
+  if (!html) return ''
+  if (typeof DOMParser === 'undefined') return String(html).replace(/</g, '&lt;')
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const dangerous = ['script', 'iframe', 'object', 'embed', 'link', 'base', 'meta', 'form', 'input']
+  dangerous.forEach((tag) => doc.querySelectorAll(tag).forEach((el) => el.remove()))
+  doc.querySelectorAll('*').forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name)
+      } else if ((name === 'href' || name === 'src' || name === 'xlink:href') &&
+                 (value.startsWith('javascript:') || value.startsWith('vbscript:') || value.startsWith('data:text/html'))) {
+        el.removeAttribute(attr.name)
+      }
+    })
+  })
+  return doc.body.innerHTML
+}
+
 function renderMd(text: string): string {
   if (!text) return ''
   // 流式渲染时，如果最后一个字符是换行，marked 会把它吃掉，追加 0 宽空格让视觉连贯
   const t = text + (text.endsWith('\n') ? '\u200b' : '')
   try {
-    return String(marked.parse(t))
+    return sanitizeHtml(String(marked.parse(t)))
   } catch {
     return String(text).replace(/</g, '&lt;')
   }
@@ -176,7 +201,7 @@ const handleSend = async (override?: { displayText?: string; actualQuestion?: st
   if (!displayText) return
   const actualQuestion = (o?.actualQuestion ?? displayText).trim()
   const reportCtx = o?.report_context ?? pendingReportContext.value
-  const highPerf = o?.high_performance ?? pendingHighPerformance.value ?? true
+  const highPerf = o?.high_performance ?? pendingHighPerformance.value ?? userStore.highPerformance
   // 本次用完清空，避免后续普通咨询继续带 report_ctx
   pendingReportContext.value = null
   pendingHighPerformance.value = null

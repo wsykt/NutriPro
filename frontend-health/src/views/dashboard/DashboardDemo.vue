@@ -259,7 +259,7 @@ import echarts, { VChart } from '@/utils/echarts'
 import {
   User, Users, Activity, FileText, UsersRound,
   Utensils, PlusCircle, PieChart, Search,
-  HeartPulse, BarChart3, MapPin, Dumbbell,
+  HeartPulse, BarChart3, Dumbbell,
   BookOpen, Newspaper, MessageCircle, ClipboardList, ChefHat,
   Flame, Scale, LayoutGrid, ArrowRight, TrendingDown, CheckCircle2,
   Camera, Mic, Sparkles, Calendar, Leaf, Zap, Info
@@ -634,7 +634,8 @@ onMounted(async () => {
     api.diet.getByDate(today),
     api.profile.snapshot(),
     api.report.list(),
-    api.metrics.range ? api.metrics.range(today, 7) : Promise.resolve(null),
+    // metrics.range(userId, startDate, endDate)：修复旧代码把 today 当 userId、把 7 当 startDate 的参数错位
+    api.metrics.range ? api.metrics.range(userStore.activeUserId || userStore.user?.user_id || 1, new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10), today) : Promise.resolve(null),
     api.article.list({}).catch(() => []),
     api.metrics.predict ? api.metrics.predict(userStore.activeUserId || userStore.user?.user_id || 1, 7).catch(() => null) : Promise.resolve(null),
   ])
@@ -688,37 +689,7 @@ onMounted(async () => {
     weightHistory.value = [Number(overview.value.weight)]
     weightDates.value = [today]
   }
-
-  // ===== 演示数据兜底（无真实数据时预览效果用，可删除） =====
-  const hasAnyData = overview.value.todayKcal != null || overview.value.weight != null
-  if (!hasAnyData) {
-    overview.value.todayKcal = 1845
-    overview.value.protein = 86
-    overview.value.fat = 62
-    overview.value.carb = 205
-    overview.value.weight = 70.1
-    overview.value.height = 175
-    overview.value.bmi = 22.9
-    overview.value.bmr = 1580
-    overview.value.reportCount = 3
-    weightHistory.value = [71.2, 71.0, 70.8, 70.9, 70.5, 70.3, 70.1]
-    weightDates.value = ['2026-08-09', '2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15']
-    prediction.value = {
-      status: 'ok', days: 7, trend: 'down', message: '基于近 7 日数据线性回归预测',
-      points: [69.9, 69.8, 69.6, 69.5, 69.4, 69.2, 69.1]
-    }
-    articles.value = [
-      { title: '膳食纤维：被忽视的第七营养素', summary: '25-30g/天怎么吃够，水溶与不溶来源清单', audience: '普通人群' },
-      { title: '每天喝水多少才健康？', summary: '饮水建议量、时机与误区', audience: '普通人群' },
-      { title: '三餐怎么搭配更均衡？', summary: '中国居民膳食餐盘法详解', audience: '普通人群' },
-      { title: '减脂期蛋白质怎么吃才不流失肌肉？', summary: '每公斤体重 1.2-1.6g，三餐分配', audience: '健身人群' },
-      { title: '增肌期碳水摄入策略', summary: '训练日与休息日的碳水分配', audience: '健身人群' },
-      { title: '糖尿病患者早餐的升糖避坑指南', summary: '低GI主食选择与进食顺序', audience: '糖尿病患者' },
-      { title: '老年人补钙：食物与补剂如何选择？', summary: '骨密度与钙摄入的循证关系', audience: '老年人' },
-      { title: '孕妇孕期营养补充要点', summary: '叶酸、铁、DHA 的摄入建议', audience: '孕妇' },
-      { title: '青少年长高期的营养需求', summary: '钙、蛋白质与生长激素', audience: '青少年' },
-    ]
-  }
+  // 注意：不再注入演示假数据。无真实数据时页面显示空态（— / 暂无数据）
 })
 </script>
 

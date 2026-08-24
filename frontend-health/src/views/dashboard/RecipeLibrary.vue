@@ -308,6 +308,8 @@ watch([showGenerateDialog, showDetailDialog], (newVal) => {
 
 onMounted(() => {
   loadRecipes()
+  // 预载收藏映射（系统菜谱ID → 收藏记录主键），确保"全部食谱"页取消收藏时能精确定位
+  recipeStore.fetchFavorites()
 })
 </script>
 

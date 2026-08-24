@@ -1,6 +1,6 @@
 <template>
   <div class="page-fade-in max-w-5xl mx-auto px-4 md:px-8 py-6">
-    <h2 class="text-2xl font-bold text-morandi-text mb-6">🔍 食物搜索</h2>
+    <h2 class="text-2xl font-bold text-morandi-text mb-6"> 食物搜索</h2>
 
     <div class="glass rounded-2xl p-6 mb-6">
       <input

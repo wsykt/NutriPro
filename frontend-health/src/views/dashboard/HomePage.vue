@@ -140,14 +140,14 @@ const loadTodayNutrition = async () => {
   try {
     const today = new Date().toISOString().split('T')[0]
     const data: any = await api.diet.analyze(today)
-    if (data) {
-      todayNutrition.value = {
-        protein: Math.round(data.protein || 0),
-        fat: Math.round(data.fat || 0),
-        carb: Math.round(data.carbohydrate || 0)
-      }
-      todayCalories.value = Math.round(data.calorie || 0)
+    // /diet/analyze 返回体在 data.total 下（键：calorie/protein/fat/carb），旧代码读顶层取到 0
+    const t = (data && data.total) || {}
+    todayNutrition.value = {
+      protein: Math.round(t.protein || 0),
+      fat: Math.round(t.fat || 0),
+      carb: Math.round(t.carb || 0)
     }
+    todayCalories.value = Math.round(t.calorie || 0)
   } catch {
     // mock 数据
     todayNutrition.value = { protein: 45, fat: 32, carb: 180 }

@@ -67,6 +67,6 @@ public class AiExerciseService {
         requestBody.put("body_metrics_trend", snapshot.get("body_metrics_trend"));
         requestBody.put("diet_reference", snapshot.get("diet_reference"));
 
-        return aiChatClient.postForMap("/exercise/advice", requestBody, "运动建议生成");
+        return aiChatClient.postForMapLong("/exercise/advice", requestBody, "运动建议生成");
     }
 }

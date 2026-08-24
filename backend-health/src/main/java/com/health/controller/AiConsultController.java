@@ -427,29 +427,11 @@ public class AiConsultController {
             String reply = aiChatClientService.callRecipeApi(systemPrompt, prompt);
             return ResponseEntity.ok(ApiResponse.success(reply));
         } catch (Exception e) {
+            // 安全加固：不再兜底返回假食谱（避免把 AI 失败伪装成成功结果误导用户），
+            // 如实返回错误（含熔断提示），由前端展示失败状态。
             e.printStackTrace();
-            return ResponseEntity.ok(ApiResponse.success("{\n" +
-                    "  \"name\": \"健康蔬菜沙拉\",\n" +
-                    "  \"description\": \"清爽低卡的蔬菜沙拉，富含维生素和膳食纤维\",\n" +
-                    "  \"calories\": 180,\n" +
-                    "  \"protein\": 12,\n" +
-                    "  \"fat\": 8,\n" +
-                    "  \"carbs\": 15,\n" +
-                    "  \"fiber\": 6,\n" +
-                    "  \"tags\": [\"减脂\", \"低卡\", \"均衡\"],\n" +
-                    "  \"ingredients\": [\n" +
-                    "    {\"ingredient_name\": \"生菜\", \"amount\": 100, \"unit\": \"g\"},\n" +
-                    "    {\"ingredient_name\": \"番茄\", \"amount\": 100, \"unit\": \"g\"},\n" +
-                    "    {\"ingredient_name\": \"鸡胸肉\", \"amount\": 50, \"unit\": \"g\"},\n" +
-                    "    {\"ingredient_name\": \"橄榄油\", \"amount\": 10, \"unit\": \"ml\"},\n" +
-                    "    {\"ingredient_name\": \"沙拉酱\", \"amount\": 20, \"unit\": \"g\"}\n" +
-                    "  ],\n" +
-                    "  \"steps\": [\n" +
-                    "    \"将生菜洗净撕成小片，番茄切块\",\n" +
-                    "    \"鸡胸肉煮熟后切丁\",\n" +
-                    "    \"将所有食材混合，淋上橄榄油和沙拉酱拌匀即可\"\n" +
-                    "  ]\n" +
-                    "}"));
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(ApiResponse.error(HttpStatus.BAD_GATEWAY.value(), "AI生成食谱失败：" + e.getMessage()));
         }
     }
 
