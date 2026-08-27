@@ -361,6 +361,15 @@ class AgentOrchestrator:
                 "elapsed_seconds": round((time.time() - start), 2),
                 "retrieve_info": retrieve_info,
                 "timing_breakdown": timing_breakdown,
+                # 透传 mode_router 真实决策链断点（供管理员流程演示逐块展示：模板命中/本地A/校验/云端C/入库）
+                "_meta": {
+                    "high_performance": high_performance,
+                    "mode": mode,
+                    "route": route,
+                    "timing_ms": router_timing,
+                    "validation": router_result.get("validation", {}),
+                    "trace": router_result.get("trace", []),
+                },
             }
 
         # --- 原有流水线（force_fallback 或 mode_router 未初始化时走这里）---
@@ -651,6 +660,7 @@ class AgentOrchestrator:
                         "route": route,
                         "timing_ms": router_result.get("timing_ms", {}),
                         "validation": router_result.get("validation", {}),
+                        "trace": router_result.get("trace", []),
                     }
                 elapsed = time.time() - start
                 self._record_stat(agent_name, success, elapsed, is_llm_fail, is_fallback)

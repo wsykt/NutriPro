@@ -41,6 +41,27 @@ from prompts.cloud import CLOUD_PROMPTS
 logger = logging.getLogger(__name__)
 
 
+def _content_len(content: Any) -> int:
+    """计算 AI 输出内容的字符数（dict/list 取 JSON 长度）"""
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content)
+    try:
+        return len(json.dumps(content, ensure_ascii=False))
+    except Exception:
+        return 0
+
+
+def _content_preview(content: Any, max_chars: int = 160) -> str:
+    """截取 AI 输出内容的前缀作为预览"""
+    if content is None:
+        return ""
+    text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    text = text.replace("\r", " ").replace("\n", " ")
+    return text[:max_chars] + ("…" if len(text) > max_chars else "")
+
+
 # ============================================================
 # 本地/云端校验规则 (仅正常模式下执行)
 # ============================================================
@@ -207,6 +228,7 @@ class ModeRouter:
         """
         start = time.time()
         timing = {}
+        trace = []  # 流水线断点：记录每个阶段的真实中间数据（供前端流水线逐步展示）
 
         if high_performance:
             # ============= 高性能模式：直接 C 方案，跳过校验；云端失败自动回退本地兜底 =============
@@ -216,6 +238,9 @@ class ModeRouter:
                 result = self._run_cloud(func_type, timeout=settings.LLM_TIMEOUT_HIGH_PERF, **kwargs)
                 timing["cloud_ms"] = round((time.time() - t0) * 1000)
                 route = "C_direct"
+                trace.append({"key": "cloud", "step": "云端大模型直接生成（C方案·高性能）",
+                              "data": {"model": "deepseek", "output_chars": _content_len(result),
+                                       "output_preview": _content_preview(result, 160)}})
             except Exception as e:
                 # 云端异常（限流/断网/额度耗尽）→ 本地引擎兜底（保证用户可用）
                 logger.warning(f"[高性能模式C失败回退本地] {func_type} err={type(e).__name__}: {e}")
@@ -225,6 +250,10 @@ class ModeRouter:
                 timing["local_fallback_ms"] = round((time.time() - t_local) * 1000)
                 route = "C_direct_fallback_local"
                 resp_extra = {"cloud_error": f"{type(e).__name__}: {str(e)[:200]}"}
+                trace.append({"key": "cloud", "step": "云端大模型直接生成（C方案·高性能）",
+                              "data": {"model": "deepseek", "output_chars": 0, "error": str(e)[:200]}})
+                trace.append({"key": "local_fallback", "step": "云端失败→本地规则引擎兜底",
+                              "data": {"output_chars": _content_len(result), "output_preview": _content_preview(result, 160)}})
             timing["total_ms"] = round((time.time() - start) * 1000)
 
             resp = {
@@ -233,6 +262,7 @@ class ModeRouter:
                 "route": route,
                 "timing_ms": timing,
                 "validation": {"skipped": True, "reason": "high_performance模式"},
+                "trace": trace,
             }
             if resp_extra:
                 resp.update(resp_extra)
@@ -258,8 +288,10 @@ class ModeRouter:
 
             # Stage 1: 模板召回 + 本地改写 (A方案)
             t1 = time.time()
-            template_content, skip_llm = self._retrieve_template(func_type, **kwargs)
+            template_content, skip_llm, retrieve_info = self._retrieve_template(func_type, **kwargs)
             timing["retrieve_ms"] = round((time.time() - t1) * 1000)
+            trace.append({"key": "template_recall", "step": "知识库模板召回",
+                          "data": retrieve_info})
 
             t2 = time.time()
             if skip_llm and template_content:
@@ -272,8 +304,17 @@ class ModeRouter:
                     except Exception:
                         # 模板非合法 JSON → 回退本地改写
                         a_result = self._run_local_rewrite(func_type, template_content, **kwargs)
+                trace.append({"key": "template_hit", "step": "模板极高相似度命中",
+                              "data": {"similarity": retrieve_info.get("top_similarity"),
+                                       "skip_llm": True, "token_cost": 0,
+                                       "mode": "直接返回模板原文（0 token）"}})
             else:
                 a_result = self._run_local_rewrite(func_type, template_content, **kwargs)
+                trace.append({"key": "local_rewrite", "step": "本地大模型生成（A方案）",
+                              "data": {"template_used": bool(template_content and template_content.strip()),
+                                       "model": "ollama(qwen2.5-7b)",
+                                       "output_chars": _content_len(a_result),
+                                       "output_preview": _content_preview(a_result, 200)}})
             timing["local_rewrite_ms"] = round((time.time() - t2) * 1000)
 
             # Stage 2: 校验 A 方案输出
@@ -285,6 +326,9 @@ class ModeRouter:
             else:
                 a_passed, a_issues = validator(a_result) if validator else (True, [])
             timing["validate_a_ms"] = round((time.time() - t3) * 1000)
+            trace.append({"key": "validate_a", "step": "A方案质量校验",
+                          "data": {"passed": bool(a_passed), "issues": a_issues or [],
+                                   "validator": validator.__name__ if validator else "none"}})
 
             if a_passed:
                 timing["total_ms"] = round((time.time() - start) * 1000)
@@ -294,6 +338,7 @@ class ModeRouter:
                     "route": "A_template_local",
                     "timing_ms": timing,
                     "validation": {"passed": True, "stage": "A", "issues": a_issues},
+                    "trace": trace,
                 }
                 self._apply_relevance_check(resp, func_type, a_result, **kwargs)
                 return resp
@@ -307,12 +352,19 @@ class ModeRouter:
             try:
                 c_result = self._run_cloud(func_type, **kwargs)
                 timing["cloud_fallback_ms"] = round((time.time() - t4) * 1000)
+                trace.append({"key": "cloud", "step": "云端大模型生成（C方案回退）",
+                              "data": {"model": "deepseek", "output_chars": _content_len(c_result),
+                                       "output_preview": _content_preview(c_result, 200)}})
             except Exception as e:
                 # C 方案异常：如额度耗尽/网络异常 → 仍然返回A方案结果，route 保持 A_template_local，标注 c_fallback_failed
                 cloud_error = f"{type(e).__name__}: {str(e)[:300]}"
                 logger.warning(f"[C回退失败，沿用A方案] {func_type} err={cloud_error}")
                 timing["cloud_fallback_ms"] = round((time.time() - t4) * 1000)
                 final_result = a_result
+                trace.append({"key": "cloud", "step": "云端大模型生成（C方案回退）",
+                              "data": {"model": "deepseek", "output_chars": 0, "error": cloud_error}})
+                trace.append({"key": "c_validation", "step": "C方案校验",
+                              "data": {"passed": False, "issues": ["云端调用失败，沿用A方案结果"], "cloud_error": cloud_error}})
                 resp = {
                     "result": final_result,
                     "mode": "normal",
@@ -324,6 +376,7 @@ class ModeRouter:
                         "a_issues": a_issues,
                         "c_fallback_error": cloud_error,
                     },
+                    "trace": trace,
                 }
                 timing["total_ms"] = round((time.time() - start) * 1000)
                 resp["timing_ms"] = timing
@@ -337,6 +390,9 @@ class ModeRouter:
             else:
                 c_passed, c_issues = validator(c_result) if validator else (True, [])
             timing["validate_c_ms"] = round((time.time() - t5) * 1000)
+            trace.append({"key": "c_validation", "step": "C方案质量校验",
+                          "data": {"passed": bool(c_passed), "issues": c_issues or [],
+                                   "validator": validator.__name__ if validator else "none"}})
 
             timing["total_ms"] = round((time.time() - start) * 1000)
 
@@ -352,6 +408,7 @@ class ModeRouter:
                     "a_issues": a_issues,
                     "c_issues": c_issues,
                 },
+                "trace": trace,
             }
             if cloud_error:
                 resp["cloud_error"] = cloud_error
@@ -359,6 +416,9 @@ class ModeRouter:
             if c_result is not None:
                 try:
                     self._ingest_c_result(func_type, final_result, trigger_route="C_fallback", **kwargs)
+                    trace.append({"key": "ingest", "step": "结果入库（闭环）",
+                                  "data": {"ingested": True, "trigger_route": "C_fallback",
+                                           "target": "向量知识库 kb_templates"}})
                 except Exception as e:
                     logger.debug(f"[C_fallback入库忽略] {e}")
             # 本地大模型相关性校验
@@ -367,16 +427,21 @@ class ModeRouter:
 
     # ---------- 内部方法 ----------
 
-    def _retrieve_template(self, func_type: str, **kwargs) -> Tuple[str, bool]:
+    def _retrieve_template(self, func_type: str, **kwargs) -> Tuple[str, bool, Dict[str, Any]]:
         """向量知识库模板召回（无匹配则返回空）
 
-        返回: (template_text, skip_llm)
+        返回: (template_text, skip_llm, info)
         - template_text: 命中的模板正文（多条用换行拼接）
         - skip_llm: 极高相似度命中时 True，调用方可直接返回模板跳过本地改写（0 token）
+        - info: 召回过程的真实统计（query/crowd/候选数/过滤数/最高相似度），供流水线断点展示
         人群标签先规范化（糖尿病患者→糖尿病），再用 KB 长名做 where 预过滤。
         """
+        empty_info = {"query": "", "target_crowd": "", "candidates": 0, "filtered": 0,
+                      "top_similarity": None, "matched": False, "skip_llm": False,
+                      "min_similarity": getattr(settings, "TEMPLATE_MIN_SIMILARITY", 0.5),
+                      "skip_threshold": getattr(settings, "TEMPLATE_MATCH_SKIP_LLM_THRESHOLD", 0.95)}
         if not self._retriever or self._retriever.count() == 0:
-            return "", False
+            return "", False, empty_info
 
         # 确定人群（KB 长名，用于 where 过滤）
         crowd_raw = ""
@@ -404,7 +469,8 @@ class ModeRouter:
 
         query = " ".join(filter(None, query_parts)).strip()
         if not query:
-            return "", False
+            empty_info["query"] = query
+            return "", False, empty_info
 
         try:
             # 模板召回限定 kb_templates 集合（物理隔离后不再全库检索）
@@ -415,13 +481,25 @@ class ModeRouter:
             min_sim = settings.TEMPLATE_MIN_SIMILARITY
             skip_th = settings.TEMPLATE_MATCH_SKIP_LLM_THRESHOLD
             filtered = [r for r in results if r.get("similarity", 0) >= min_sim]
+            info = {
+                "query": query,
+                "target_crowd": kb_crowd,
+                "candidates": len(results),
+                "filtered": len(filtered),
+                "top_similarity": round(float(filtered[0].get("similarity", 0)), 4) if filtered else None,
+                "matched": bool(filtered),
+                "skip_llm": False,
+                "min_similarity": min_sim,
+                "skip_threshold": skip_th,
+            }
             if not filtered:
-                return "", False
+                return "", False, info
             # 极高匹配（≥0.95）直接返回模板原文，跳过 LLM 改写（0 token 消耗）
             skip_llm = filtered[0].get("similarity", 0) >= skip_th
-            return "\n".join(r.get("content", "") for r in filtered[:2]), skip_llm
+            info["skip_llm"] = skip_llm
+            return "\n".join(r.get("content", "") for r in filtered[:2]), skip_llm, info
         except Exception:
-            return "", False
+            return "", False, empty_info
 
     def _run_local_rewrite(self, func_type: str, template: str, **kwargs) -> Any:
         """A方案：本地 Ollama 生成

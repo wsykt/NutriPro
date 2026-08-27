@@ -185,9 +185,11 @@ public class AiConsultService {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         if (line.isEmpty()) {
-                            // 事件结束，转发
+                            // 事件结束，转发（done 事件剥离管理员端元数据，用户不可见耗时/路由/token）
                             if (eventType != null && dataBuf.length() > 0) {
-                                emitter.send(SseEmitter.event().name(eventType).data(dataBuf.toString()));
+                                String payloadStr = "done".equals(eventType)
+                                        ? stripStreamAdminMeta(dataBuf.toString()) : dataBuf.toString();
+                                emitter.send(SseEmitter.event().name(eventType).data(payloadStr));
                             }
                             eventType = null;
                             dataBuf = new StringBuilder();
@@ -201,7 +203,9 @@ public class AiConsultService {
                     }
                     // 兜底：最后一条未以空行结束的事件
                     if (eventType != null && dataBuf.length() > 0) {
-                        emitter.send(SseEmitter.event().name(eventType).data(dataBuf.toString()));
+                        String payloadStr = "done".equals(eventType)
+                                ? stripStreamAdminMeta(dataBuf.toString()) : dataBuf.toString();
+                        emitter.send(SseEmitter.event().name(eventType).data(payloadStr));
                     }
                 }
                 circuitBreaker.recordSuccess();
@@ -220,5 +224,30 @@ public class AiConsultService {
                 if (conn != null) conn.disconnect();
             }
         });
+    }
+
+    /**
+     * 剥离 SSE done 事件中的管理员端元数据（耗时明细 / 路由 / 模式 / 校验 / 检索明细 / token），
+     * 普通用户只保留对话所需的业务字段（conversation_id / response / snapshot 等）。
+     */
+    private String stripStreamAdminMeta(String dataJson) {
+        if (dataJson == null || dataJson.isEmpty()) return dataJson;
+        try {
+            Map<String, Object> data = aiChatClient.getObjectMapper().readValue(dataJson, Map.class);
+            if (data == null) return dataJson;
+            data.remove("timing_breakdown");
+            data.remove("elapsed_seconds");
+            data.remove("route");
+            data.remove("mode");
+            data.remove("provider");
+            data.remove("retrieve_info");
+            data.remove("validation");
+            data.remove("_meta");
+            data.remove("tokens");
+            return aiChatClient.getObjectMapper().writeValueAsString(data);
+        } catch (Exception e) {
+            log.warn("剥离 done 事件元数据失败，原样转发: {}", e.getMessage());
+            return dataJson;
+        }
     }
 }

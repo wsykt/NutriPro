@@ -473,13 +473,34 @@ async def article_mother_draft(data: dict):
     result = await run_in_thread(_generate_mother_draft_v32, topic, group, persona, keywords)
     if "error" in result:
         return error_response(message=result["error"], code=502, detail="MOTHER_DRAFT_PIPELINE_ERROR")
-    return success_response(data={
+
+    tracker = result.get("tracker") or {}
+    data = {
         "response": result["article"],
         "provider": "pipeline_v32",
         "mode": "B方案（本地框架→云端外扩→本地校验）",
         "route": "pipeline_v32",
         "validation": result.get("validation"),
-    })
+    }
+    # B方案双模型流水线的 token 明细（区分本地 Ollama 框架/校验 与 云端 DeepSeek 扩写）
+    data["tokens"] = {
+        "local": {
+            "total": tracker.get("local_total", 0),
+            "input": 0, "output": tracker.get("local_total", 0),
+            "calls": tracker.get("local_calls", 0),
+            "model": "ollama(qwen2.5-7b)",
+        },
+        "cloud": {
+            "total": tracker.get("cloud_total", 0),
+            "input": 0, "output": tracker.get("cloud_total", 0),
+            "calls": tracker.get("cloud_calls", 0),
+            "cached": 0,
+            "model": "deepseek(外扩)",
+        },
+        "total": tracker.get("total", 0),
+        "estimated": True,  # 本地 token 为字符数估算
+    }
+    return success_response(data=data)
 
 
 @router.post("/api/v1/diet/plan")

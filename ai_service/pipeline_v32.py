@@ -96,9 +96,10 @@ def call_ollama(prompt, system, model_name, tracker, label, temp=0.3, max_tokens
                 if resp.status_code != 200:
                     raise RuntimeError(data.get("error", f"HTTP {resp.status_code}"))
                 content = data.get("message", {}).get("content", "")
-                # Ollama不返回token统计，用字符数估算
+                # Ollama 不返回精确token统计，用字符数估算（与原文一致）
                 est_tokens = len(content) // 3
                 tracker["total"] += est_tokens
+                tracker["local_total"] += est_tokens
                 tracker["calls"] += 1
                 tracker["local_calls"] += 1
                 return content
@@ -140,7 +141,10 @@ def call_cloud(prompt, system, tracker, label, temp=0.7, max_tokens=3000):
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
             usage = data.get("usage", {})
-            tracker["total"] += usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+            in_t = usage.get("prompt_tokens", 0)
+            out_t = usage.get("completion_tokens", 0)
+            tracker["total"] += in_t + out_t
+            tracker["cloud_total"] += in_t + out_t
             tracker["calls"] += 1
             tracker["cloud_calls"] += 1
             return content
@@ -948,6 +952,11 @@ def ensure_official_guides(article):
     if not added:
         return article, []
 
+    # 母稿缺少【#REF_LIST#】标签时无法定位插入点，跳过补充（避免 ref_m 为 None 崩溃）
+    if ref_m is None:
+        print("  ⚠ 母稿缺少【#REF_LIST#】标签，跳过官方指南补充")
+        return article, []
+
     # 重建 REF_LIST：官方指南插到最前，原有文献编号整体顺延
     body_part = article[:ref_m.start()]
     ref_body_part = article[ref_m.start():]
@@ -1290,7 +1299,8 @@ def run_pipeline(group, persona, topic, pubmed_keywords):
             verified_pmids.add(pmid_num)
     print(f"  闸门2通过后已验证PMID集合：{len(verified_pmids)}个（用于后续幻觉检测）")
 
-    tracker = {"total": 0, "calls": 0, "local_calls": 0, "cloud_calls": 0}
+    tracker = {"total": 0, "calls": 0, "local_calls": 0, "cloud_calls": 0,
+               "local_total": 0, "cloud_total": 0}
 
     # Stage 1: 本地生成完整正文（闸门4：截断检测 + 自动重生成）
     framework, gate4_err = gate4_regenerate_framework(

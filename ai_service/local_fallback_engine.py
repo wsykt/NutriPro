@@ -477,7 +477,13 @@ class LocalFallbackEngine:
 
     def fallback_food_recommend(self, ingredients: list, crowd_type: str = "普通人", goal: str = "健康饮食") -> dict:
         """食材推荐兜底"""
-        ing_set = set(i.strip() for i in ("、".join(ingredients) if isinstance(ingredients, list) else ingredients).replace("、", ",").split(","))
+        # 食材别名归一化：用户说"猪肉/瘦肉"→ 模板统一用"瘦猪肉"，避免同义词匹配不上
+        ING_ALIASES = {
+            "猪肉": "瘦猪肉", "猪肉(瘦)": "瘦猪肉", "瘦肉": "瘦猪肉", "猪里脊": "瘦猪肉",
+            "鸡胸": "鸡胸肉", "番茄": "西红柿", "马铃薯": "土豆", "青椒": "尖椒",
+        }
+        raw_items = [i.strip() for i in ("、".join(ingredients) if isinstance(ingredients, list) else ingredients).replace("、", ",").split(",")]
+        ing_set = set(ING_ALIASES.get(i, i) for i in raw_items if i)
 
         templates = {
             "鸡胸肉_鸡蛋_西兰花_糙米": {
@@ -499,6 +505,16 @@ class LocalFallbackEngine:
                 "total_calories": 950, "total_protein": 42,
                 "tips": ["面条选荞麦面或全麦面更健康"],
                 "missing_ingredients": ["建议补充绿叶蔬菜增加膳食纤维"],
+            },
+            "瘦猪肉_青椒_土豆": {
+                "meal_plan": [
+                    {"meal_type": "早餐", "name": "瘦肉粥+水煮蛋", "ingredients": [{"name": "瘦猪肉", "amount": "50g"}, {"name": "大米", "amount": "50g"}, {"name": "鸡蛋", "amount": "1个"}], "cook_method": "瘦猪肉切丝煮粥，鸡蛋煮熟", "calories_estimate": 320, "protein_estimate": 22, "tags": ["养胃", "高蛋白"]},
+                    {"meal_type": "午餐", "name": "青椒土豆炒瘦肉", "ingredients": [{"name": "瘦猪肉", "amount": "120g"}, {"name": "青椒", "amount": "100g"}, {"name": "土豆", "amount": "150g"}], "cook_method": "瘦肉切片腌制滑炒，青椒土豆切丝快炒", "calories_estimate": 480, "protein_estimate": 35, "tags": ["家常", "高蛋白"]},
+                    {"meal_type": "晚餐", "name": "瘦肉丸子汤+清炒时蔬", "ingredients": [{"name": "瘦猪肉", "amount": "80g"}, {"name": "土豆", "amount": "100g"}], "cook_method": "瘦肉剁碎做丸子煮汤，土豆蒸熟", "calories_estimate": 320, "protein_estimate": 26, "tags": ["清淡", "高蛋白"]},
+                ],
+                "total_calories": 1120, "total_protein": 83,
+                "tips": ["瘦猪肉优先选猪里脊，脂肪含量更低", "少油快炒保留营养"],
+                "missing_ingredients": ["建议搭配绿叶蔬菜补充膳食纤维"],
             },
         }
 

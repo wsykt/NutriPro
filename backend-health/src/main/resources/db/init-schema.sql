@@ -438,3 +438,30 @@ CREATE INDEX IF NOT EXISTS idx_saved_recipe_user ON saved_recipe(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_username ON user(username);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_bmh_user_date ON body_metrics_history(user_id, record_date);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_family_guardian_ward ON family_relation(guardian_id, ward_id);
+
+-- ============================================================
+-- SC-003 AI 预览快照表（管理员流程展示页 · 先预览后发布）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ai_preview_snapshot (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id    VARCHAR(64) NOT NULL,
+    user_id       INTEGER,
+    func_type     VARCHAR(32) NOT NULL,               -- article / recipe / training / consult / weeklyReport / dietPlan / nutrition
+    mode          VARCHAR(16) NOT NULL DEFAULT 'normal',  -- normal / high_performance / offline
+    title         VARCHAR(512),
+    summary       TEXT,
+    payload_json  TEXT NOT NULL,                       -- 权威组件所需完整 JSON
+    preview_token VARCHAR(64),                         -- 匿名一次性预览 token（iframe / 新开路由用）
+    token_expire_at DATETIME,
+    published     INTEGER DEFAULT 0 CHECK(published IN (0, 1)),  -- 1 = 发布（快照打标；文章会写 articles 表）
+    published_at  DATETIME,
+    target_id     INTEGER,                             -- 若发布后生成了业务主表 ID（如 article.id），回写到这
+    note          VARCHAR(512),
+    created_at    DATETIME NOT NULL,
+    updated_at    DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_preview_session ON ai_preview_snapshot(session_id);
+CREATE INDEX IF NOT EXISTS idx_ai_preview_func_type ON ai_preview_snapshot(func_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_preview_token ON ai_preview_snapshot(preview_token);
+CREATE INDEX IF NOT EXISTS idx_ai_preview_user ON ai_preview_snapshot(user_id);
+

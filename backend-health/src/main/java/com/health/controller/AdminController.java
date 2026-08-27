@@ -4,15 +4,18 @@ import com.health.dto.ApiResponse;
 import com.health.entity.Article;
 import com.health.entity.ArticleAnalysis;
 import com.health.entity.Comment;
+import com.health.entity.DietMeal;
 import com.health.entity.ExerciseRecord;
 import com.health.entity.FamilyRelation;
 import com.health.entity.Food;
 import com.health.entity.Post;
 import com.health.entity.Recipe;
 import com.health.entity.User;
+import com.health.repository.DietMealRepository;
 import com.health.service.ArticleAnalysisService;
 import com.health.service.ArticleService;
 import com.health.service.CommunityService;
+import com.health.service.DietService;
 import com.health.service.ExerciseRecordService;
 import com.health.service.FamilyRelationService;
 import com.health.service.FoodService;
@@ -38,10 +41,13 @@ public class AdminController {
     private final RecipeService recipeService;
     private final ArticleService articleService;
     private final ArticleAnalysisService articleAnalysisService;
+    private final DietService dietService;
+    private final DietMealRepository dietMealRepository;
 
     public AdminController(ProfileService profileService, FoodService foodService, FamilyRelationService relationService,
                            ExerciseRecordService exerciseRecordService, CommunityService communityService, RecipeService recipeService,
-                           ArticleService articleService, ArticleAnalysisService articleAnalysisService) {
+                           ArticleService articleService, ArticleAnalysisService articleAnalysisService,
+                           DietService dietService, DietMealRepository dietMealRepository) {
         this.profileService = profileService;
         this.foodService = foodService;
         this.relationService = relationService;
@@ -50,6 +56,8 @@ public class AdminController {
         this.recipeService = recipeService;
         this.articleService = articleService;
         this.articleAnalysisService = articleAnalysisService;
+        this.dietService = dietService;
+        this.dietMealRepository = dietMealRepository;
     }
 
     @GetMapping("/users")
@@ -111,6 +119,54 @@ public class AdminController {
         if (info == null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("用户不存在"));
         }
+        return ResponseEntity.ok(ApiResponse.success(info));
+    }
+
+    /**
+     * 流程演示专用：用户详情（身份 + 身高体重 + 近两日饮食记录 + 近 5 条运动记录）。
+     * 供管理员在「AI 流程演示」点【详情】查看 test 账号的完整演示数据。
+     */
+    @GetMapping("/flow/user-detail/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getFlowUserDetail(@PathVariable Integer userId) {
+        Map<String, Object> info = profileService.getUserInfo(userId);
+        if (info == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("用户不存在"));
+        }
+
+        // 近两日饮食记录（按日期去重，最多取两个不同日期）
+        List<DietMeal> meals = dietMealRepository.findByUserIdOrderByEatDateDesc(userId);
+        LinkedHashSet<String> seenDates = new LinkedHashSet<>();
+        if (meals != null) {
+            for (DietMeal m : meals) {
+                if (seenDates.size() < 2 && !seenDates.contains(m.getEatDate())) {
+                    seenDates.add(m.getEatDate());
+                }
+            }
+        }
+        List<Map<String, Object>> diet = new ArrayList<>();
+        for (String date : seenDates) {
+            diet.addAll(dietService.getMealsByDate(userId, date));
+        }
+        info.put("diet", diet);
+
+        // 近 5 条运动记录（仅已审核通过的）
+        List<ExerciseRecord> records = exerciseRecordService.getRecords(userId);
+        List<Map<String, Object>> exercise = new ArrayList<>();
+        int limit = Math.min(5, records.size());
+        for (int i = 0; i < limit; i++) {
+            ExerciseRecord r = records.get(i);
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", r.getId());
+            m.put("exerciseType", r.getExerciseType());
+            m.put("durationMin", r.getDurationMin());
+            m.put("caloriesBurned", r.getCaloriesBurned());
+            m.put("recordDate", r.getRecordDate() != null ? r.getRecordDate().toString() : null);
+            m.put("note", r.getNote());
+            m.put("status", r.getStatus());
+            exercise.add(m);
+        }
+        info.put("exercise", exercise);
+
         return ResponseEntity.ok(ApiResponse.success(info));
     }
 

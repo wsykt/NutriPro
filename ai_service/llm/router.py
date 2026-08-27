@@ -52,6 +52,12 @@ class TokenTracker:
         self._init_db()
         self._daily_total = self._load_today()
         self._daily_cached = self._load_today("cached_tokens")
+        # 请求级 LLM 调用明细（区分本地/云端）：由 success_response 统一附加到响应 data.tokens，
+        # 读取即清空，避免串到下一个请求。并发下可能有轻微串扰，演示场景可接受。
+        self._pending = {
+            "local": {"input": 0, "output": 0, "total": 0, "calls": 0, "model": ""},
+            "cloud": {"input": 0, "output": 0, "total": 0, "calls": 0, "cached": 0, "model": ""},
+        }
 
     def _init_db(self):
         from utils.sqlite_utils import init_db
@@ -91,8 +97,14 @@ class TokenTracker:
             conn.close()
         return row[0] if row else 0
 
-    def record(self, tokens: int, cached_tokens: int = 0):
-        """记录本次消耗。cached_tokens 为上下文缓存命中的输入 token 数（DeepSeek 自动管理）"""
+    def record(self, tokens: int, cached_tokens: int = 0, source: str = "cloud",
+               input_tokens: int = 0, output_tokens: int = 0, model: str = ""):
+        """记录本次消耗。cached_tokens 为上下文缓存命中的输入 token 数（DeepSeek 自动管理）
+
+        source: local=Ollama本地 / cloud=DeepSeek云端（用于请求级明细区分）
+        input_tokens / output_tokens: 本次调用的输入/输出 token 数
+        model: 实际使用的模型名（本地/云端各自展示）
+        """
         from utils.sqlite_utils import get_conn
         today = time.strftime("%Y-%m-%d")
         self._daily_total += tokens
@@ -108,6 +120,34 @@ class TokenTracker:
         )
         conn.commit()
         conn.close()
+
+        # 请求级明细（区分本地/云端）
+        key = "local" if source == "local" else "cloud"
+        entry = self._pending[key]
+        entry["input"] += int(input_tokens or 0)
+        entry["output"] += int(output_tokens or 0)
+        entry["total"] += int(tokens or 0)
+        entry["calls"] += 1
+        if model:
+            entry["model"] = model
+
+    def drain_request_tokens(self) -> dict:
+        """读取并清空本次请求的 LLM 调用明细（区分本地/云端）。
+
+        success_response 统一调用：无任何 LLM 调用时 total=0，调用方自行决定是否附加。
+        """
+        data = {
+            "local": dict(self._pending["local"]),
+            "cloud": dict(self._pending["cloud"]),
+            "total": self._pending["local"]["total"] + self._pending["cloud"]["total"],
+        }
+        for key in ("local", "cloud"):
+            entry = self._pending[key]
+            for field in ("input", "output", "total", "calls", "cached"):
+                if field in entry:
+                    entry[field] = 0
+            entry["model"] = ""
+        return data
 
     @property
     def is_over_limit(self) -> bool:
@@ -224,10 +264,13 @@ class LLMRouter:
         content = data.get("message", {}).get("content", "")
         # 记录 token 用量（Ollama 返回 eval_count / prompt_eval_count）
         usage = data.get("usage", {}) or {}
-        total = usage.get("total_tokens") or (
-            usage.get("prompt_eval_count", 0) + usage.get("eval_count", 0))
+        in_t = usage.get("prompt_eval_count", 0)
+        out_t = usage.get("eval_count", 0)
+        total = usage.get("total_tokens") or (in_t + out_t)
         if total:
-            self._token_tracker.record(total)
+            self._token_tracker.record(
+                total, source="local", input_tokens=in_t, output_tokens=out_t,
+                model=real_model)
         return content or ""
     def _classify_exception(self, e: Exception) -> Exception:
         """将 OpenAI 原生异常分类为项目内部异常"""
@@ -299,11 +342,15 @@ class LLMRouter:
             # 实测支持 json_object / json_schema / strict 三种写法；用最通用的 json_object
             request_kwargs["text"] = {"type": "json_object"}
         resp = self.client.responses.create(**request_kwargs)
-        # 记录 Token 用量 + 缓存命中
+        # 记录 Token 用量 + 缓存命中（Responses API 字段：input_tokens / output_tokens）
         if hasattr(resp, "usage") and resp.usage:
             self._token_tracker.record(
                 resp.usage.total_tokens,
                 cached_tokens=self._extract_cache_hit(resp.usage),
+                source="cloud",
+                input_tokens=getattr(resp.usage, "input_tokens", 0) or 0,
+                output_tokens=getattr(resp.usage, "output_tokens", 0) or 0,
+                model=model_name or settings.RESPONSES_MODEL,
             )
         return resp.output_text if hasattr(resp, "output_text") else ""
 
@@ -339,6 +386,10 @@ class LLMRouter:
                         self._token_tracker.record(
                             usage.total_tokens,
                             cached_tokens=self._extract_cache_hit(usage),
+                            source="cloud",
+                            input_tokens=getattr(usage, "input_tokens", 0) or 0,
+                            output_tokens=getattr(usage, "output_tokens", 0) or 0,
+                            model=model or settings.RESPONSES_MODEL,
                         )
                 elif etype in ("response.incomplete", "response.failed"):
                     yield f"\n\n[响应未完成: {etype}]"
@@ -405,6 +456,10 @@ class LLMRouter:
                         self._token_tracker.record(
                             resp.usage.total_tokens,
                             cached_tokens=self._extract_cache_hit(resp.usage),
+                            source="cloud",
+                            input_tokens=getattr(resp.usage, "prompt_tokens", 0) or 0,
+                            output_tokens=getattr(resp.usage, "completion_tokens", 0) or 0,
+                            model=model_name,
                         )
                 return content if content else ""
             except Exception as e:

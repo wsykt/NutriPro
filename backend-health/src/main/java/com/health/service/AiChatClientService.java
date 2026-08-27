@@ -68,19 +68,38 @@ public class AiChatClientService {
      * @param requestBody  请求体
      * @param errorLabel   错误前缀（如「语音解析」）
      */
+    /**
+     * 普通用户链路统一走本方法：返回前剥离管理员端元数据（_meta 决策链 / tokens 消耗明细），
+     * 保证用户看不到后端流水线信息（成功/失败断点、token 消耗、耗时），只有管理员流水线可见。
+     */
     public Map<String, Object> postForMap(String path, Map<String, Object> requestBody, String errorLabel) {
-        return postForMap(path, requestBody, errorLabel, false);
+        return postForMap(path, requestBody, errorLabel, false, false);
     }
 
     /**
      * 长耗时版 postForMap：运动建议等需本地 Ollama 推理的功能使用 300s 长超时模板，
-     * 避免 30s socket 超时导致本地 LLM 生成中途断开。
+     * 避免 30s socket 超时导致本地 LLM 生成中途断开。同样剥离管理员端元数据。
      */
     public Map<String, Object> postForMapLong(String path, Map<String, Object> requestBody, String errorLabel) {
-        return postForMap(path, requestBody, errorLabel, true);
+        return postForMap(path, requestBody, errorLabel, true, false);
     }
 
-    private Map<String, Object> postForMap(String path, Map<String, Object> requestBody, String errorLabel, boolean useLongTimeout) {
+    /**
+     * 管理员流水线专用：保留完整响应（含 _meta.trace / tokens），供 AiPipelineController 展开断点与展示 token。
+     */
+    public Map<String, Object> postForMapKeepMeta(String path, Map<String, Object> requestBody, String errorLabel) {
+        return postForMap(path, requestBody, errorLabel, false, true);
+    }
+
+    /**
+     * 管理员流水线专用（长超时版）：保留完整响应（含 _meta.trace / tokens）。
+     */
+    public Map<String, Object> postForMapLongKeepMeta(String path, Map<String, Object> requestBody, String errorLabel) {
+        return postForMap(path, requestBody, errorLabel, true, true);
+    }
+
+    private Map<String, Object> postForMap(String path, Map<String, Object> requestBody, String errorLabel,
+                                           boolean useLongTimeout, boolean keepAdminMeta) {
         if (circuitBreaker.isOpen()) {
             log.warn("AI服务熔断保护中，跳过{}调用", errorLabel);
             Map<String, Object> errorMap = new LinkedHashMap<>();
@@ -102,6 +121,9 @@ public class AiChatClientService {
 
             Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
             circuitBreaker.recordSuccess();
+            if (!keepAdminMeta) {
+                stripAdminMeta(result);
+            }
             return result;
         } catch (Exception e) {
             circuitBreaker.recordFailure();
@@ -109,6 +131,31 @@ public class AiChatClientService {
             Map<String, Object> errorMap = new LinkedHashMap<>();
             errorMap.put("error", errorLabel + "失败: " + e.getMessage());
             return errorMap;
+        }
+    }
+
+    /**
+     * 剥离管理员端元数据：移除 AI 服务响应中供管理员流水线展示的内部信息
+     * （_meta 决策链 trace/route/mode/timing、token 消耗明细、provider 来源、耗时、检索明细、校验结果）。
+     * 普通用户只保留业务字段（conversation_id / response / meal_plan 等）。
+     */
+    @SuppressWarnings("unchecked")
+    private void stripAdminMeta(Map<String, Object> result) {
+        if (result == null) return;
+        result.remove("_meta");
+        Object dataObj = result.get("data");
+        if (dataObj instanceof Map) {
+            Map<String, Object> data = (Map<String, Object>) dataObj;
+            data.remove("tokens");
+            data.remove("_meta");
+            data.remove("route");
+            data.remove("mode");
+            data.remove("provider");
+            data.remove("validation");
+            data.remove("elapsed_seconds");
+            data.remove("retrieve_info");
+            data.remove("timing_breakdown");
+            data.remove("high_performance");
         }
     }
 

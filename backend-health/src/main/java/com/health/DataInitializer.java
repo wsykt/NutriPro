@@ -1,9 +1,15 @@
 package com.health;
 
+import com.health.entity.DietItem;
+import com.health.entity.DietMeal;
+import com.health.entity.ExerciseRecord;
 import com.health.entity.Food;
 import com.health.entity.Recipe;
 import com.health.entity.RecipeIngredient;
 import com.health.entity.User;
+import com.health.repository.DietItemRepository;
+import com.health.repository.DietMealRepository;
+import com.health.repository.ExerciseRecordRepository;
 import com.health.repository.FoodRepository;
 import com.health.repository.RecipeIngredientRepository;
 import com.health.repository.RecipeRepository;
@@ -20,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.sql.Connection;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -33,16 +40,24 @@ public class DataInitializer implements CommandLineRunner {
     private final FoodRepository foodRepository;
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
+    private final DietMealRepository dietMealRepository;
+    private final DietItemRepository dietItemRepository;
+    private final ExerciseRecordRepository exerciseRecordRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
     public DataInitializer(UserRepository userRepository, FoodRepository foodRepository,
                            RecipeRepository recipeRepository, RecipeIngredientRepository recipeIngredientRepository,
+                           DietMealRepository dietMealRepository, DietItemRepository dietItemRepository,
+                           ExerciseRecordRepository exerciseRecordRepository,
                            PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
         this.userRepository = userRepository;
         this.foodRepository = foodRepository;
         this.recipeRepository = recipeRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
+        this.dietMealRepository = dietMealRepository;
+        this.dietItemRepository = dietItemRepository;
+        this.exerciseRecordRepository = exerciseRecordRepository;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -54,6 +69,7 @@ public class DataInitializer implements CommandLineRunner {
         initDemoUsers();
         initFoods();
         initRecipes();
+        initDemoRecords();
     }
 
     /**
@@ -88,7 +104,7 @@ public class DataInitializer implements CommandLineRunner {
         upsertAdmin(rawPassword, hasAdminPassword);
     }
 
-    /** 创建 admin（不存在时）；若已存在且口令仍是已知默认弱口令 admin123，强制轮换。 */
+    /** 创建 admin（不存在时）；若显式指定 ADMIN_PASSWORD 则**无条件**覆盖（方便迁移/重置）；否则仅当口令仍是已知默认弱口令 admin123 时强制轮换。 */
     private void upsertAdmin(String rawPassword, boolean passwordFromEnv) {
         User admin = userRepository.findByUsername("admin").orElse(null);
         if (admin == null) {
@@ -103,13 +119,22 @@ public class DataInitializer implements CommandLineRunner {
             log.info("管理员账号 admin 已初始化");
             if (!passwordFromEnv) {
                 log.warn("管理员口令未通过 ADMIN_PASSWORD 配置，已生成随机口令：{}（请登录后立即修改，或重启时设置 ADMIN_PASSWORD 环境变量）", rawPassword);
+            } else {
+                log.info("管理员口令已按 ADMIN_PASSWORD 环境变量设置（新建账户）");
             }
+            return;
+        }
+        if (passwordFromEnv) {
+            // 只要显式配置了 ADMIN_PASSWORD，一律按此重置（迁移/演示用）
+            admin.setPassword(passwordEncoder.encode(rawPassword));
+            userRepository.save(admin);
+            log.info("管理员 admin 已通过 ADMIN_PASSWORD 环境变量重置口令");
             return;
         }
         if (passwordEncoder.matches("admin123", admin.getPassword())) {
             admin.setPassword(passwordEncoder.encode(rawPassword));
             userRepository.save(admin);
-            log.warn("检测到 admin 仍使用已知默认弱口令 admin123，已强制轮换{}", passwordFromEnv ? "" : "，新口令：" + rawPassword);
+            log.warn("检测到 admin 仍使用已知默认弱口令 admin123，已强制轮换，新口令：{}", rawPassword);
         }
     }
 
@@ -129,25 +154,191 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initDemoUsers() {
-        createUserIfNotExists("user001", "123456", "男", 168.0, 62.0, 28, "普通人");
-        User u2 = createUserIfNotExistsWithReturn("user002", "123456", "女", 162.0, 55.0, 25, "健身");
-        if (u2 != null) { u2.setTastePreference("清淡"); u2.setDietaryRestrictions("低脂"); userRepository.save(u2); }
-        
-        User u3 = createUserIfNotExistsWithReturn("user003", "123456", "男", 172.0, 70.0, 65, "老年");
-        if (u3 != null) { u3.setTastePreference("清淡"); u3.setDietaryRestrictions("低盐,低脂"); userRepository.save(u3); }
-        
-        User u4 = createUserIfNotExistsWithReturn("user004", "123456", "女", 165.0, 60.0, 32, "孕妇");
-        if (u4 != null) { u4.setTastePreference("清淡"); u4.setAllergicFoods("海鲜"); userRepository.save(u4); }
-        
-        createUserIfNotExists("user005", "123456", "男", 175.0, 68.0, 16, "青少年");
-        
-        User u6 = createUserIfNotExistsWithReturn("user006", "123456", "女", 160.0, 58.0, 45, "糖尿病");
-        if (u6 != null) { u6.setTastePreference("清淡"); u6.setDietaryRestrictions("糖尿病,低糖"); u6.setAllergicFoods("花生"); userRepository.save(u6); }
-        
-        User alice = createUserIfNotExistsWithReturn("alice", "123456", "女", 163.0, 56.0, 30, "普通人");
-        if (alice != null) { alice.setTastePreference("清淡"); alice.setAllergicFoods("海鲜"); userRepository.save(alice); }
-        
-        log.info("Demo users initialized");
+        // 只管理 test001-006 六个测试账号：存在则覆盖身高体重等属性，不存在则创建。
+        // 其他账号（admin、历史 user/演示账号、未来注册的真实账号）一律不动，不做任何清理。
+        upsertTestUser("test001", "男", 170.0, 65.0, 28, "普通人", "清淡", null, null);
+        upsertTestUser("test002", "男", 178.0, 74.0, 26, "健身", "清淡", "高蛋白,低脂", null);
+        upsertTestUser("test003", "男", 168.0, 60.0, 68, "老年", "清淡", "低盐,低脂", null);
+        upsertTestUser("test004", "女", 162.0, 61.0, 30, "孕妇", "清淡", null, null);
+        upsertTestUser("test005", "男", 172.0, 56.0, 15, "青少年", "清淡", "高蛋白", null);
+        upsertTestUser("test006", "男", 170.0, 72.0, 52, "糖尿病", "清淡", "糖尿病,低糖", "花生");
+
+        log.info("Demo users initialized (test001-006)");
+    }
+
+    /** 创建或更新测试账号（存在则覆盖身高体重等属性，保证演示数据可被重置）。 */
+    private void upsertTestUser(String username, String gender, Double height, Double weight, Integer age,
+                                String crowdType, String taste, String restrictions, String allergic) {
+        User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null) {
+            user = new User(username, passwordEncoder.encode("123456"));
+            user.setRole("user");
+        }
+        user.setGender(gender);
+        user.setHeight(height);
+        user.setWeight(weight);
+        user.setAge(age);
+        user.setCrowdType(crowdType);
+        user.setTastePreference(taste);
+        user.setDietaryRestrictions(restrictions);
+        user.setAllergicFoods(allergic);
+        userRepository.save(user);
+    }
+
+    private Integer userIdOf(String username) {
+        return userRepository.findByUsername(username).map(User::getUserId).orElse(null);
+    }
+
+    /**
+     * 为 test001-006 初始化「今日」饮食记录与「近三日」运动记录（幂等：当天已有数据则跳过）。
+     * 数据用于 AI 流程演示：营养分析 / 膳食计划 / 健康周报等会读取这些真实记录。
+     */
+    private void initDemoRecords() {
+        String today = LocalDate.now().toString();
+
+        // test001 普通人（男 28）
+        Integer t1 = userIdOf("test001");
+        if (t1 != null) {
+            seedDietIfMissing(t1, today, new String[][][]{
+                {{"早餐"}, {"全麦面包", "80"}, {"鸡蛋(全,煮)", "50"}, {"全脂牛奶", "250"}},
+                {{"午餐"}, {"米饭(熟)", "200"}, {"鸡胸肉(生)", "120"}, {"西兰花(煮)", "150"}},
+                {{"晚餐"}, {"杂粮饭(熟)", "150"}, {"鲈鱼(生)", "150"}, {"菠菜(煮)", "100"}},
+                {{"加餐"}, {"苹果(去皮,生)", "200"}}
+            });
+            seedExerciseIfMissing(t1, LocalDate.now(), new String[][]{{"快走", "40", "210", "饭后散步"}});
+            seedExerciseIfMissing(t1, LocalDate.now().minusDays(1), new String[][]{{"慢跑", "30", "290", "晨跑"}});
+            seedExerciseIfMissing(t1, LocalDate.now().minusDays(2), new String[][]{{"散步", "30", "120", "傍晚散步"}});
+        }
+
+        // test002 健身（男 26）
+        Integer t2 = userIdOf("test002");
+        if (t2 != null) {
+            seedDietIfMissing(t2, today, new String[][][]{
+                {{"早餐"}, {"燕麦片(干生纯燕麦)", "60"}, {"脱脂牛奶", "250"}, {"鸡蛋(全,煮)", "100"}},
+                {{"午餐"}, {"米饭(熟)", "250"}, {"瘦牛肉(生)", "150"}, {"西兰花(煮)", "200"}},
+                {{"晚餐"}, {"杂粮饭(熟)", "200"}, {"鸡胸肉(生)", "150"}, {"生菜(生)", "100"}},
+                {{"加餐"}, {"香蕉(生)", "150"}, {"无糖原味酸奶", "200"}}
+            });
+            seedExerciseIfMissing(t2, LocalDate.now(), new String[][]{{"力量训练", "60", "400", "器械力量"}});
+            seedExerciseIfMissing(t2, LocalDate.now().minusDays(1), new String[][]{{"动感单车", "45", "480", "有氧"}});
+            seedExerciseIfMissing(t2, LocalDate.now().minusDays(2), new String[][]{{"慢跑", "40", "390", "夜跑"}});
+        }
+
+        // test003 老年（男 68）
+        Integer t3 = userIdOf("test003");
+        if (t3 != null) {
+            seedDietIfMissing(t3, today, new String[][][]{
+                {{"早餐"}, {"小米粥(熟)", "300"}, {"鸡蛋(全,煮)", "50"}},
+                {{"午餐"}, {"面条(熟)", "150"}, {"冬瓜(生)", "150"}, {"瘦猪肉(生)", "80"}},
+                {{"晚餐"}, {"蒸土豆(熟)", "150"}, {"虾仁(生)", "100"}, {"娃娃菜(生)", "100"}},
+                {{"加餐"}, {"无糖原味酸奶", "200"}}
+            });
+            seedExerciseIfMissing(t3, LocalDate.now(), new String[][]{{"散步", "30", "100", "小区散步"}});
+            seedExerciseIfMissing(t3, LocalDate.now().minusDays(1), new String[][]{{"太极", "40", "130", "晨练太极"}});
+            seedExerciseIfMissing(t3, LocalDate.now().minusDays(2), new String[][]{{"快走", "30", "140", "公园快走"}});
+        }
+
+        // test004 孕妇（女 30）
+        Integer t4 = userIdOf("test004");
+        if (t4 != null) {
+            seedDietIfMissing(t4, today, new String[][][]{
+                {{"早餐"}, {"小米粥(熟)", "250"}, {"鸡蛋(全,煮)", "50"}, {"全脂牛奶", "250"}},
+                {{"午餐"}, {"米饭(熟)", "200"}, {"三文鱼(生)", "120"}, {"菠菜(煮)", "150"}},
+                {{"晚餐"}, {"杂粮饭(熟)", "150"}, {"鲈鱼(生)", "150"}, {"西兰花(煮)", "150"}},
+                {{"加餐"}, {"橙子(生)", "200"}, {"核桃(干)", "20"}}
+            });
+            seedExerciseIfMissing(t4, LocalDate.now(), new String[][]{{"孕妇瑜伽", "40", "130", "孕期瑜伽"}});
+            seedExerciseIfMissing(t4, LocalDate.now().minusDays(1), new String[][]{{"散步", "30", "90", "饭后散步"}});
+            seedExerciseIfMissing(t4, LocalDate.now().minusDays(2), new String[][]{{"孕妇操", "30", "110", "孕期体操"}});
+        }
+
+        // test005 青少年（男 15）
+        Integer t5 = userIdOf("test005");
+        if (t5 != null) {
+            seedDietIfMissing(t5, today, new String[][][]{
+                {{"早餐"}, {"全麦面包", "100"}, {"鸡蛋(全,煮)", "100"}, {"全脂牛奶", "250"}},
+                {{"午餐"}, {"米饭(熟)", "250"}, {"瘦牛肉(生)", "130"}, {"番茄(生)", "150"}},
+                {{"晚餐"}, {"面条(熟)", "200"}, {"虾仁(生)", "120"}, {"黄瓜(生)", "150"}},
+                {{"加餐"}, {"香蕉(生)", "150"}, {"无糖原味酸奶", "200"}}
+            });
+            seedExerciseIfMissing(t5, LocalDate.now(), new String[][]{{"篮球", "60", "500", "校队训练"}});
+            seedExerciseIfMissing(t5, LocalDate.now().minusDays(1), new String[][]{{"跑步", "30", "310", "体育课跑步"}});
+            seedExerciseIfMissing(t5, LocalDate.now().minusDays(2), new String[][]{{"跳绳", "20", "240", "课间跳绳"}});
+        }
+
+        // test006 糖尿病（男 52）
+        Integer t6 = userIdOf("test006");
+        if (t6 != null) {
+            seedDietIfMissing(t6, today, new String[][][]{
+                {{"早餐"}, {"燕麦片(干生纯燕麦)", "50"}, {"脱脂牛奶", "250"}},
+                {{"午餐"}, {"杂粮饭(熟)", "180"}, {"鸡胸肉(生)", "120"}, {"苦瓜(生)", "150"}},
+                {{"晚餐"}, {"荞麦面(干生)", "80"}, {"虾仁(生)", "120"}, {"菠菜(煮)", "150"}},
+                {{"加餐"}, {"蓝莓(生)", "100"}}
+            });
+            seedExerciseIfMissing(t6, LocalDate.now(), new String[][]{{"散步", "40", "150", "饭后散步"}});
+            seedExerciseIfMissing(t6, LocalDate.now().minusDays(1), new String[][]{{"太极", "30", "95", "晨练太极"}});
+            seedExerciseIfMissing(t6, LocalDate.now().minusDays(2), new String[][]{{"快走", "30", "135", "公园快走"}});
+        }
+
+        log.info("Demo records initialized (diet + exercise for test001-006)");
+    }
+
+    /** 为某用户某天补种饮食记录（幂等：该天已有"带明细"餐次则跳过；仅空餐次时重建）。plans: 每项 = {餐次名, 备注?} + {食材名, 克数}... */
+    private void seedDietIfMissing(Integer userId, String date, String[][][] plans) {
+        List<DietMeal> existing = dietMealRepository.findByUserIdAndEatDate(userId, date);
+        boolean hasItems = false;
+        for (DietMeal m : existing) {
+            if (!dietItemRepository.findByMealId(m.getMealId()).isEmpty()) {
+                hasItems = true;
+                break;
+            }
+        }
+        if (hasItems) {
+            return;
+        }
+        // 历史遗留：仅存在无明细的空餐次（早期版本只建 meal 未建 item），清空后重建
+        for (DietMeal m : existing) {
+            dietItemRepository.deleteAll(dietItemRepository.findByMealId(m.getMealId()));
+            dietMealRepository.delete(m);
+        }
+        for (String[][] meal : plans) {
+            DietMeal dm = new DietMeal();
+            dm.setUserId(userId);
+            dm.setEatDate(date);
+            dm.setMealType(meal[0][0]);
+            dm.setRemark(meal[0].length > 1 ? meal[0][1] : null);
+            dm = dietMealRepository.save(dm);
+            for (int i = 1; i < meal.length; i++) {
+                List<Food> foods = foodRepository.findByNameExact(meal[i][0]);
+                if (foods.isEmpty()) {
+                    log.warn("饮食种子食材缺失，跳过：{}（用户 {}）", meal[i][0], userId);
+                    continue;
+                }
+                DietItem item = new DietItem();
+                item.setMealId(dm.getMealId());
+                item.setFoodId(foods.get(0).getFoodId());
+                item.setEatWeight(BigDecimal.valueOf(Double.parseDouble(meal[i][1])));
+                dietItemRepository.save(item);
+            }
+        }
+    }
+
+    /** 为某用户某天补种运动记录（幂等：该天已有记录则跳过）。records: 每项 = {类型, 时长分钟, 消耗kcal, 备注?} */
+    private void seedExerciseIfMissing(Integer userId, LocalDate date, String[][] records) {
+        if (!exerciseRecordRepository.findByUserIdAndRecordDate(userId, date).isEmpty()) {
+            return;
+        }
+        for (String[] r : records) {
+            ExerciseRecord er = new ExerciseRecord();
+            er.setUserId(userId);
+            er.setExerciseType(r[0]);
+            er.setDurationMin(Integer.parseInt(r[1]));
+            er.setCaloriesBurned(Double.parseDouble(r[2]));
+            er.setRecordDate(date);
+            er.setNote(r.length > 3 ? r[3] : null);
+            er.setStatus("approved");
+            exerciseRecordRepository.save(er);
+        }
     }
 
     private User createUserIfNotExistsWithReturn(String username, String password, String gender,
@@ -180,10 +371,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initFoods() {
-        if (foodRepository.count() > 0) {
-            return;
-        }
-
+        // 幂等补充：不因库中已有其他食物（中国食物成分表数据）而整体跳过，
+        // 逐个检查缺失项并补插，保证种子食谱/饮食记录引用的精细食物（如"米饭(熟)"）一定存在。
         List<Food> foods = Arrays.asList(
             // 主食类 - 米饭面条
             createFood("米饭(熟)", "主食", 130, 2.5, 0.3, 28, 0.4, 73, 7, 0, 5),
@@ -373,8 +562,17 @@ public class DataInitializer implements CommandLineRunner {
             createFood("杏仁(生)", "水果", 578, 21, 50, 20, 11, 10, 250, 0, 30)
         );
 
-        foodRepository.saveAll(foods);
-        log.info("Initialized {} food items", foods.size());
+        int added = 0;
+        for (Food f : foods) {
+            if (!foodRepository.findByNameExact(f.getFoodName()).isEmpty()) {
+                continue;
+            }
+            foodRepository.save(f);
+            added++;
+        }
+        if (added > 0) {
+            log.info("Food init: 补插 {} 种缺失食物（种子食谱/饮食记录引用）", added);
+        }
     }
 
     private static final Map<String, int[]> CATEGORY_VISIBILITY = new HashMap<String, int[]>();
