@@ -20,7 +20,6 @@ export default defineConfig({
         // 第三方库按 vendor 拆 chunk，长缓存友好
         manualChunks(id: string) {
           if (id.includes('node_modules/echarts')) return 'echarts-vendor'
-          if (id.includes('node_modules/@amap')) return 'amap-vendor'
           if (id.includes('node_modules/vue') || id.includes('node_modules/pinia') || id.includes('node_modules/vue-router')) return 'vue-vendor'
         }
       }

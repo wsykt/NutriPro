@@ -14,6 +14,22 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
   { path: '/onboarding', name: 'Onboarding', component: () => import('@/views/Onboarding.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('@/views/Admin.vue'), meta: { requiresAuth: true } },
+  // ===== 预览路由（管理员流程演示 · 先预览后发布）=====
+  // 1) 主路由：管理员 iframe 内嵌 / 新标签页打开"按 funcType 预览"
+  //    payload 通过 sessionStorage 传递（父流程面板生成 token 前先写入）
+  {
+    path: '/admin/preview/:funcType',
+    name: 'AdminPreviewByType',
+    component: () => import('@/views/preview/PreviewerWrapper.vue'),
+    meta: { requiresAuth: false } // iframe/new-tab 时避免二次登录跳转
+  },
+  // 2) 匿名 open 路由：配合一次性 token tok=... 做 1:1 预览（5 分钟内一次性有效）
+  {
+    path: '/admin/preview/open/:id',
+    name: 'AdminPreviewOpen',
+    component: () => import('@/views/preview/PreviewerWrapper.vue'),
+    meta: { requiresAuth: false }
+  },
   {
     path: '/dashboard',
     name: 'Dashboard',

@@ -24,6 +24,7 @@
     <AdminUserManager v-if="tab === 'users'" />
     <AdminFoodManager v-else-if="tab === 'food-management'" />
     <AdminArticleManager v-else-if="tab === 'articles'" />
+    <AdminFlowDemo v-else-if="tab === 'preview'" />
     <AdminStats v-else-if="tab === 'stats'" />
   </div>
 </template>
@@ -35,6 +36,7 @@ import { useUserStore } from '@/stores/user'
 import AdminUserManager from './admin/AdminUserManager.vue'
 import AdminFoodManager from './admin/AdminFoodManager.vue'
 import AdminArticleManager from './admin/AdminArticleManager.vue'
+import AdminFlowDemo from './admin/AdminFlowDemo.vue'
 import AdminStats from './admin/AdminStats.vue'
 
 const router = useRouter()
@@ -44,10 +46,11 @@ const tabs = [
   { key: 'users', label: '用户管理' },
   { key: 'food-management', label: '食物管理' },
   { key: 'articles', label: '文章管理' },
+  { key: 'preview', label: '流程演示 · 先预览后发布' },
   { key: 'stats', label: '数据统计' }
 ]
 
-const tab = ref<string>('users')
+const tab = ref<string>('preview')
 
 const switchTab = (key: string) => {
   tab.value = key
