@@ -1,121 +1,175 @@
 <template>
-  <div class="page-fade">
-    <h2 class="text-2xl font-bold mb-2 text-morandi-text">AI 健康咨询</h2>
-    <p class="text-morandi-lightText mb-6 text-sm">
-      基于您的个人资料、今日身体指标和饮食记录，专注饮食健康咨询
-    </p>
+  <div class="cs-page">
+    <!-- ===== 顾问台星轨头像带 ===== -->
+    <div class="cs-band">
+      <div class="star-crumbs">
+        <span class="crumb-wrap">
+          <button class="crumb-node" @click="goHome"><span class="nd"><LayoutGrid :size="12" /></span>首页</button>
+        </span>
+        <span class="crumb-wrap">
+          <span class="crumb-link"></span>
+          <button class="crumb-node" @click="goHub"><span class="nd"><BookOpen :size="12" /></span>知识中心</button>
+        </span>
+        <span class="crumb-wrap">
+          <span class="crumb-link"></span>
+          <span class="crumb-node hot"><span class="nd"><MessageCircle :size="13" /></span>AI 咨询</span>
+        </span>
+      </div>
+      <div class="cs-avatar">
+        <span class="orb"></span>
+        <span class="core"><Sparkles :size="15" /></span>
+      </div>
+      <div class="tt">
+        <b>星语顾问</b>
+        <span><i></i>在线 · 已读取你的健康档案</span>
+      </div>
+      <span class="model">ASTRAL · 诊档引擎</span>
+    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="glass rounded-2xl p-6 lg:col-span-2 flex flex-col" style="min-height: 480px">
-        <div class="flex-1 overflow-y-auto mb-4 space-y-4" style="max-height: 440px">
-          <div v-if="messages.length === 0" class="text-morandi-lightText text-sm text-center py-16">
-             你好！我是健康助手，可以帮你分析饮食、运动和生活习惯。有什么想问的就尽管告诉我吧！
-          </div>
+    <div class="cs-body">
+      <!-- ===== 对话区 ===== -->
+      <div class="cs-chat">
+        <div ref="msgsRef" class="cs-msgs">
           <div v-if="welcomeBadge" class="welcome-badge">
-            <component :is="Sparkles" class="w-3.5 h-3.5" />
-            <span>正在分析{{ welcomeBadge === 'weekly' ? '本周' : '本月' }}健康数据（来自健康报告）</span>
+            <Sparkles :size="12" />
+            <span>正在分析{{ welcomeBadge === 'weekly' ? '本周' : '本月' }}健康数据（来自健康星报）</span>
           </div>
-          <div v-for="(m, idx) in messages" :key="idx" class="flex" :class="{ 'justify-end': m.role === 'user' }">
-            <div :class="['max-w-[80%] px-4 py-3 rounded-xl text-sm leading-relaxed', m.role === 'user' ? 'bg-morandi-accent text-white' : 'bg-white/70 text-morandi-text']">
-              <div v-if="m.role === 'ai' && m.recordId" class="text-xs opacity-60 mb-2">记录 ID: #{{ m.recordId }}</div>
-              <div v-if="m.role === 'user'" class="whitespace-pre-wrap">{{ m.content }}</div>
-              <div v-else class="markdown-body" v-html="renderMd(m.content)"></div>
+
+          <!-- 空态欢迎 -->
+          <div v-if="messages.length === 0 && !loading" class="msg">
+            <span class="mavatar"><Sparkles :size="12" /></span>
+            <div class="bub">
+              你好，星语顾问已就位。我可以基于你的<b>个人档案、今日指标与饮食记录</b>做饮食健康分析——点击右侧「星问」快速提问，或直接输入你的问题。
+            </div>
+          </div>
+
+          <div
+            v-for="(m, idx) in messages"
+            :key="idx"
+            class="msg"
+            :class="{ user: m.role === 'user', 'agent-card': !!m.agent }"
+          >
+            <span class="mavatar"><component :is="m.role === 'user' ? User : Sparkles" :size="12" /></span>
+            <!-- 打字星点 -->
+            <div v-if="isTyping(m, idx)" class="bub bub-typing">
+              <span class="tdots"><i></i><i></i><i></i></span>
+            </div>
+            <div v-else class="bub">
+              <div v-if="m.role === 'ai' && m.recordId" class="rec-chip">记录 ID #{{ m.recordId }}</div>
+              <!-- 仪轨结果卡 -->
+              <div v-if="m.agent" class="agent-frame">
+                <div class="ar-h"><component :is="agentIcon(m.agent)" :size="13" />{{ agentTitle(m.agent) }}</div>
+                <div class="ar-b markdown-body" v-html="renderMd(stripAgentHeader(m.content))"></div>
+              </div>
+              <template v-else>
+                <div v-if="m.role === 'user'" class="whitespace-pre-wrap">{{ m.content }}</div>
+                <div v-else class="markdown-body" v-html="renderMd(m.content)"></div>
+              </template>
             </div>
           </div>
         </div>
-        <form @submit.prevent="handleSend" class="flex gap-3">
-          <input v-model="input" class="flex-1 px-4 py-3 rounded-xl bg-white/70 border border-morandi-soft text-sm" placeholder="输入你的问题...（例：我今天吃了炸鸡，要注意什么？）" required :disabled="loading" />
-          <button :disabled="loading" class="px-5 py-3 rounded-xl bg-morandi-accent text-white text-sm hover:opacity-90 transition-opacity disabled:opacity-60">
-            {{ loading ? '发送中...' : '发送' }}
+
+        <form class="cs-input" @submit.prevent="handleSend">
+          <div class="fld">
+            <PenLine :size="14" />
+            <input
+              v-model="input"
+              placeholder="向星语顾问提问…（例：我今天吃了炸鸡，要注意什么？）"
+              required
+              :disabled="loading"
+            />
+          </div>
+          <button type="submit" class="cs-send" :disabled="loading">
+            <Send :size="14" />{{ loading ? '星算中…' : '发送' }}
           </button>
         </form>
       </div>
 
-      <div class="space-y-4">
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-semibold mb-3">快捷问题</h3>
-          <div class="space-y-2">
-            <button v-for="(q, idx) in quickQuestions" :key="idx" @click="ask(q)" :disabled="loading" class="w-full text-left px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-soft transition-colors disabled:opacity-60">
-              {{ q }}
-            </button>
-          </div>
+      <!-- ===== 右栏星轨 ===== -->
+      <aside class="cs-rail">
+        <div class="rail-h"><Orbit :size="11" />星问 · 快捷提问</div>
+        <button
+          v-for="(q, idx) in quickQuestions"
+          :key="idx"
+          class="qstar"
+          :disabled="loading"
+          @click="ask(q)"
+        >
+          <span class="qn">✦</span>{{ q }}
+        </button>
+
+        <div class="rail-h mt"><Orbit :size="11" />AI 仪轨</div>
+        <div class="ag-grid">
+          <button
+            v-for="a in agents"
+            :key="a.key"
+            class="ag"
+            :disabled="!!agentLoading"
+            @click="runAgent(a.key)"
+          >
+            <component :is="a.icon" :size="15" />
+            <span class="ag-lb">{{ a.label }}</span>
+            <Loader2 v-if="agentLoading === a.key" class="ag-spin" :size="12" />
+          </button>
         </div>
 
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-semibold mb-3">AI 智能功能</h3>
-          <div class="space-y-2">
-            <button @click="runAgent('nutrition')" :disabled="!!agentLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
-              <component :is="BarChart3" class="w-5 h-5 text-morandi-accent" />
-              <span>营养分析</span>
-              <component v-if="agentLoading === 'nutrition'" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
-            </button>
-            <button @click="runAgent('dietPlan')" :disabled="!!agentLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
-              <component :is="ListChecks" class="w-5 h-5 text-morandi-accent" />
-              <span>膳食计划</span>
-              <component v-if="agentLoading === 'dietPlan'" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
-            </button>
-            <button @click="runAgent('weeklyReport')" :disabled="!!agentLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
-              <component :is="TrendingUp" class="w-5 h-5 text-morandi-accent" />
-              <span>周报生成</span>
-              <component v-if="agentLoading === 'weeklyReport'" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
-            </button>
-            <button @click="runAgent('exercise')" :disabled="!!agentLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
-              <component :is="Activity" class="w-5 h-5 text-morandi-accent" />
-              <span>运动建议</span>
-              <component v-if="agentLoading === 'exercise'" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
-            </button>
-          </div>
-        </div>
-
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-semibold mb-3">今日数据快照</h3>
-          <div v-if="lastSnapshot" class="text-xs text-morandi-text space-y-2 leading-relaxed">
-            <div class="flex items-center gap-1"><component :is="Calendar" class="w-3 h-3 text-morandi-accent" />日期：{{ lastSnapshot.date }}</div>
-            <div class="flex items-center gap-1"><component :is="User" class="w-3 h-3 text-morandi-accent" />{{ lastSnapshot.profile?.username }} · {{ lastSnapshot.profile?.gender }} · {{ lastSnapshot.profile?.age }}岁</div>
-            <div class="flex items-center gap-1"><component :is="Ruler" class="w-3 h-3 text-morandi-accent" />身高 {{ lastSnapshot.profile?.height_cm }} cm · 体重 {{ lastSnapshot.profile?.weight_kg }} kg</div>
-            <div class="flex items-center gap-1"><component :is="Scale" class="w-3 h-3 text-morandi-accent" />BMI：{{ lastSnapshot.profile?.bmi }}</div>
-            <div>
-              <component :is="UtensilsCrossed" class="w-3 h-3 text-morandi-accent inline mr-1" />今日饮食：
-              <span v-if="lastSnapshot.today_diet_total?.total_food_items > 0">
-                共 {{ lastSnapshot.today_diet_total.total_food_items }} 种食材
-                <span v-if="lastSnapshot.today_diet_total.total_meals > 0">（{{ lastSnapshot.today_diet_total.total_meals }} 餐）</span>
-              </span>
-              <span v-else>暂无记录</span>
+        <div class="rail-h mt"><Gauge :size="11" />今日星盘快照</div>
+        <div class="snap">
+          <template v-if="lastSnapshot">
+            <div class="srow"><Calendar :size="12" />日期<b>{{ lastSnapshot.date }}</b></div>
+            <div class="srow"><User :size="12" />档案<b>{{ lastSnapshot.profile?.username }} · {{ lastSnapshot.profile?.gender }} · {{ lastSnapshot.profile?.age }}岁</b></div>
+            <div class="srow"><Ruler :size="12" />体征<b>{{ lastSnapshot.profile?.height_cm }} cm · {{ lastSnapshot.profile?.weight_kg }} kg</b></div>
+            <div class="srow"><Scale :size="12" />BMI<b>{{ lastSnapshot.profile?.bmi }}</b></div>
+            <div class="sdiv"></div>
+            <div class="srow">
+              <UtensilsCrossed :size="12" />今日饮食
+              <b v-if="lastSnapshot.today_diet_total?.total_food_items > 0">
+                {{ lastSnapshot.today_diet_total.total_food_items }} 种食材<template v-if="lastSnapshot.today_diet_total.total_meals > 0"> · {{ lastSnapshot.today_diet_total.total_meals }} 餐</template>
+              </b>
+              <b v-else>暂无记录</b>
             </div>
-            <div v-if="lastSnapshot.today_diet_total?.total_calories_kcal != null">
-              <component :is="Calculator" class="w-3 h-3 text-morandi-accent inline mr-1" />今日热量：{{ lastSnapshot.today_diet_total.total_calories_kcal }} kcal
+            <div v-if="lastSnapshot.today_diet_total?.total_calories_kcal != null" class="srow">
+              <Calculator :size="12" />今日热量<b>{{ lastSnapshot.today_diet_total.total_calories_kcal }} kcal</b>
             </div>
-            <div v-if="lastSnapshot.today_diet && lastSnapshot.today_diet.length > 0" class="mt-3 pt-3 border-t border-morandi-soft/40">
-              <div class="font-medium mb-2">各餐明细：</div>
-              <div v-for="(meal, idx) in lastSnapshot.today_diet" :key="idx" class="mb-2 pl-2 border-l-2 border-morandi-accent/40">
-                <div class="font-medium">{{ meal.meal_type }} · {{ meal.food_items_count }} 项 · {{ meal.meal_calories_kcal }} kcal</div>
-                <div class="text-morandi-lightText pl-2">
-                  <span v-for="(f, fi) in meal.foods" :key="fi">
-                    {{ f.food_name }}{{(fi as number) < (meal.foods.length - 1) ? '、' : '' }}
-                  </span>
-                </div>
+            <template v-if="lastSnapshot.today_diet && lastSnapshot.today_diet.length > 0">
+              <div class="sdiv"></div>
+              <div v-for="(meal, idx) in lastSnapshot.today_diet" :key="'m' + idx" class="meal">
+                <div class="meal-h"><b>{{ meal.meal_type }}</b><span>{{ meal.food_items_count }} 项 · {{ meal.meal_calories_kcal }} kcal</span></div>
+                <p>
+                  <span v-for="(f, fi) in meal.foods" :key="fi">{{ f.food_name }}{{ Number(fi) < (meal.foods as any[]).length - 1 ? '、' : '' }}</span>
+                </p>
               </div>
-            </div>
-          </div>
-          <div v-else class="text-xs text-morandi-lightText">
-            提问后将显示您的健康数据快照
-          </div>
+            </template>
+          </template>
+          <div v-else class="snap-empty">提问后将显示你的健康数据快照</div>
         </div>
-        <div class="glass rounded-2xl p-5">
-          <h3 class="font-semibold mb-3">温馨提示</h3>
-          <p class="text-morandi-lightText text-xs leading-relaxed">AI 建议仅供参考，如涉及用药、严重健康问题，请及时咨询专业医生。每次对话记录会存入数据库，方便日后回顾。</p>
+
+        <div class="rail-note">
+          AI 建议仅供参考，如涉及用药、严重健康问题，请及时咨询专业医生。每次对话记录会存入数据库，方便日后回顾。
         </div>
-      </div>
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
-import { BarChart3, ListChecks, TrendingUp, Loader2, Calendar, User, Ruler, Scale, UtensilsCrossed, Calculator, Activity, Sparkles } from 'lucide-vue-next'
+import {
+  BarChart3, ListChecks, TrendingUp, Activity, Loader2, Send, PenLine, Orbit, Gauge,
+  Calendar, User, Ruler, Scale, UtensilsCrossed, Calculator, Sparkles,
+  LayoutGrid, BookOpen, MessageCircle
+} from 'lucide-vue-next'
 import { marked } from 'marked'
+import type { Component } from 'vue'
+
+const router = useRouter()
+
+// 星轨面包屑：首页 / 知识中心中转站
+function goHome() { router.push('/dashboard/home') }
+function goHub() { router.push({ path: '/dashboard/hub', query: { group: 'knowledge' } }) }
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -160,8 +214,50 @@ const input = ref('')
 const loading = ref(false)
 const welcomeBadge = ref<string | null>(null)
 const agentLoading = ref<string | false>(false)
-const messages = ref<Array<{ role: 'user' | 'ai'; content: string; recordId?: number }>>([])
+const messages = ref<Array<{ role: 'user' | 'ai'; content: string; recordId?: number; agent?: string }>>([])
 const lastSnapshot = ref<any>(null)
+const msgsRef = ref<HTMLElement | null>(null)
+
+/* 消息自动滚到底部（流式增量也跟随） */
+watch(messages, () => {
+  nextTick(() => {
+    const el = msgsRef.value
+    if (el) el.scrollTop = el.scrollHeight
+  })
+}, { deep: true })
+
+/* 打字星点：最后一条 ai 消息尚无实质内容时显示 */
+function isTyping(m: { role: string; content: string }, idx: number): boolean {
+  return loading.value && m.role === 'ai' &&
+    idx === messages.value.length - 1 &&
+    (m.content === '' || m.content === '正在思考...')
+}
+
+/* ===== AI 仪轨配置 ===== */
+const agents: Array<{ key: string; label: string; icon: Component }> = [
+  { key: 'nutrition', label: '营养分析', icon: BarChart3 },
+  { key: 'dietPlan', label: '膳食计划', icon: ListChecks },
+  { key: 'weeklyReport', label: '周报生成', icon: TrendingUp },
+  { key: 'exercise', label: '运动建议', icon: Activity }
+]
+
+const AGENT_META: Record<string, { title: string; icon: Component }> = {
+  nutrition: { title: '营养分析 · 今日', icon: BarChart3 },
+  dietPlan: { title: '膳食计划', icon: ListChecks },
+  weeklyReport: { title: '健康周报', icon: TrendingUp },
+  exercise: { title: '运动建议', icon: Activity }
+}
+
+function agentTitle(key: string): string {
+  return AGENT_META[key]?.title || 'AI 仪轨结果'
+}
+function agentIcon(key: string): Component {
+  return AGENT_META[key]?.icon || Sparkles
+}
+/* 仪轨卡头部已展示标题，正文中去掉首行的「[图表] **xxx**」标记 */
+function stripAgentHeader(text: string): string {
+  return String(text || '').replace(/^\[[^\]]*\]\s*\*\*[^*]+\*\*\s*\n?/, '')
+}
 
 /* 报告页带来的徽章：AI 回复完成后自动清除 */
 watch(loading, (v) => {
@@ -264,26 +360,26 @@ const runAgent = async (type: string) => {
     let result: any
     switch (type) {
       case 'nutrition':
-        messages.value.push({ role: 'user', content: '[图表] 给我分析一下今天的营养摄入' })
+        messages.value.push({ role: 'user', content: '给我分析一下今天的营养摄入' })
         result = await api.ai.nutritionAnalyze()
         break
       case 'dietPlan':
-        messages.value.push({ role: 'user', content: '[列表] 帮我制定一份膳食计划' })
+        messages.value.push({ role: 'user', content: '帮我制定一份膳食计划' })
         result = await api.ai.dietPlan('均衡饮食')
         break
       case 'weeklyReport':
-        messages.value.push({ role: 'user', content: '[趋势] 生成本周健康周报' })
+        messages.value.push({ role: 'user', content: '生成本周健康周报' })
         result = await api.ai.weeklyReport()
         break
       case 'exercise':
-        messages.value.push({ role: 'user', content: '[运动] 给我一份运动建议' })
+        messages.value.push({ role: 'user', content: '给我一份运动建议' })
         result = await api.ai.exerciseAdvice()
         break
       default:
         return
     }
     const reply = formatAgentResult(type, result)
-    messages.value.push({ role: 'ai', content: reply })
+    messages.value.push({ role: 'ai', content: reply, agent: type })
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.message || '功能暂时不可用，请稍后再试'
     messages.value.push({ role: 'ai', content: '[错误] ' + msg })
@@ -303,7 +399,7 @@ const formatAgentResult = (type: string, data: any): string => {
       if (data.bmr_status) s += `BMR状态：${data.bmr_status}\n`
       if (data.total_calories) s += `今日摄入：${data.total_calories} kcal\n`
       if (data.recommendations && data.recommendations.length > 0) {
-        s += '\n[提示] 建议：\n'
+        s += '\n建议：\n'
         data.recommendations.forEach((r: string) => { s += `• ${r}\n` })
       }
       if (data.summary) s += `\n${data.summary}`
@@ -314,7 +410,7 @@ const formatAgentResult = (type: string, data: any): string => {
       if (data.summary) s += `${data.summary}\n\n`
       if (data.plan && Array.isArray(data.plan)) {
         data.plan.forEach((item: any) => {
-          s += `[餐食] ${item.meal_type || ''}：${item.description || ''}\n`
+          s += `· ${item.meal_type || ''}：${item.description || ''}\n`
         })
       }
       if (typeof data.plan === 'string') s += data.plan
@@ -331,12 +427,12 @@ const formatAgentResult = (type: string, data: any): string => {
       if (data.summary) s += `${data.summary}\n\n`
       if (data.plan && Array.isArray(data.plan)) {
         data.plan.forEach((item: any) => {
-          s += `[项目] ${item.exercise || item.name || ''}：${item.description || item.duration || ''}\n`
+          s += `· ${item.exercise || item.name || ''}：${item.description || item.duration || ''}\n`
         })
       }
       if (typeof data.plan === 'string') s += data.plan
       if (data.recommendations && data.recommendations.length > 0) {
-        s += '\n[提示] 建议：\n'
+        s += '\n建议：\n'
         data.recommendations.forEach((r: string) => { s += `• ${r}\n` })
       }
       return s
@@ -389,109 +485,329 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.glass {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+/* ================= P9-C 星语顾问台 ================= */
+.cs-page {
+  font-family: 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(217, 162, 74, .13), transparent 40%),
+    linear-gradient(168deg, #1C1710, #12100A 60%);
+  border-radius: 18px;
+  color: #F0E2C4;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 620px;
 }
-.welcome-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; margin-bottom: 12px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(47,93,74,.1), rgba(224,122,63,.08));
-  border: 1px solid rgba(47,93,74,.22);
-  color: #2F5D4A;
-  font-size: 12px; font-weight: 600;
-  animation: badgeIn .4s cubic-bezier(.22,1,.36,1);
-}
-.welcome-badge svg { color: #E07A3F; }
-@keyframes badgeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.page-fade {
-  animation: fadeIn 0.3s ease forwards;
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.cs-page button { font-family: inherit; cursor: pointer; }
+
+@keyframes csRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* Markdown 渲染样式（报告分析结构化输出） */
+/* ===== 星轨头像带 ===== */
+.cs-band {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid rgba(217, 162, 74, .2);
+  animation: csRise .6s ease backwards;
+}
+/* ---- 星轨面包屑导航 ---- */
+.star-crumbs { display: flex; align-items: center; flex-shrink: 0; margin-right: 6px; }
+.crumb-wrap { display: flex; align-items: center; }
+.crumb-link { width: 42px; height: 0; border-top: 1.5px dashed rgba(184, 134, 59, 0.45); margin: 0 5px; }
+.crumb-node {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: #8C7A5E;
+  background: none; border: none; padding: 0;
+  font-family: inherit; letter-spacing: 0.04em;
+}
+.crumb-node .nd {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid rgba(217, 162, 74, 0.4); color: #8C7A5E;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(24, 19, 12, 0.9); transition: 0.25s;
+}
+button.crumb-node { cursor: pointer; transition: color 0.25s ease; }
+button.crumb-node:hover { color: #E8B973; }
+.crumb-node.hot { color: #F6EAD6; font-weight: 700; }
+.crumb-node.hot .nd {
+  color: #E8B973; border-color: #E8B973;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  box-shadow: 0 0 14px rgba(217, 162, 74, 0.45);
+}
+.cs-avatar { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
+.cs-avatar .core {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1px solid rgba(232, 185, 115, .6);
+  display: flex; align-items: center; justify-content: center;
+  color: #E8B973;
+  box-shadow: 0 0 18px rgba(217, 162, 74, .4);
+  animation: csBreath 3.2s ease-in-out infinite;
+}
+@keyframes csBreath { 50% { box-shadow: 0 0 26px rgba(217, 162, 74, .62); } }
+.cs-avatar .orb {
+  position: absolute; inset: -3px; border-radius: 50%;
+  border: 1px dashed rgba(217, 162, 74, .35);
+  animation: csSpin 14s linear infinite;
+}
+.cs-avatar .orb::after {
+  content: ''; position: absolute; top: -3px; left: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #E8B973; box-shadow: 0 0 8px rgba(232, 185, 115, .9);
+}
+@keyframes csSpin { to { transform: rotate(360deg); } }
+.cs-band .tt b {
+  display: block; font-size: 14.5px; font-weight: 900;
+  letter-spacing: .1em; color: #F6EAD6;
+  font-family: 'Noto Serif SC', serif;
+}
+.cs-band .tt span {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; color: #9A8A6C; margin-top: 2px;
+}
+.cs-band .tt span i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #8FBF7F; box-shadow: 0 0 8px rgba(143, 191, 127, .8);
+  animation: csBlink 2.4s ease-in-out infinite;
+}
+@keyframes csBlink { 50% { opacity: .35; } }
+.cs-band .model {
+  margin-left: auto; font-size: 10px; letter-spacing: .14em; color: #B9A78A;
+  border: 1px solid rgba(217, 162, 74, .3); border-radius: 99px;
+  padding: 4px 12px; background: rgba(217, 162, 74, .07);
+}
+
+/* ===== 主体两栏 ===== */
+.cs-body {
+  flex: 1; display: grid; grid-template-columns: 1fr 288px; min-height: 0;
+  animation: csRise .7s ease .1s backwards;
+}
+.cs-chat { display: flex; flex-direction: column; min-width: 0; }
+.cs-msgs {
+  flex: 1; overflow-y: auto; min-height: 380px; max-height: 560px;
+  padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;
+}
+.msg { display: flex; gap: 11px; max-width: 86%; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg.agent-card { width: 86%; }
+.mavatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1px solid rgba(232, 185, 115, .5); color: #E8B973;
+}
+.msg.user .mavatar {
+  background: linear-gradient(135deg, #E8B973, #B36B2A);
+  color: #14110B; border: none;
+}
+.bub {
+  border: 1px solid rgba(217, 162, 74, .22);
+  background: rgba(217, 162, 74, .05);
+  border-radius: 4px 14px 14px 14px;
+  padding: 11px 14px; font-size: 12.5px; line-height: 1.95; color: #D8C9A8;
+  min-width: 0; overflow-wrap: break-word;
+}
+.msg.user .bub {
+  background: linear-gradient(135deg, #E8B973, #C98F4A);
+  color: #14110B; border: none; font-weight: 600;
+  border-radius: 14px 4px 14px 14px;
+}
+.bub b { color: #E8B973; }
+.msg.user .bub b { color: #14110B; }
+.rec-chip {
+  display: inline-block; font-size: 9.5px; color: #8C7A5E;
+  border: 1px solid rgba(217, 162, 74, .25); border-radius: 99px;
+  padding: 1px 8px; margin-bottom: 7px;
+}
+.bub-typing { display: flex; align-items: center; padding: 14px 16px; }
+.tdots { display: inline-flex; gap: 6px; }
+.tdots i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #D9A24A; opacity: .4;
+  animation: csType 1.1s ease-in-out infinite;
+}
+.tdots i:nth-child(2) { animation-delay: .18s; }
+.tdots i:nth-child(3) { animation-delay: .36s; }
+@keyframes csType { 50% { opacity: 1; transform: translateY(-4px); } }
+
+/* 仪轨结果卡 */
+.agent-frame {
+  border: 1px solid rgba(217, 162, 74, .3); border-radius: 12px;
+  overflow: hidden; background: linear-gradient(170deg, #221B10, #16110A);
+}
+.agent-frame .ar-h {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 13px; border-bottom: 1px dashed rgba(217, 162, 74, .25);
+  font-size: 11.5px; font-weight: 700; color: #E8B973; letter-spacing: .06em;
+}
+.agent-frame .ar-h svg { color: #E8B973; }
+.agent-frame .ar-b { padding: 11px 13px; font-size: 11.5px; line-height: 1.9; color: #C9B896; }
+
+/* 输入区 */
+.cs-input {
+  display: flex; gap: 10px;
+  padding: 14px 22px;
+  border-top: 1px solid rgba(217, 162, 74, .18);
+  background: rgba(10, 8, 5, .3);
+}
+.cs-input .fld {
+  flex: 1; display: flex; align-items: center; gap: 9px;
+  border: 1px solid rgba(217, 162, 74, .35); border-radius: 12px;
+  padding: 0 14px; background: rgba(24, 19, 12, .8); transition: .25s;
+}
+.cs-input .fld:focus-within { border-color: #D9A24A; box-shadow: 0 0 0 3px rgba(217, 162, 74, .12); }
+.cs-input .fld svg { color: #8C7A5E; flex-shrink: 0; }
+.cs-input input {
+  flex: 1; background: none; border: none; outline: none;
+  color: #F0E2C4; font-size: 12.5px; padding: 12px 0; font-family: inherit;
+}
+.cs-input input::placeholder { color: #6E6049; }
+.cs-send {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: none; border-radius: 12px; padding: 0 18px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em; color: #14110B;
+  background: linear-gradient(135deg, #E8B973, #B36B2A);
+  transition: .25s; box-shadow: 0 8px 20px -8px rgba(217, 162, 74, .55);
+}
+.cs-send:hover { filter: brightness(1.1); }
+.cs-send:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ===== 右栏星轨 ===== */
+.cs-rail {
+  border-left: 1px solid rgba(217, 162, 74, .14);
+  padding: 16px; background: rgba(10, 8, 5, .35);
+  overflow-y: auto; max-height: 640px;
+}
+.rail-h {
+  font-size: 10.5px; letter-spacing: .2em; color: #D9A24A;
+  margin: 0 0 10px; display: flex; align-items: center; gap: 6px;
+}
+.rail-h.mt { margin-top: 18px; }
+.qstar {
+  width: 100%; display: flex; align-items: center; gap: 9px; text-align: left;
+  border: 1px solid rgba(217, 162, 74, .22); background: rgba(217, 162, 74, .05);
+  color: #C9B896; font-size: 11.5px; padding: 9px 12px;
+  border-radius: 11px; margin-bottom: 8px; transition: .25s; line-height: 1.5;
+}
+.qstar:hover {
+  border-color: rgba(232, 185, 115, .6); background: rgba(217, 162, 74, .11);
+  color: #F0E2C4; transform: translateX(3px);
+}
+.qstar:disabled { opacity: .55; cursor: not-allowed; }
+.qstar .qn {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid rgba(217, 162, 74, .45);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 9px; color: #E8B973;
+}
+.ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ag {
+  border: 1px solid rgba(217, 162, 74, .22); border-radius: 11px;
+  background: rgba(217, 162, 74, .05); padding: 10px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  color: #C9B896; font-size: 10.5px; transition: .25s; position: relative;
+}
+.ag:hover {
+  border-color: rgba(232, 185, 115, .6); background: rgba(217, 162, 74, .12);
+  color: #F0E2C4; transform: translateY(-2px);
+}
+.ag:disabled { opacity: .6; cursor: not-allowed; }
+.ag svg { color: #E8B973; }
+.ag .ag-spin { position: absolute; top: 5px; right: 7px; animation: csSpin 1s linear infinite; }
+
+/* 快照 */
+.snap {
+  border: 1px solid rgba(217, 162, 74, .22); border-radius: 12px;
+  padding: 12px; background: rgba(217, 162, 74, .05);
+}
+.srow {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 11px; color: #C9B896; padding: 5.5px 0;
+}
+.srow svg { color: #D9A24A; flex-shrink: 0; }
+.srow b { margin-left: auto; color: #F0E2C4; font-weight: 700; text-align: right; }
+.sdiv { height: 1px; background: rgba(217, 162, 74, .15); margin: 6px 0; }
+.snap .meal { padding: 5px 0 5px 8px; border-left: 2px solid rgba(217, 162, 74, .35); margin-bottom: 4px; }
+.snap .meal:last-child { margin-bottom: 0; }
+.snap .meal-h { display: flex; align-items: baseline; gap: 8px; font-size: 10.5px; }
+.snap .meal-h b { color: #E8B973; font-weight: 700; }
+.snap .meal-h span { color: #8C7A5E; font-size: 9.5px; margin-left: auto; }
+.snap .meal p { font-size: 10px; color: #A89572; line-height: 1.7; margin: 2px 0 0; }
+.snap-empty { font-size: 11px; color: #8C7A5E; text-align: center; padding: 14px 0; }
+.rail-note {
+  margin-top: 14px; padding: 10px 11px; border-radius: 10px;
+  border: 1px dashed rgba(217, 162, 74, .3);
+  font-size: 10px; line-height: 1.8; color: #9A8A6C;
+}
+
+/* 报告徽章 */
+.welcome-badge {
+  display: inline-flex; align-self: flex-start; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(217, 162, 74, .16), rgba(217, 162, 74, .06));
+  border: 1px solid rgba(217, 162, 74, .35);
+  color: #E8B973;
+  font-size: 11px; font-weight: 600;
+  animation: csRise .4s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ===== Markdown 暗金主题 ===== */
 .markdown-body {
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: inherit;
+  font-size: 12.5px; line-height: 1.9; color: #D8C9A8;
   word-break: break-word;
 }
 .markdown-body > *:first-child { margin-top: 0; }
 .markdown-body > *:last-child { margin-bottom: 0; }
 .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
-  font-weight: 700;
-  margin: 14px 0 8px;
-  line-height: 1.3;
-  color: #2F5D4A;
+  font-weight: 700; margin: 14px 0 8px; line-height: 1.3;
+  color: #E8B973; font-family: 'Noto Serif SC', serif;
 }
-.markdown-body h1 { font-size: 18px; }
-.markdown-body h2 { font-size: 16px; border-bottom: 1px solid rgba(47,93,74,.15); padding-bottom: 4px; }
-.markdown-body h3 { font-size: 14.5px; }
-.markdown-body h4 { font-size: 13.5px; }
+.markdown-body h1 { font-size: 17px; }
+.markdown-body h2 { font-size: 15px; border-bottom: 1px solid rgba(217, 162, 74, .2); padding-bottom: 4px; }
+.markdown-body h3 { font-size: 14px; }
+.markdown-body h4 { font-size: 13px; }
 .markdown-body p { margin: 6px 0; }
 .markdown-body ul, .markdown-body ol { padding-left: 20px; margin: 6px 0; }
 .markdown-body ul li { list-style: disc; }
 .markdown-body ol li { list-style: decimal; }
 .markdown-body li { margin: 2px 0; }
-.markdown-body strong { font-weight: 700; color: #1F4636; }
-.markdown-body em { font-style: italic; opacity: 0.92; }
+.markdown-body strong { font-weight: 700; color: #E8B973; }
+.markdown-body em { font-style: italic; opacity: .92; }
 .markdown-body table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 10px 0;
-  font-size: 12.5px;
-  display: block;
-  overflow-x: auto;
+  width: 100%; border-collapse: collapse; margin: 10px 0;
+  font-size: 11.5px; display: block; overflow-x: auto;
 }
 .markdown-body table th, .markdown-body table td {
-  border: 1px solid rgba(47,93,74,.2);
-  padding: 6px 8px;
-  text-align: left;
-  vertical-align: top;
+  border: 1px solid rgba(217, 162, 74, .25);
+  padding: 6px 8px; text-align: left; vertical-align: top;
 }
 .markdown-body table th {
-  background: rgba(47,93,74,.08);
-  font-weight: 700;
-  color: #2F5D4A;
-  white-space: nowrap;
+  background: rgba(217, 162, 74, .1); font-weight: 700;
+  color: #E8B973; white-space: nowrap;
 }
-.markdown-body table tr:nth-child(even) td {
-  background: rgba(47,93,74,.03);
-}
+.markdown-body table tr:nth-child(even) td { background: rgba(217, 162, 74, .04); }
 .markdown-body blockquote {
-  border-left: 3px solid #E07A3F;
-  padding: 4px 10px;
-  margin: 8px 0;
-  background: rgba(224,122,63,.05);
-  color: #6F4720;
-  font-size: 12.5px;
+  border-left: 3px solid #D9A24A; padding: 4px 10px; margin: 8px 0;
+  background: rgba(217, 162, 74, .07); color: #C9B896; font-size: 12px;
 }
 .markdown-body code {
-  background: rgba(47,93,74,.08);
-  padding: 1px 4px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: Menlo, Consolas, monospace;
-  color: #1F4636;
+  background: rgba(217, 162, 74, .12); padding: 1px 4px; border-radius: 4px;
+  font-size: 11px; font-family: Menlo, Consolas, monospace; color: #E8B973;
 }
-.markdown-body hr {
-  border: none;
-  border-top: 1px dashed rgba(47,93,74,.25);
-  margin: 10px 0;
+.markdown-body hr { border: none; border-top: 1px dashed rgba(217, 162, 74, .3); margin: 10px 0; }
+.markdown-body a { color: #E8B973; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 1020px) {
+  .cs-body { grid-template-columns: 1fr; }
+  .cs-rail {
+    border-left: none; border-top: 1px solid rgba(217, 162, 74, .14);
+    max-height: none;
+  }
+  .msg, .msg.agent-card { max-width: 96%; }
+  .star-crumbs { display: none; }
 }
 </style>

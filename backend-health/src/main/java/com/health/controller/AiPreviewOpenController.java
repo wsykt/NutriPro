@@ -2,7 +2,7 @@ package com.health.controller;
 
 import com.health.dto.ApiResponse;
 import com.health.entity.AiPreviewSnapshot;
-import com.health.repository.AiPreviewSnapshotRepository;
+import com.health.service.AiPreviewService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,11 +21,11 @@ import java.util.Map;
 @RequestMapping("/api/preview")
 public class AiPreviewOpenController {
 
-    private final AiPreviewSnapshotRepository repo;
+    private final AiPreviewService aiPreviewService;
     private final ObjectMapper om = new ObjectMapper();
 
-    public AiPreviewOpenController(AiPreviewSnapshotRepository repo) {
-        this.repo = repo;
+    public AiPreviewOpenController(AiPreviewService aiPreviewService) {
+        this.aiPreviewService = aiPreviewService;
     }
 
     @GetMapping("/open/{id}")
@@ -34,7 +34,7 @@ public class AiPreviewOpenController {
         if (tok == null || tok.trim().isEmpty()) {
             return ResponseEntity.status(401).body(ApiResponse.<Map<String, Object>>error("缺少匿名预览 tok 参数"));
         }
-        AiPreviewSnapshot snap = repo.findByPreviewTokenAndTokenExpireAtAfter(tok, LocalDateTime.now()).orElse(null);
+        AiPreviewSnapshot snap = aiPreviewService.findByPreviewTokenAndTokenExpireAtAfter(tok, LocalDateTime.now()).orElse(null);
         if (snap == null || !snap.getId().equals(id)) {
             return ResponseEntity.status(401).body(ApiResponse.<Map<String, Object>>error("预览令牌无效或已过期，请重新生成"));
         }
@@ -55,7 +55,7 @@ public class AiPreviewOpenController {
         // 一次性：消费后立刻清掉 token
         snap.setPreviewToken(null);
         snap.setTokenExpireAt(null);
-        repo.save(snap);
+        aiPreviewService.save(snap);
         return ResponseEntity.ok(ApiResponse.success(m));
     }
 

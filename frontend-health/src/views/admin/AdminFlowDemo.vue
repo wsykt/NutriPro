@@ -1,14 +1,14 @@
 <template>
   <div class="flow-demo page-fade space-y-5">
     <!-- 顶部横幅 -->
-    <div class="bg-gradient-to-r from-morandi-accent/15 via-amber-50 to-sky-50 rounded-3xl border border-morandi-soft/60 p-5 md:p-6">
+    <div class="fd-top rounded-3xl p-5 md:p-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div class="text-xs font-semibold text-morandi-accent mb-1">AI 功能 · 流程演示</div>
-          <h3 class="text-xl md:text-2xl font-bold text-morandi-text leading-snug">
+          <div class="fd-overline">AI 功能 · 流程展示</div>
+          <h3 class="fd-title text-xl md:text-2xl leading-snug">
             选择 AI 功能 → 填写真实输入 → 「我开始执行」→ 实时查看后端流水线
           </h3>
-          <p class="mt-2 text-sm text-morandi-lightText leading-6 max-w-4xl">
+          <p class="fd-desc leading-6 max-w-4xl">
             与前端用户操作完全一致：点开一个 AI 功能，先看到<strong>它做什么</strong>，填写<strong>真实输入</strong>（如科普文章的「文章主题 + 目标人群」），
             再点【我开始执行】。后端按 <strong>入队 → 画像 → RAG 检索 → Prompt → 大模型生成 → 校验 → 落快照</strong> 真实执行；
             左边窗口实时展示每一步的<strong>输入数据 / 产出 / 耗时 / token 消耗</strong>，执行完成后右侧展示最终产出结果。
@@ -16,8 +16,8 @@
           </p>
         </div>
         <div class="text-right">
-          <div class="text-[11px] text-morandi-lightText">会话编号（一次流程演示一个 sessionId）</div>
-          <div class="mt-1 px-3 py-1.5 rounded-xl bg-white border border-morandi-soft/60 text-xs font-mono text-morandi-text shadow-sm">
+          <div class="text-[11px] fd-sub">会话编号（一次流程演示一个 sessionId）</div>
+          <div class="mt-1 px-3 py-1.5 rounded-xl fd-chip text-xs font-mono fd-text shadow-sm">
             {{ sessionId }}
           </div>
         </div>
@@ -850,4 +850,41 @@ onBeforeUnmount(() => {
 }
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all .25s ease; }
 .fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(6px); }
+</style>
+
+<style>
+/* ===== AI 流程展示 · 新版星枢昼夜主题（复用 admin-theme.css 的 --ad-* 变量） ===== */
+.flow-demo { color: var(--ad-text); }
+
+/* 顶部横幅与标题（替换旧 morandi 渐变大横幅） */
+.flow-demo .fd-top { background: var(--ad-accent-soft); border: 1px solid var(--ad-line); }
+.flow-demo .fd-overline { font-size: 12px; font-weight: 600; letter-spacing: 0.2em; color: var(--ad-accent); margin-bottom: 6px; }
+.flow-demo .fd-title { font-weight: 700; color: var(--ad-title); font-family: 'Noto Serif SC', serif; }
+.flow-demo .fd-title strong,
+.flow-demo .fd-desc strong { color: var(--ad-accent); }
+.flow-demo .fd-desc { margin-top: 8px; font-size: 13px; color: var(--ad-sub); }
+.flow-demo .fd-sub { color: var(--ad-sub); }
+.flow-demo .fd-chip { background: var(--ad-card-2); border: 1px solid var(--ad-line); color: var(--ad-text); }
+
+/* 旧 morandi 主题类 → 星枢 --ad-* 变量映射（模板类名保持不变） */
+.flow-demo .text-morandi-accent { color: var(--ad-accent); }
+.flow-demo .text-morandi-text { color: var(--ad-text); }
+.flow-demo .text-morandi-lightText { color: var(--ad-sub); }
+
+.flow-demo .bg-white { background: var(--ad-card); }
+.flow-demo .bg-morandi-accent { background: var(--ad-accent); color: var(--ad-on-accent); }
+.flow-demo .bg-morandi-accent\/10,
+.flow-demo .bg-morandi-accent\/15,
+.flow-demo .bg-morandi-accent\/20 { background: var(--ad-accent-soft); }
+.flow-demo .bg-morandi-bg,
+.flow-demo .bg-morandi-bg\/20,
+.flow-demo .bg-morandi-bg\/40,
+.flow-demo .bg-morandi-bg\/50,
+.flow-demo .bg-morandi-bg\/60 { background: var(--ad-card-2); }
+
+.flow-demo .border-morandi-soft,
+.flow-demo .border-morandi-soft\/40,
+.flow-demo .border-morandi-soft\/60 { border-color: var(--ad-line); }
+
+.flow-demo .shadow-morandi-text\/5 { --tw-shadow-color: transparent; }
 </style>

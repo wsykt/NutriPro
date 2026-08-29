@@ -3,18 +3,13 @@ package com.health.controller;
 import com.health.dto.ApiResponse;
 import com.health.entity.Article;
 import com.health.entity.ArticleAnalysis;
-import com.health.entity.Comment;
-import com.health.entity.DietMeal;
 import com.health.entity.ExerciseRecord;
 import com.health.entity.FamilyRelation;
 import com.health.entity.Food;
-import com.health.entity.Post;
 import com.health.entity.Recipe;
 import com.health.entity.User;
-import com.health.repository.DietMealRepository;
 import com.health.service.ArticleAnalysisService;
 import com.health.service.ArticleService;
-import com.health.service.CommunityService;
 import com.health.service.DietService;
 import com.health.service.ExerciseRecordService;
 import com.health.service.FamilyRelationService;
@@ -37,27 +32,23 @@ public class AdminController {
     private final FoodService foodService;
     private final FamilyRelationService relationService;
     private final ExerciseRecordService exerciseRecordService;
-    private final CommunityService communityService;
     private final RecipeService recipeService;
     private final ArticleService articleService;
     private final ArticleAnalysisService articleAnalysisService;
     private final DietService dietService;
-    private final DietMealRepository dietMealRepository;
 
     public AdminController(ProfileService profileService, FoodService foodService, FamilyRelationService relationService,
-                           ExerciseRecordService exerciseRecordService, CommunityService communityService, RecipeService recipeService,
+                           ExerciseRecordService exerciseRecordService, RecipeService recipeService,
                            ArticleService articleService, ArticleAnalysisService articleAnalysisService,
-                           DietService dietService, DietMealRepository dietMealRepository) {
+                           DietService dietService) {
         this.profileService = profileService;
         this.foodService = foodService;
         this.relationService = relationService;
         this.exerciseRecordService = exerciseRecordService;
-        this.communityService = communityService;
         this.recipeService = recipeService;
         this.articleService = articleService;
         this.articleAnalysisService = articleAnalysisService;
         this.dietService = dietService;
-        this.dietMealRepository = dietMealRepository;
     }
 
     @GetMapping("/users")
@@ -134,17 +125,9 @@ public class AdminController {
         }
 
         // 近两日饮食记录（按日期去重，最多取两个不同日期）
-        List<DietMeal> meals = dietMealRepository.findByUserIdOrderByEatDateDesc(userId);
-        LinkedHashSet<String> seenDates = new LinkedHashSet<>();
-        if (meals != null) {
-            for (DietMeal m : meals) {
-                if (seenDates.size() < 2 && !seenDates.contains(m.getEatDate())) {
-                    seenDates.add(m.getEatDate());
-                }
-            }
-        }
+        List<String> recentDates = dietService.getRecentDietDates(userId, 2);
         List<Map<String, Object>> diet = new ArrayList<>();
-        for (String date : seenDates) {
+        for (String date : recentDates) {
             diet.addAll(dietService.getMealsByDate(userId, date));
         }
         info.put("diet", diet);
@@ -329,79 +312,6 @@ public class AdminController {
     @DeleteMapping("/recipes/{recipeId}")
     public ResponseEntity<ApiResponse<String>> deleteRecipe(@PathVariable Integer recipeId) {
         recipeService.deleteRecipe(recipeId);
-        return ResponseEntity.ok(ApiResponse.success("已删除", "deleted"));
-    }
-
-    // ===================== 动态管理 =====================
-    @GetMapping("/posts")
-    public ResponseEntity<ApiResponse<List<Post>>> getAllPosts() {
-        List<Post> posts = communityService.getAllPostsForAdmin();
-        return ResponseEntity.ok(ApiResponse.success(posts));
-    }
-
-    @GetMapping("/posts/status/{status}")
-    public ResponseEntity<ApiResponse<List<Post>>> getPostsByStatus(@PathVariable String status) {
-        List<Post> posts = communityService.getPostsByStatus(status);
-        return ResponseEntity.ok(ApiResponse.success(posts));
-    }
-
-    @PostMapping("/posts/approve/{postId}")
-    public ResponseEntity<ApiResponse<Post>> approvePost(@PathVariable Integer postId) {
-        Post post = communityService.approvePost(postId);
-        if (post == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(ApiResponse.success("已审核通过", post));
-    }
-
-    @PostMapping("/posts/reject/{postId}")
-    public ResponseEntity<ApiResponse<Post>> rejectPost(@PathVariable Integer postId) {
-        Post post = communityService.rejectPost(postId);
-        if (post == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(ApiResponse.success("已拒绝", post));
-    }
-
-    @DeleteMapping("/posts/{postId}")
-    public ResponseEntity<ApiResponse<String>> deletePost(@PathVariable Integer postId) {
-        communityService.deletePost(postId);
-        return ResponseEntity.ok(ApiResponse.success("已删除", "deleted"));
-    }
-
-    @GetMapping("/comments")
-    public ResponseEntity<ApiResponse<List<Comment>>> getAllComments() {
-        List<Comment> comments = communityService.getAllCommentsForAdmin();
-        return ResponseEntity.ok(ApiResponse.success(comments));
-    }
-
-    @GetMapping("/comments/status/{status}")
-    public ResponseEntity<ApiResponse<List<Comment>>> getCommentsByStatus(@PathVariable String status) {
-        List<Comment> comments = communityService.getCommentsByStatus(status);
-        return ResponseEntity.ok(ApiResponse.success(comments));
-    }
-
-    @PostMapping("/comments/approve/{commentId}")
-    public ResponseEntity<ApiResponse<Comment>> approveComment(@PathVariable Integer commentId) {
-        Comment comment = communityService.approveComment(commentId);
-        if (comment == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(ApiResponse.success("已审核通过", comment));
-    }
-
-    @PostMapping("/comments/reject/{commentId}")
-    public ResponseEntity<ApiResponse<Comment>> rejectComment(@PathVariable Integer commentId) {
-        Comment comment = communityService.rejectComment(commentId);
-        if (comment == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(ApiResponse.success("已拒绝", comment));
-    }
-
-    @DeleteMapping("/comments/{commentId}")
-    public ResponseEntity<ApiResponse<String>> deleteComment(@PathVariable Integer commentId) {
-        communityService.deleteComment(commentId);
         return ResponseEntity.ok(ApiResponse.success("已删除", "deleted"));
     }
 

@@ -3,9 +3,10 @@ package com.health.controller;
 import com.health.dto.ApiResponse;
 import com.health.entity.AiPreviewSnapshot;
 import com.health.entity.Article;
-import com.health.repository.AiPreviewSnapshotRepository;
+import com.health.service.AiPreviewService;
 import com.health.service.ArticleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -27,17 +28,18 @@ import java.util.stream.Collectors;
  *   6. 匿名 GET  /api/preview/open/{id}?tok=...（见 AiPreviewOpenController）
  * </pre>
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/admin/preview")
 @PreAuthorize("hasRole('ADMIN')")
 public class AiPreviewAdminController {
 
-    private final AiPreviewSnapshotRepository repo;
+    private final AiPreviewService aiPreviewService;
     private final ArticleService articleService;
     private final ObjectMapper om = new ObjectMapper();
 
-    public AiPreviewAdminController(AiPreviewSnapshotRepository repo, ArticleService articleService) {
-        this.repo = repo;
+    public AiPreviewAdminController(AiPreviewService aiPreviewService, ArticleService articleService) {
+        this.aiPreviewService = aiPreviewService;
         this.articleService = articleService;
     }
 
@@ -69,7 +71,7 @@ public class AiPreviewAdminController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("payload JSON 序列化失败：" + e.getMessage()));
         }
-        snap = repo.save(snap);
+        snap = aiPreviewService.save(snap);
         Map<String, Object> out = toMap(snap, true);
         return ResponseEntity.ok(ApiResponse.success(out));
     }
@@ -77,7 +79,7 @@ public class AiPreviewAdminController {
     /** 2. 管理员取快照详情 */
     @GetMapping("/snapshot/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSnapshot(@PathVariable Integer id) {
-        Optional<AiPreviewSnapshot> opt = repo.findById(id);
+        Optional<AiPreviewSnapshot> opt = aiPreviewService.findById(id);
         if (!opt.isPresent()) return ResponseEntity.status(404).body(ApiResponse.<Map<String, Object>>error("snapshot not found: id=" + id));
         return ResponseEntity.ok(ApiResponse.success(toMap(opt.get(), true)));
     }
@@ -85,13 +87,13 @@ public class AiPreviewAdminController {
     /** 3. 生成匿名一次性 token（5 分钟内有效），配合 open/{id}?tok=... 做 iframe / 新标签页预览 */
     @PostMapping("/snapshot/{id}/generateToken")
     public ResponseEntity<ApiResponse<Map<String, Object>>> generateToken(@PathVariable Integer id) {
-        Optional<AiPreviewSnapshot> opt = repo.findById(id);
+        Optional<AiPreviewSnapshot> opt = aiPreviewService.findById(id);
         if (!opt.isPresent()) return ResponseEntity.status(404).body(ApiResponse.<Map<String, Object>>error("snapshot not found"));
         AiPreviewSnapshot snap = opt.get();
         String tok = "pt-" + UUID.randomUUID().toString().replace("-", "");
         snap.setPreviewToken(tok);
         snap.setTokenExpireAt(LocalDateTime.now().plusMinutes(5));
-        repo.save(snap);
+        aiPreviewService.save(snap);
         Map<String, Object> out = new HashMap<>();
         out.put("id", snap.getId());
         out.put("previewToken", tok);
@@ -103,7 +105,7 @@ public class AiPreviewAdminController {
     /** 4. 某个 session 下的所有快照 */
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listBySession(@RequestParam String sessionId) {
-        List<AiPreviewSnapshot> list = repo.findBySessionIdOrderByIdDesc(sessionId);
+        List<AiPreviewSnapshot> list = aiPreviewService.findBySessionIdOrderByIdDesc(sessionId);
         List<Map<String, Object>> out = list.stream().map(s -> toMap(s, false)).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(out));
     }
@@ -115,7 +117,7 @@ public class AiPreviewAdminController {
      */
     @PostMapping("/snapshot/{id}/publish")
     public ResponseEntity<ApiResponse<Map<String, Object>>> publish(@PathVariable Integer id) {
-        Optional<AiPreviewSnapshot> opt = repo.findById(id);
+        Optional<AiPreviewSnapshot> opt = aiPreviewService.findById(id);
         if (!opt.isPresent()) return ResponseEntity.status(404).body(ApiResponse.<Map<String, Object>>error("snapshot not found"));
         AiPreviewSnapshot snap = opt.get();
         if (Integer.valueOf(1).equals(snap.getPublished())) {
@@ -164,7 +166,9 @@ public class AiPreviewAdminController {
             Object sources = pm.get("sourcesJson");
             if (sources instanceof String) art.setSourcesJson((String) sources);
             else if (sources != null) {
-                try { art.setSourcesJson(om.writeValueAsString(sources)); } catch (Exception ignored) {}
+                try { art.setSourcesJson(om.writeValueAsString(sources)); } catch (Exception e) {
+                    log.warn("快照 sources 序列化失败: {}", e.getMessage());
+                }
             }
             Object qs = pm.get("qualityScore");
             if (qs instanceof Number) art.setQualityScore(((Number) qs).intValue());
@@ -177,7 +181,7 @@ public class AiPreviewAdminController {
             resp.put("note", "【演示用】快照已打 published=1 标记；暂未写入主业务表（主业务写入留待下一阶段）");
             resp.put("targetType", "snapshot-only");
         }
-        repo.save(snap);
+        aiPreviewService.save(snap);
         resp.put("publishedAt", snap.getPublishedAt().toString());
         return ResponseEntity.ok(ApiResponse.success(resp));
     }

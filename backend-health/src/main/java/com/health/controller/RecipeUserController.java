@@ -4,7 +4,7 @@ import com.health.dto.ApiResponse;
 import com.health.entity.Recipe;
 import com.health.entity.SavedRecipe;
 import com.health.entity.User;
-import com.health.repository.UserRepository;
+import com.health.service.ProfileService;
 import com.health.service.RecipeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +18,11 @@ import java.util.*;
 @CrossOrigin
 public class RecipeUserController {
 
-    private final UserRepository userRepository;
+    private final ProfileService profileService;
     private final RecipeService recipeService;
 
-    public RecipeUserController(UserRepository userRepository, RecipeService recipeService) {
-        this.userRepository = userRepository;
+    public RecipeUserController(ProfileService profileService, RecipeService recipeService) {
+        this.profileService = profileService;
         this.recipeService = recipeService;
     }
 
@@ -32,7 +32,7 @@ public class RecipeUserController {
             return (User) authentication.getPrincipal();
         }
         try {
-            return userRepository.findByUsername(authentication.getName()).orElse(null);
+            return profileService.findByUsername(authentication.getName());
         } catch (Exception e) {
             return null;
         }

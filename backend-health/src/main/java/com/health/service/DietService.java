@@ -38,6 +38,24 @@ public class DietService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * 按日期倒序取某用户最近 maxDates 个不同的饮食日期（按日期去重，最多 maxDates 个）。
+     * 供管理员「流程演示」取近两日饮食记录使用。
+     */
+    public List<String> getRecentDietDates(Integer userId, int maxDates) {
+        List<DietMeal> meals = dietMealRepository.findByUserIdOrderByEatDateDesc(userId);
+        LinkedHashSet<String> dates = new LinkedHashSet<>();
+        if (meals != null) {
+            for (DietMeal m : meals) {
+                if (m.getEatDate() != null) {
+                    dates.add(m.getEatDate());
+                    if (dates.size() >= maxDates) break;
+                }
+            }
+        }
+        return new ArrayList<>(dates);
+    }
+
     @Transactional
     public DietMeal addMeal(Integer userId, AddMealRequest request) {
         DietMeal meal = new DietMeal();

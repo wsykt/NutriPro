@@ -62,6 +62,8 @@ public class ExerciseRecordService {
         record.setCaloriesBurned(calculateCalories(exerciseType, durationMin, weight));
         record.setRecordDate(LocalDate.now());
         record.setNote(note);
+        // 用户自记录直接生效（approved），避免"新增后必须等管理员审核"造成周报/统计/AI 上下文空数据
+        record.setStatus("approved");
 
         return exerciseRecordRepository.save(record);
     }
@@ -77,6 +79,8 @@ public class ExerciseRecordService {
         record.setCaloriesBurned(calculateCalories(exerciseType, durationMin, weight));
         record.setRecordDate(recordDate != null ? recordDate : LocalDate.now());
         record.setNote(note);
+        // 用户自记录直接生效（approved），避免"新增后必须等管理员审核"造成周报/统计/AI 上下文空数据
+        record.setStatus("approved");
 
         return exerciseRecordRepository.save(record);
     }

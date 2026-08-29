@@ -219,6 +219,65 @@ class RecipeServiceTest {
         assertEquals("酱油", result.getFoodName());
     }
 
+    // ========== 作用标签模型测试（油脂/调味料替换拦截） ==========
+
+    @Test
+    @DisplayName("作用标签：生抽可替换老抽（同为液体，作用交集{咸,上色}）")
+    void testRoleTag_SoySauceToDarkSoySauce() throws Exception {
+        assertTrue(callCompatible(
+            createFood("生抽", "调味料", 56, 8, 0.1, 5),
+            createFood("老抽", "调味料", 56, 8, 0.1, 5)));
+    }
+
+    @Test
+    @DisplayName("作用标签：生抽不可替换料酒（同为液体但无作用交集，料酒是去腥）")
+    void testRoleTag_SoySauceToCookingWine() throws Exception {
+        assertFalse(callCompatible(
+            createFood("生抽", "调味料", 56, 8, 0.1, 5),
+            createFood("料酒", "调味料", 66, 1.6, 0, 2)));
+    }
+
+    @Test
+    @DisplayName("作用标签：白砂糖不可替换玉米淀粉（同为固体但无作用交集）")
+    void testRoleTag_SugarToStarch() throws Exception {
+        assertFalse(callCompatible(
+            createFood("白砂糖", "调味料", 387, 0, 0, 100),
+            createFood("玉米淀粉", "调味料", 345, 0.4, 0, 86)));
+    }
+
+    @Test
+    @DisplayName("作用标签：食用油不可替换黄油渣（液体油 vs 固体脂，子类型不同）")
+    void testRoleTag_OilToButterResidue() throws Exception {
+        assertFalse(callCompatible(
+            createFood("花生油", "油脂类", 900, 0, 100, 0),
+            createFood("黄油渣", "油脂类", 717, 0.8, 81, 0.6)));
+    }
+
+    @Test
+    @DisplayName("作用标签：黄油可替换黄油渣（同为固体脂，作用交集{烘焙}）")
+    void testRoleTag_ButterToButterResidue() throws Exception {
+        assertTrue(callCompatible(
+            createFood("黄油", "油脂类", 717, 0.8, 81, 0.6),
+            createFood("黄油渣", "油脂类", 717, 0.8, 81, 0.6)));
+    }
+
+    @Test
+    @DisplayName("作用标签：花生油可替换菜籽油（同为液体油，作用交集{煎炒}）")
+    void testRoleTag_PeanutToRapeseedOil() throws Exception {
+        assertTrue(callCompatible(
+            createFood("花生油", "油脂类", 900, 0, 100, 0),
+            createFood("菜籽油", "油脂类", 896, 0, 100, 0)));
+    }
+
+    /** 通过反射调用私有方法 isSubCategoryCompatible，验证作用标签拦截 */
+    private boolean callCompatible(Food original, Food alternative) throws Exception {
+        RecipeService realService = new RecipeService();
+        java.lang.reflect.Method m = RecipeService.class.getDeclaredMethod(
+            "isSubCategoryCompatible", Food.class, Food.class);
+        m.setAccessible(true);
+        return (Boolean) m.invoke(realService, original, alternative);
+    }
+
     // ========== 工具方法 ==========
 
     private Food createFood(String name, String category, int calorie, double protein, double fat, double carb) {

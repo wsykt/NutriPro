@@ -3,9 +3,9 @@ package com.health.controller;
 import com.health.dto.ApiResponse;
 import com.health.entity.ExerciseRecord;
 import com.health.entity.User;
-import com.health.repository.UserRepository;
 import com.health.service.ExerciseRecordService;
 import com.health.service.FamilyRelationService;
+import com.health.service.ProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -20,14 +20,14 @@ import java.util.Map;
 @CrossOrigin
 public class ExerciseRecordController {
 
-    private final UserRepository userRepository;
+    private final ProfileService profileService;
     private final FamilyRelationService familyRelationService;
     private final ExerciseRecordService exerciseRecordService;
 
-    public ExerciseRecordController(UserRepository userRepository,
+    public ExerciseRecordController(ProfileService profileService,
                                     FamilyRelationService familyRelationService,
                                     ExerciseRecordService exerciseRecordService) {
-        this.userRepository = userRepository;
+        this.profileService = profileService;
         this.familyRelationService = familyRelationService;
         this.exerciseRecordService = exerciseRecordService;
     }
@@ -38,7 +38,7 @@ public class ExerciseRecordController {
             return (User) authentication.getPrincipal();
         }
         try {
-            return userRepository.findByUsername(authentication.getName()).orElse(null);
+            return profileService.findByUsername(authentication.getName());
         } catch (Exception e) {
             return null;
         }

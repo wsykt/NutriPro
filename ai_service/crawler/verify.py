@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 
 from crawler.config import VALID_CATEGORIES, CATEGORY_CONVENTION, NUTRIENT_BOUNDS, FOOD_TABLE_NUTRIENTS
 from crawler.raw_store import get_raw_store
+from utils.sqlite_utils import get_conn
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +222,7 @@ class DataVerifier:
             report.add(CheckIssue("FAIL", "环境", f"数据库不存在: {self.db_path}"))
             return report
 
-        conn = sqlite3.connect(self.db_path)
+        conn = get_conn(self.db_path)
         conn.execute("PRAGMA foreign_keys = ON")
         try:
             report.total_foods = conn.execute("SELECT COUNT(*) FROM food").fetchone()[0]

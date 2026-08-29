@@ -68,10 +68,10 @@ public class RecipeService {
         put("冰糖", "白砂糖");
         put("白糖", "白砂糖");
         put("红糖", "白砂糖");
-        put("盐", "精盐");
-        put("食盐", "精盐");
-        put("鸡精", "精盐");
-        put("味精", "精盐");
+        put("盐", "食盐");
+        put("食盐", "食盐");
+        put("鸡精", "食盐");
+        put("味精", "食盐");
         put("醋", "香醋");
         put("陈醋", "香醋");
         put("白醋", "香醋");
@@ -184,45 +184,23 @@ public class RecipeService {
         put("猪油", "猪油");
         put("黄油", "黄油");
 
-        // 调味品通用名
-        put("盐", "精盐");
-        put("食盐", "精盐");
-        put("鸡精", "精盐");
-        put("味精", "精盐");
-        put("酱油", "酱油");
-        put("生抽", "生抽");
-        put("老抽", "老抽");
-        put("蒸鱼豉油", "生抽");
-        put("醋", "醋");
-        put("白醋", "白醋");
-        put("陈醋", "陈醋");
-        put("料酒", "生抽");  // 料酒在库中无独立条目，映射至最近的液体调味品
-        put("白糖", "甜面酱"); // 库中无糖，映射至最近的甜类调味品
-        put("冰糖", "甜面酱");
-        put("红糖", "甜面酱");
-        put("淀粉", "淀粉");
-        put("生粉", "淀粉");
+        // 调味品补充条目（注意：严禁覆盖上方 L62-80 的正确映射，此处仅新增）
         put("豆瓣酱", "豆瓣酱");
         put("辣椒酱", "辣椒酱");
         put("花椒", "花椒");
         put("胡椒粉", "胡椒粉");
 
-        // 通用食材别名
+        // 通用食材别名（注意：严禁覆盖上方精确映射，如"排骨"→"猪小排(生)"）
         put("蒜蓉", "大蒜");
-        put("花生米", "花生(均值)");
-        put("猪肝", "猪肝");
-        put("牛腱子", "牛腱子");
-        put("牛腱", "牛腱子");
-        put("胡萝卜", "胡萝卜");
-        put("冬瓜", "冬瓜");
-        put("黄瓜", "黄瓜");
-        put("生菜", "生菜");
+        put("花生米", "花生仁(生)");
+        put("猪肝", "猪肝(生)");
+        put("牛腱子", "牛腱子(生)");
+        put("胡萝卜", "胡萝卜(生)");
+        put("冬瓜", "冬瓜(生)");
+        put("黄瓜", "黄瓜(生)");
+        put("生菜", "生菜(生)");
         put("木耳", "木耳(干)");
-        put("排骨", "猪小排");
         put("脱脂牛奶", "脱脂牛奶");
-        put("鸡蛋", "鸡蛋");
-        put("鸭蛋", "鸭蛋");
-        put("鹌鹑蛋", "鹌鹑蛋");
     }};
 
     // ========== 智能替换规则引擎（参考 Demo substituteRules.ts） ==========
@@ -811,8 +789,10 @@ public class RecipeService {
         put("栗米油", SUBTYPE_LIQUID_OIL);
         // 动物固体脂 (solid_fat)
         put("黄油", SUBTYPE_SOLID_FAT);
+        put("黄油(无盐)", SUBTYPE_SOLID_FAT);
         put("黄油渣", SUBTYPE_SOLID_FAT);
         put("猪油", SUBTYPE_SOLID_FAT);
+        put("猪油(熬)", SUBTYPE_SOLID_FAT);
         put("牛油", SUBTYPE_SOLID_FAT);
         put("羊油", SUBTYPE_SOLID_FAT);
         // 坚果种子 (nut)
@@ -851,6 +831,8 @@ public class RecipeService {
         put("酱油", SUBTYPE_LIQUID_SEASONING);
         put("生抽", SUBTYPE_LIQUID_SEASONING);
         put("老抽", SUBTYPE_LIQUID_SEASONING);
+        put("黄酒", SUBTYPE_LIQUID_SEASONING);
+        put("料酒", SUBTYPE_LIQUID_SEASONING);
         put("香醋", SUBTYPE_LIQUID_SEASONING);
         put("白醋", SUBTYPE_LIQUID_SEASONING);
         put("陈醋", SUBTYPE_LIQUID_SEASONING);
@@ -868,11 +850,15 @@ public class RecipeService {
         put("腐乳", SUBTYPE_LIQUID_SEASONING);
         put("剁椒", SUBTYPE_LIQUID_SEASONING);
         // 固体调味品
+        put("食盐", SUBTYPE_SOLID_SEASONING);
         put("精盐", SUBTYPE_SOLID_SEASONING);
         put("味精", SUBTYPE_SOLID_SEASONING);
         put("鸡精", SUBTYPE_SOLID_SEASONING);
+        put("白砂糖", SUBTYPE_SOLID_SEASONING);
         put("白糖", SUBTYPE_SOLID_SEASONING);
         put("冰糖", SUBTYPE_SOLID_SEASONING);
+        put("红糖", SUBTYPE_SOLID_SEASONING);
+        put("玉米淀粉", SUBTYPE_SOLID_SEASONING);
         put("淀粉", SUBTYPE_SOLID_SEASONING);
         put("生粉", SUBTYPE_SOLID_SEASONING);
         put("花椒", SUBTYPE_SOLID_SEASONING);
@@ -887,6 +873,128 @@ public class RecipeService {
         put("腌韭菜花", SUBTYPE_PICKLED);
         put("酱黄瓜", SUBTYPE_PICKLED);
         put("萝卜干", SUBTYPE_PICKLED);
+    }};
+
+    /**
+     * 作用标签模型（烹饪功能白名单，调味品/油脂统一管理）
+     *
+     * 键：食物库标准名（或常见别名），值：该食材在烹饪中承担的作用集合。
+     * 替换规则在「同子类型」硬门槛之上，追加「作用标签有交集」条件：
+     *   - 生抽{咸,鲜,上色} ↔ 老抽{咸,上色}：交集{咸,上色} → 可替换
+     *   - 生抽{咸,鲜,上色} ↔ 料酒{去腥,增香}：无交集 → 禁止替换
+     *   - 食用油{煎炒,增香} ↔ 黄油渣{烘焙}：子类型不同(液体/固体) + 无交集 → 双重禁止
+     *   - 黄油{烘焙,煎炒} ↔ 黄油渣{烘焙}：交集{烘焙} → 可替换（同属烘焙脂）
+     * 油脂的液态/固态差异由子类型承接，烹饪用途差异由本表承接，两者合一即可精确拦截。
+     */
+    private static final Map<String, Set<String>> SEASONING_ROLE_TAGS = new HashMap<String, Set<String>>() {{
+        // ===== 调味料（库类别"调味料"） =====
+        // 液体调味品
+        put("酱油", new HashSet<String>(Arrays.asList("咸", "鲜", "上色")));
+        put("生抽", new HashSet<String>(Arrays.asList("咸", "鲜", "上色")));
+        put("老抽", new HashSet<String>(Arrays.asList("咸", "上色")));
+        put("蒸鱼豉油", new HashSet<String>(Arrays.asList("咸", "鲜")));
+        put("味极鲜", new HashSet<String>(Arrays.asList("咸", "鲜")));
+        put("黄酒", new HashSet<String>(Arrays.asList("去腥", "增香")));
+        put("料酒", new HashSet<String>(Arrays.asList("去腥", "增香")));
+        put("香醋", new HashSet<String>(Arrays.asList("酸")));
+        put("白醋", new HashSet<String>(Arrays.asList("酸")));
+        put("陈醋", new HashSet<String>(Arrays.asList("酸")));
+        put("蚝油", new HashSet<String>(Arrays.asList("咸", "鲜", "上色")));
+        put("豆瓣酱", new HashSet<String>(Arrays.asList("咸", "辣", "鲜")));
+        put("辣椒酱", new HashSet<String>(Arrays.asList("辣", "咸")));
+        put("番茄酱", new HashSet<String>(Arrays.asList("酸", "甜", "上色")));
+        put("甜面酱", new HashSet<String>(Arrays.asList("咸", "甜")));
+        put("花生酱", new HashSet<String>(Arrays.asList("增香", "增稠")));
+        put("芝麻酱", new HashSet<String>(Arrays.asList("增香", "增稠")));
+        put("沙拉酱", new HashSet<String>(Arrays.asList("甜", "酸", "增稠")));
+        put("海鲜酱", new HashSet<String>(Arrays.asList("咸", "鲜", "甜")));
+        put("牛肉酱", new HashSet<String>(Arrays.asList("咸", "鲜", "辣")));
+        put("黄酱", new HashSet<String>(Arrays.asList("咸", "鲜")));
+        put("腐乳", new HashSet<String>(Arrays.asList("咸", "鲜")));
+        put("剁椒", new HashSet<String>(Arrays.asList("辣", "酸")));
+        // 固体调味品
+        put("食盐", new HashSet<String>(Arrays.asList("咸")));
+        put("精盐", new HashSet<String>(Arrays.asList("咸")));
+        put("味精", new HashSet<String>(Arrays.asList("鲜")));
+        put("鸡精", new HashSet<String>(Arrays.asList("鲜", "咸")));
+        put("白砂糖", new HashSet<String>(Arrays.asList("甜", "上色")));
+        put("白糖", new HashSet<String>(Arrays.asList("甜", "上色")));
+        put("冰糖", new HashSet<String>(Arrays.asList("甜", "上色")));
+        put("红糖", new HashSet<String>(Arrays.asList("甜", "上色")));
+        put("玉米淀粉", new HashSet<String>(Arrays.asList("增稠")));
+        put("淀粉", new HashSet<String>(Arrays.asList("增稠")));
+        put("生粉", new HashSet<String>(Arrays.asList("增稠")));
+        put("花椒", new HashSet<String>(Arrays.asList("麻", "增香")));
+        put("胡椒粉", new HashSet<String>(Arrays.asList("辣", "增香")));
+        put("十三香", new HashSet<String>(Arrays.asList("增香")));
+        // 腌制品
+        put("榨菜(均值)", new HashSet<String>(Arrays.asList("咸", "酸", "脆")));
+        put("腌大头菜", new HashSet<String>(Arrays.asList("咸", "脆")));
+        put("腌芥菜头", new HashSet<String>(Arrays.asList("咸", "脆")));
+        put("腌萝卜条", new HashSet<String>(Arrays.asList("咸", "脆")));
+        put("腌雪里红", new HashSet<String>(Arrays.asList("咸")));
+        put("腌韭菜花", new HashSet<String>(Arrays.asList("咸", "鲜")));
+        put("酱黄瓜", new HashSet<String>(Arrays.asList("咸", "脆")));
+        put("萝卜干", new HashSet<String>(Arrays.asList("咸", "脆")));
+
+        // ===== 油脂类（库类别"油脂类"，烹饪用途即作用标签） =====
+        // 液态食用油：煎炒主力，不能与烘焙固体脂互换
+        put("花生油", new HashSet<String>(Arrays.asList("煎炒", "增香")));
+        put("菜籽油", new HashSet<String>(Arrays.asList("煎炒", "增香")));
+        put("大豆油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("橄榄油", new HashSet<String>(Arrays.asList("煎炒", "凉拌")));
+        put("玉米油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("葵花籽油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("山茶油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("色拉油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("米糠油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("胡麻油", new HashSet<String>(Arrays.asList("煎炒", "增香")));
+        put("椰子油", new HashSet<String>(Arrays.asList("烘焙", "煎炒")));
+        put("棕榈油", new HashSet<String>(Arrays.asList("煎炒", "烘焙")));
+        put("麦胚油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("棉籽油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("红花油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("大豆色拉油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("混合油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("豆油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("油(均值)", new HashSet<String>(Arrays.asList("煎炒")));
+        put("栗米油", new HashSet<String>(Arrays.asList("煎炒")));
+        // 香油：凉拌/增香为主，不参与煎炒
+        put("芝麻油", new HashSet<String>(Arrays.asList("增香", "凉拌")));
+        put("香油", new HashSet<String>(Arrays.asList("增香", "凉拌")));
+        // 动物固体脂：烘焙为主
+        put("黄油", new HashSet<String>(Arrays.asList("烘焙", "煎炒", "增香")));
+        put("黄油(无盐)", new HashSet<String>(Arrays.asList("烘焙", "煎炒", "增香")));
+        put("黄油渣", new HashSet<String>(Arrays.asList("烘焙")));
+        put("猪油", new HashSet<String>(Arrays.asList("煎炒", "烘焙", "增香")));
+        put("猪油(熬)", new HashSet<String>(Arrays.asList("煎炒", "烘焙", "增香")));
+        put("牛油", new HashSet<String>(Arrays.asList("煎炒")));
+        put("羊油", new HashSet<String>(Arrays.asList("煎炒")));
+        // 坚果种子：增香零食
+        put("花生(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("花生仁(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("核桃(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("山核桃", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("开心果", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("杏仁(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("松子(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("松子仁", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("榛子(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("腰果", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("南瓜子", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("南瓜子仁", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("西瓜子", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("西瓜子仁", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("葵花子(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("葵花子仁", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("芝麻籽(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("胡麻籽", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("栗子(均值)", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("白果", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("橡实", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("芡实米", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("莲子", new HashSet<String>(Arrays.asList("增香", "零食")));
+        put("菠萝蜜子", new HashSet<String>(Arrays.asList("增香", "零食")));
     }};
 
     /**
@@ -908,8 +1016,8 @@ public class RecipeService {
             return SUBTYPE_UNKNOWN;
         }
 
-        // 调味品：使用 AI 精确映射表
-        if ("调味品".equals(category)) {
+        // 调味料（库中类别名为"调味料"）：使用 AI 精确映射表
+        if ("调味料".equals(category)) {
             String sub = SEASONING_FOOD_SUBTYPE_MAP.get(name);
             if (sub != null) return sub;
             return SUBTYPE_UNKNOWN;
@@ -935,12 +1043,14 @@ public class RecipeService {
     }
 
     /**
-     * AI 生成的替换兼容性规则（严格模式）
+     * 食材替换兼容性规则（严格模式）
      * 核心原则：
      *   1. 不同大类 -> 绝对禁止替换
      *   2. 油脂类：liquid_oil 只能 ↔ liquid_oil，solid_fat 只能 ↔ solid_fat，nut 只能 ↔ nut
-     *   3. 调味品：liquid 只能 ↔ liquid，solid 只能 ↔ solid，pickled 只能 ↔ pickled
-     *   4. UNKNOWN 子类型 -> 禁止替换（保守策略，宁可少替换也不错替换）
+     *      （液态食用油与动物固体脂不可互换，如花生油不能换成黄油渣）
+     *   3. 调味料：liquid 只能 ↔ liquid，solid 只能 ↔ solid，pickled 只能 ↔ pickled
+     *   4. 油脂类/调味料在「同子类型」之上，还需「作用标签有交集」（烹饪用途一致，见 SEASONING_ROLE_TAGS）
+     *   5. UNKNOWN 子类型 -> 禁止替换（保守策略，宁可少替换也不错替换）
      */
     private boolean isSubCategoryCompatible(Food original, Food alternative) {
         if (original == null || alternative == null) return false;
@@ -969,41 +1079,45 @@ public class RecipeService {
 
         // 规则3：同子类型 -> 允许
         if (origSubType.equals(altSubType)) {
+            // 油脂类/调味料：同子类型之上还需「作用标签有交集」（烹饪用途一致）
+            // 例：生抽{咸,鲜,上色} ↔ 老抽{咸,上色} 交集非空 → 允许；生抽 ↔ 料酒{去腥,增香} 无交集 → 禁止
+            if (isRoleTagCategory(origCategory) && !hasRoleTagIntersection(original, alternative)) {
+                log.info("    作用标签无交集禁止: {}{} <-> {}{}",
+                    original.getFoodName(), getRoleTags(original),
+                    alternative.getFoodName(), getRoleTags(alternative));
+                return false;
+            }
             return true;
         }
 
-        // 规则4：油脂类特殊处理
-        if ("油脂类".equals(origCategory)) {
-            // liquid_oil 可以和 solid_fat 互换（都是食用油/脂肪），但不能和 nut 互换
-            if ((SUBTYPE_LIQUID_OIL.equals(origSubType) || SUBTYPE_SOLID_FAT.equals(origSubType))
-                && (SUBTYPE_LIQUID_OIL.equals(altSubType) || SUBTYPE_SOLID_FAT.equals(altSubType))) {
-                return true;
-            }
-            // nut 只能和 nut 互换
-            if (SUBTYPE_NUT.equals(origSubType) && SUBTYPE_NUT.equals(altSubType)) {
-                return true;
-            }
-            return false; // 油脂类内不同子类型禁止
-        }
+        // 规则4：不同子类型 -> 一律禁止
+        //   油脂类：liquid_oil / solid_fat / nut 互不转换（食用油不能换成黄油渣等固体脂）
+        //   调味料：液体/固体/腌制品 互不转换
+        log.info("    子类型不同禁止: {}({}) <-> {}({})",
+            original.getFoodName(), origSubType, alternative.getFoodName(), altSubType);
+        return false;
+    }
 
-        // 规则5：调味品严格区分
-        if ("调味品".equals(origCategory)) {
-            // 液体调味品 ↔ 液体调味品
-            if (SUBTYPE_LIQUID_SEASONING.equals(origSubType) && SUBTYPE_LIQUID_SEASONING.equals(altSubType)) {
-                return true;
-            }
-            // 固体调味品 ↔ 固体调味品
-            if (SUBTYPE_SOLID_SEASONING.equals(origSubType) && SUBTYPE_SOLID_SEASONING.equals(altSubType)) {
-                return true;
-            }
-            // 腌制品 ↔ 腌制品
-            if (SUBTYPE_PICKLED.equals(origSubType) && SUBTYPE_PICKLED.equals(altSubType)) {
-                return true;
-            }
-            return false; // 调味品内不同子类型禁止
-        }
+    /** 需要「作用标签交集」约束的类别：油脂类 + 调味料 */
+    private boolean isRoleTagCategory(String category) {
+        return "油脂类".equals(category) || "调味料".equals(category);
+    }
 
-        // 其他类别：同子类型已通过规则3处理
+    /** 取食材的作用标签集合；未配置则返回空集 */
+    private Set<String> getRoleTags(Food f) {
+        if (f == null || f.getFoodName() == null) return Collections.emptySet();
+        Set<String> tags = SEASONING_ROLE_TAGS.get(f.getFoodName());
+        return tags != null ? tags : Collections.emptySet();
+    }
+
+    /** 两个食材的作用标签是否有交集（任何相同标签即视为可替代） */
+    private boolean hasRoleTagIntersection(Food original, Food alternative) {
+        Set<String> origTags = getRoleTags(original);
+        Set<String> altTags = getRoleTags(alternative);
+        if (origTags.isEmpty() || altTags.isEmpty()) return false;
+        for (String tag : origTags) {
+            if (altTags.contains(tag)) return true;
+        }
         return false;
     }
 

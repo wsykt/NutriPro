@@ -25,6 +25,7 @@ from crawler.config import (
     FOOD_TABLE_NUTRIENTS, VALID_CATEGORIES, CATEGORY_CONVENTION,
     NUTRIENT_BOUNDS, RAW_TO_TABLE_MAP,
 )
+from utils.sqlite_utils import get_conn
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ class SQLiteIngester:
         result = IngestResult(total=len(raw_items))
 
         # 备份策略：接入前先备份（人道原则，可回滚）
-        conn = sqlite3.connect(self.db_path)
+        conn = get_conn(self.db_path)
         conn.execute("PRAGMA foreign_keys = ON")
         existing_names = self._existing_names(conn)
 

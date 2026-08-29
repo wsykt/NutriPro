@@ -1,278 +1,229 @@
 <template>
   <div v-if="modelValue">
     <Teleport to="body">
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          class="absolute inset-0 bg-black/35 backdrop-blur-[3px] mask-layer transition-opacity duration-200"
-          @click="emit('update:modelValue', false)"
-        ></div>
-        <div
-          class="relative z-10 bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-auto shadow-xl dialog-fade scrollbar-hide"
-          style="transform: translateZ(0);"
-          @click.stop
-        >
-          <div class="p-8">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-xl font-bold text-morandi-text">{{ localRecipe?.name }}</h3>
-              <button
-                @click="emit('update:modelValue', false)"
-                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-morandi-soft text-morandi-lightText hover:text-morandi-text transition-colors text-lg"
-              >
-                
-              </button>
+      <!-- 无遮罩气泡弹窗：透明点击层（视觉无灰色蒙层），点击气泡外关闭 -->
+      <div class="rk-tel">
+        <div class="catcher" @click="emit('update:modelValue', false)"></div>
+        <div class="bubble scrollbar-hide" @click.stop>
+          <!-- 头部 -->
+          <div class="bhead">
+            <span class="bcover">{{ localRecipe?.name?.slice(0, 1) || '食' }}</span>
+            <div class="bt">
+              <h4>{{ localRecipe?.name }}</h4>
+              <div class="tags">
+                <i v-for="t in (localRecipe?.tags || [])" :key="t">{{ t }}</i>
+                <i v-if="localRecipe?.source === 'generated'" class="ai">✦ AI 炼成</i>
+              </div>
             </div>
-            <p class="text-morandi-lightText mb-6">{{ localRecipe?.description }}</p>
+            <button class="bclose" @click="emit('update:modelValue', false)"><X :size="13" /></button>
+          </div>
+
+          <div class="bbody">
+            <p class="desc">{{ localRecipe?.description }}</p>
+
             <!-- 营养卡片：无替换显示每100g值，有替换显示总值+每100g值 -->
-            <div class="mb-2">
-              <div class="flex items-center justify-between text-xs text-morandi-lightText mb-2">
+            <div class="sec">
+              <div class="sec-h">
                 <span v-if="!hasSubstitutions">每100g 营养值</span>
                 <span v-else>替换后营养（总值 / 每100g）</span>
-                <span class="text-gray-400">≈{{ estimatedTotalWeight }}g/份</span>
+                <em class="wt">≈{{ estimatedTotalWeight }}g/份</em>
               </div>
-              <div class="grid grid-cols-4 gap-4 p-5 rounded-xl bg-morandi-soft/30">
+              <div class="ntr">
                 <!-- 热量 -->
-                <div class="text-center">
+                <div class="cell">
                   <template v-if="hasSubstitutions">
-                    <div class="text-lg font-bold" :class="modifiedNutrition.calories < originalNutritionSum.calories ? 'text-green-600' : 'text-red-600'">
-                      {{ modifiedNutrition.calories }} kcal
-                    </div>
-                    <div class="text-xs text-gray-400">每100g: {{ modifiedPer100g.calories }} kcal</div>
+                    <b :class="modifiedNutrition.calories < originalNutritionSum.calories ? 'good' : 'badv'">{{ modifiedNutrition.calories }}</b>
+                    <span>每100g: {{ modifiedPer100g.calories }} kcal</span>
                   </template>
                   <template v-else>
-                    <div class="text-2xl font-bold text-morandi-accent">{{ localRecipe?.calories }}</div>
-                    <div class="text-xs text-morandi-lightText">热量 (kcal)</div>
+                    <b>{{ localRecipe?.calories }}</b><span>热量 (kcal)</span>
                   </template>
                 </div>
                 <!-- 蛋白质 -->
-                <div class="text-center">
+                <div class="cell mp">
                   <template v-if="hasSubstitutions">
-                    <div class="text-lg font-bold" :class="modifiedNutrition.protein > originalNutritionSum.protein ? 'text-green-600' : 'text-morandi-text'">
-                      {{ modifiedNutrition.protein }}g
-                    </div>
-                    <div class="text-xs text-gray-400">每100g: {{ modifiedPer100g.protein }}g</div>
+                    <b :class="modifiedNutrition.protein > originalNutritionSum.protein ? 'good' : ''">{{ modifiedNutrition.protein }}g</b>
+                    <span>每100g: {{ modifiedPer100g.protein }}g</span>
                   </template>
                   <template v-else>
-                    <div class="text-2xl font-bold text-morandi-text">{{ localRecipe?.protein }}</div>
-                    <div class="text-xs text-morandi-lightText">蛋白质 (g)</div>
+                    <b>{{ localRecipe?.protein }}g</b><span>蛋白质</span>
                   </template>
                 </div>
                 <!-- 脂肪 -->
-                <div class="text-center">
+                <div class="cell mf">
                   <template v-if="hasSubstitutions">
-                    <div class="text-lg font-bold" :class="modifiedNutrition.fat < originalNutritionSum.fat ? 'text-green-600' : 'text-red-600'">
-                      {{ modifiedNutrition.fat }}g
-                    </div>
-                    <div class="text-xs text-gray-400">每100g: {{ modifiedPer100g.fat }}g</div>
+                    <b :class="modifiedNutrition.fat < originalNutritionSum.fat ? 'good' : 'badv'">{{ modifiedNutrition.fat }}g</b>
+                    <span>每100g: {{ modifiedPer100g.fat }}g</span>
                   </template>
                   <template v-else>
-                    <div class="text-2xl font-bold text-morandi-text">{{ localRecipe?.fat }}</div>
-                    <div class="text-xs text-morandi-lightText">脂肪 (g)</div>
+                    <b>{{ localRecipe?.fat }}g</b><span>脂肪</span>
                   </template>
                 </div>
                 <!-- 碳水 -->
-                <div class="text-center">
+                <div class="cell mc">
                   <template v-if="hasSubstitutions">
-                    <div class="text-lg font-bold text-morandi-text">{{ modifiedNutrition.carbs }}g</div>
-                    <div class="text-xs text-gray-400">每100g: {{ modifiedPer100g.carbs }}g</div>
+                    <b>{{ modifiedNutrition.carbs }}g</b>
+                    <span>每100g: {{ modifiedPer100g.carbs }}g</span>
                   </template>
                   <template v-else>
-                    <div class="text-2xl font-bold text-morandi-text">{{ localRecipe?.carbs }}</div>
-                    <div class="text-xs text-morandi-lightText">碳水 (g)</div>
+                    <b>{{ localRecipe?.carbs }}g</b><span>碳水</span>
                   </template>
                 </div>
               </div>
             </div>
-            <div class="mb-6">
-              <h4 class="font-semibold text-morandi-text mb-3 flex items-center gap-2">
-                食材清单
-                <span v-if="hasSubstitutions" class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-normal">已智能替换</span>
-              </h4>
-              <ul class="space-y-2.5">
+
+            <!-- 食材清单 -->
+            <div class="sec">
+              <h6>星材 · 食材清单 <span v-if="hasSubstitutions" class="subed">已智能替换</span></h6>
+              <ul class="ings">
                 <li
                   v-for="(ing, index) in hasSubstitutions ? modifiedIngredients : (localRecipe?.ingredients || [])"
                   :key="index"
-                  class="flex items-center justify-between p-3.5 rounded-lg transition-all duration-200"
-                  :class="ing.isSubstituted ? 'bg-green-50 border border-green-200' : (isIngredientNotSuitable(ing) ? 'bg-red-50 border border-red-200' : 'bg-morandi-soft/20')"
+                  :class="{ rep: ing.isSubstituted, unfit: !ing.isSubstituted && isIngredientNotSuitable(ing) }"
                 >
-                  <div class="flex items-center gap-2">
-                    <!-- 已替换的食材 -->
+                  <div class="il">
                     <template v-if="ing.isSubstituted">
-                      <span class="text-sm line-through text-gray-400">{{ ing.originalName }}</span>
-                      <span class="text-gray-400">→</span>
-                      <span class="text-green-700 font-medium">{{ ing.ingredientName }}</span>
-                      <span class="px-1.5 py-0.5 text-xs font-bold bg-green-500 text-white rounded-full">已替换</span>
+                      <s>{{ ing.originalName }}</s><em class="arrow">→</em><b>{{ ing.ingredientName }}</b>
+                      <i class="pill g">已替换</i>
                     </template>
-                    <!-- 未替换的食材 -->
                     <template v-else>
-                      <span class="text-morandi-text">{{ ing.ingredientName || ing.ingredient_name }}</span>
-                      <span v-if="isIngredientNotSuitable(ing)" class="px-1.5 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
-                        不适合
-                      </span>
+                      <span>{{ ing.ingredientName || ing.ingredient_name }}</span>
+                      <i v-if="isIngredientNotSuitable(ing)" class="pill r">不适合</i>
                     </template>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span v-if="!ing.isSubstituted && getIngredientDBLabel(ing.ingredientName || ing.ingredient_name || ing.name)" class="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-600">
+                  <div class="ir">
+                    <em v-if="!ing.isSubstituted && getIngredientDBLabel(ing.ingredientName || ing.ingredient_name || ing.name)" class="db">
                       {{ getIngredientDBLabel(ing.ingredientName || ing.ingredient_name || ing.name) }}
-                    </span>
-                    <span class="text-morandi-lightText">{{ ing.amount }}{{ ing.unit }}</span>
+                    </em>
+                    <span class="amt">{{ ing.amount }}{{ ing.unit }}</span>
                   </div>
                 </li>
               </ul>
             </div>
 
             <!-- 烹饪步骤 -->
-            <div v-if="localRecipe?.steps && localRecipe.steps.length > 0" class="mb-6">
-              <h4 class="font-semibold text-morandi-text mb-3">烹饪步骤</h4>
-              <ol class="space-y-2">
-                <li
-                  v-for="(step, index) in localRecipe.steps"
-                  :key="index"
-                  class="flex items-start gap-3 p-3 rounded-lg bg-morandi-soft/20"
-                >
-                  <span class="flex-shrink-0 w-6 h-6 rounded-full bg-morandi-accent text-white text-xs flex items-center justify-center mt-0.5">{{ Number(index) + 1 }}</span>
-                  <span class="text-morandi-text text-sm">{{ step }}</span>
+            <div v-if="localRecipe?.steps && localRecipe.steps.length > 0" class="sec">
+              <h6>炼制之法 · 烹饪步骤</h6>
+              <ol>
+                <li v-for="(step, index) in localRecipe.steps" :key="index">
+                  <span class="no">{{ Number(index) + 1 }}</span>{{ step }}
                 </li>
               </ol>
             </div>
 
             <!-- 规则基替换建议（过敏/口味） -->
-            <div v-if="localRecipe?.substitutions?.length > 0" class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
-              <h4 class="font-semibold text-amber-800 mb-3 flex items-center gap-2">
-                <component :is="AlertTriangle" class="w-4 h-4" /> 食材替换建议（基于您的饮食档案）
-              </h4>
-              <div v-for="sub in localRecipe.substitutions" :key="sub.ingredient?.ingredientId || sub.ingredientName"
-                class="mb-3 p-3 rounded-lg bg-white/60 border border-amber-100 last:mb-0"
-              >
-                <div class="flex items-center gap-2 text-sm mb-2">
-                  <span class="text-amber-700 font-medium">{{ sub.ingredient?.ingredientName || sub.ingredientName }}</span>
-                  <span class="text-amber-500 text-xs">{{ sub.reason }}</span>
+            <div v-if="localRecipe?.substitutions?.length > 0" class="note amber">
+              <h6><AlertTriangle :size="13" /> 食材替换建议（基于您的饮食档案）</h6>
+              <div v-for="sub in localRecipe.substitutions" :key="sub.ingredient?.ingredientId || sub.ingredientName" class="note-item">
+                <div class="ni-h">
+                  <b>{{ sub.ingredient?.ingredientName || sub.ingredientName }}</b>
+                  <em>{{ sub.reason }}</em>
                 </div>
-                <div v-if="sub.alternatives?.length > 0" class="flex flex-wrap gap-1.5">
-                  <span class="text-xs text-gray-500 mr-1">推荐替代：</span>
+                <div v-if="sub.alternatives?.length > 0" class="alts">
+                  <span class="alt-lb">推荐替代：</span>
                   <button
                     v-for="(alt, idx) in sub.alternatives"
                     :key="idx"
+                    class="alt"
                     @click="applyIngredientSub(sub.ingredient?.ingredientName || sub.ingredientName, typeof alt === 'string' ? alt : alt.name)"
-                    class="px-2.5 py-1 rounded-lg text-xs bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
                   >
                     {{ typeof alt === 'string' ? alt : alt.name }}
-                    <span v-if="typeof alt !== 'string' && alt.benefit" class="opacity-70 ml-0.5">· {{ alt.benefit }}</span>
+                    <em v-if="typeof alt !== 'string' && alt.benefit">· {{ alt.benefit }}</em>
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- 食物数据库基替换建议（高脂/高GI/高热量） -->
-            <div v-if="localRecipe?.foodDbSubstitutions?.length > 0" class="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200">
-              <h4 class="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                <span></span> 营养优化建议
-              </h4>
-              <div v-for="sub in localRecipe.foodDbSubstitutions" :key="sub.ingredientName"
-                class="mb-3 p-3 rounded-lg bg-white/60 border border-blue-100 last:mb-0"
-              >
-                <div class="flex items-center gap-2 text-sm mb-2">
-                  <span class="text-blue-700 font-medium">{{ sub.ingredientName }}</span>
-                  <span class="text-red-500 text-xs"> {{ (sub.concerns || []).join('、') }}</span>
+            <div v-if="localRecipe?.foodDbSubstitutions?.length > 0" class="note blue">
+              <h6><Sparkles :size="13" /> 营养优化建议</h6>
+              <div v-for="sub in localRecipe.foodDbSubstitutions" :key="sub.ingredientName" class="note-item">
+                <div class="ni-h">
+                  <b>{{ sub.ingredientName }}</b>
+                  <em class="badv"> {{ (sub.concerns || []).join('、') }}</em>
                 </div>
-                <div class="flex flex-wrap gap-1.5">
-                  <span class="text-xs text-gray-500 mr-1">推荐替代：</span>
+                <div class="alts">
+                  <span class="alt-lb">推荐替代：</span>
                   <button
                     v-for="(alt, idx) in sub.alternatives"
                     :key="idx"
+                    class="alt"
                     @click="applyNutritionSub(sub.ingredientName, alt)"
-                    class="px-2.5 py-1 rounded-lg text-xs bg-white border border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors"
                   >
                     {{ alt.name }}
-                    <span class="opacity-70 ml-0.5">{{ alt.reason }}</span>
+                    <em>{{ alt.reason }}</em>
                   </button>
                 </div>
               </div>
             </div>
 
             <!-- 已应用的替换 -->
-            <div v-if="hasSubstitutions" class="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
-              <h4 class="font-semibold text-green-800 mb-2 flex items-center gap-2">
-                <component :is="Check" class="w-4 h-4" /> 已应用的替换
-              </h4>
-              <div v-for="(replaced, original) in appliedSubstitutions" :key="original"
-                class="flex items-center justify-between py-1.5 text-sm"
-              >
-                <span class="text-gray-600">
-                  <span class="line-through text-gray-400">{{ original }}</span>
-                  <span class="mx-1.5">→</span>
-                  <span class="text-green-700 font-medium">{{ typeof replaced === 'object' ? replaced.name : replaced }}</span>
+            <div v-if="hasSubstitutions" class="note green">
+              <h6><Check :size="13" /> 已应用的替换</h6>
+              <div v-for="(replaced, original) in appliedSubstitutions" :key="original" class="applied">
+                <span>
+                  <s>{{ original }}</s><em class="arrow">→</em>
+                  <b>{{ typeof replaced === 'object' ? replaced.name : replaced }}</b>
                 </span>
-                <button @click="removeSubstitution(original)" class="text-xs text-red-400 hover:text-red-600">撤销</button>
+                <button class="undo" @click="removeSubstitution(original)">撤销</button>
               </div>
             </div>
 
             <!-- 营养变化对比 -->
-            <div v-if="hasSubstitutions" class="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200">
-              <h4 class="font-medium text-blue-800 mb-3 flex items-center gap-2">
-                <component :is="BarChart3" class="w-4 h-4" /> 替换前后营养对比
-              </h4>
-              <div class="overflow-x-auto">
-                <table class="w-full text-sm text-center">
+            <div v-if="hasSubstitutions" class="note blue">
+              <h6><BarChart3 :size="13" /> 替换前后营养对比</h6>
+              <div class="cmp-wrap">
+                <table class="cmp">
                   <thead>
-                    <tr class="text-xs text-gray-500 border-b border-blue-100">
-                      <th class="py-1.5 px-2 text-left">项目</th>
-                      <th class="py-1.5 px-2">替换前</th>
-                      <th class="py-1.5 px-2">替换后</th>
-                      <th class="py-1.5 px-2">变化</th>
+                    <tr>
+                      <th class="tl">项目</th><th>替换前</th><th>替换后</th><th>变化</th>
                     </tr>
                   </thead>
-                  <tbody class="text-xs">
-                    <tr class="border-b border-blue-50">
-                      <td class="py-2 px-2 text-left font-medium text-gray-600">热量</td>
-                      <td class="py-2 px-2">{{ originalNutritionSum.calories }} kcal</td>
-                      <td class="py-2 px-2 font-medium" :class="modifiedNutrition.calories < originalNutritionSum.calories ? 'text-green-600' : 'text-red-600'">{{ modifiedNutrition.calories }} kcal</td>
-                      <td class="py-2 px-2" :class="(modifiedNutrition.calories - originalNutritionSum.calories) < 0 ? 'text-green-600' : 'text-red-600'">
+                  <tbody>
+                    <tr>
+                      <td class="tl">热量</td>
+                      <td>{{ originalNutritionSum.calories }} kcal</td>
+                      <td class="strong">{{ modifiedNutrition.calories }} kcal</td>
+                      <td :class="(modifiedNutrition.calories - originalNutritionSum.calories) < 0 ? 'good' : 'badv'">
                         {{ (modifiedNutrition.calories - originalNutritionSum.calories) > 0 ? '+' : '' }}{{ modifiedNutrition.calories - originalNutritionSum.calories }}
                       </td>
                     </tr>
-                    <tr class="border-b border-blue-50">
-                      <td class="py-2 px-2 text-left font-medium text-gray-600">蛋白质</td>
-                      <td class="py-2 px-2">{{ originalNutritionSum.protein }}g</td>
-                      <td class="py-2 px-2 font-medium" :class="modifiedNutrition.protein > originalNutritionSum.protein ? 'text-green-600' : 'text-morandi-text'">{{ modifiedNutrition.protein }}g</td>
-                      <td class="py-2 px-2" :class="(modifiedNutrition.protein - originalNutritionSum.protein) > 0 ? 'text-green-600' : 'text-red-600'">
+                    <tr>
+                      <td class="tl">蛋白质</td>
+                      <td>{{ originalNutritionSum.protein }}g</td>
+                      <td class="strong">{{ modifiedNutrition.protein }}g</td>
+                      <td :class="(modifiedNutrition.protein - originalNutritionSum.protein) > 0 ? 'good' : 'badv'">
                         {{ (modifiedNutrition.protein - originalNutritionSum.protein) > 0 ? '+' : '' }}{{ (modifiedNutrition.protein - originalNutritionSum.protein).toFixed(1) }}
                       </td>
                     </tr>
-                    <tr class="border-b border-blue-50">
-                      <td class="py-2 px-2 text-left font-medium text-gray-600">脂肪</td>
-                      <td class="py-2 px-2">{{ originalNutritionSum.fat }}g</td>
-                      <td class="py-2 px-2 font-medium" :class="modifiedNutrition.fat < originalNutritionSum.fat ? 'text-green-600' : 'text-red-600'">{{ modifiedNutrition.fat }}g</td>
-                      <td class="py-2 px-2" :class="(modifiedNutrition.fat - originalNutritionSum.fat) < 0 ? 'text-green-600' : 'text-red-600'">
+                    <tr>
+                      <td class="tl">脂肪</td>
+                      <td>{{ originalNutritionSum.fat }}g</td>
+                      <td class="strong">{{ modifiedNutrition.fat }}g</td>
+                      <td :class="(modifiedNutrition.fat - originalNutritionSum.fat) < 0 ? 'good' : 'badv'">
                         {{ (modifiedNutrition.fat - originalNutritionSum.fat) > 0 ? '+' : '' }}{{ (modifiedNutrition.fat - originalNutritionSum.fat).toFixed(1) }}
                       </td>
                     </tr>
-                    <tr class="border-b border-blue-50">
-                      <td class="py-2 px-2 text-left font-medium text-gray-600">每100g热量</td>
-                      <td class="py-2 px-2">{{ originalPer100g.calories }} kcal</td>
-                      <td class="py-2 px-2 font-medium" :class="modifiedPer100g.calories < originalPer100g.calories ? 'text-green-600' : 'text-red-600'">{{ modifiedPer100g.calories }} kcal</td>
-                      <td class="py-2 px-2" :class="(modifiedPer100g.calories - originalPer100g.calories) < 0 ? 'text-green-600' : 'text-red-600'">
+                    <tr>
+                      <td class="tl">每100g热量</td>
+                      <td>{{ originalPer100g.calories }} kcal</td>
+                      <td class="strong">{{ modifiedPer100g.calories }} kcal</td>
+                      <td :class="(modifiedPer100g.calories - originalPer100g.calories) < 0 ? 'good' : 'badv'">
                         {{ (modifiedPer100g.calories - originalPer100g.calories) > 0 ? '+' : '' }}{{ modifiedPer100g.calories - originalPer100g.calories }}
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p class="text-xs text-gray-400 mt-2">基于食材数据库估算，整份约 {{ estimatedTotalWeight }}g</p>
+              <p class="cmp-note">基于食材数据库估算，整份约 {{ estimatedTotalWeight }}g</p>
             </div>
 
-            <div class="flex gap-3">
-              <button
-                @click="handleSave"
-                class="flex-1 px-4 py-2.5 rounded-lg bg-morandi-accent text-white hover:opacity-90 transition-opacity"
-              >
-                保存到我的食谱
+            <!-- 底部操作 -->
+            <div class="bfoot">
+              <button class="save" @click="handleSave">
+                <Heart :size="13" />{{ localRecipe?.isSaved ? '移出星匣' : '保存到我的食谱' }}
               </button>
-              <button
-                @click="emit('update:modelValue', false)"
-                class="flex-1 px-4 py-2.5 rounded-lg border border-morandi-soft text-morandi-text hover:bg-morandi-soft transition-colors"
-              >
-                关闭
-              </button>
+              <button class="ghost" @click="emit('update:modelValue', false)">收起</button>
             </div>
           </div>
         </div>
@@ -285,7 +236,7 @@
 import { ref, watch } from 'vue'
 import { api } from '@/api'
 import { useRecipeSubstitution } from '@/composables/useRecipeSubstitution'
-import { BarChart3, Check, AlertTriangle } from 'lucide-vue-next'
+import { X, Heart, Check, Sparkles, AlertTriangle, BarChart3 } from 'lucide-vue-next'
 
 const props = defineProps<{
   modelValue: boolean
@@ -400,20 +351,200 @@ watch(() => props.recipe, (val) => {
 </script>
 
 <style scoped>
-.dialog-fade {
-  animation: dialogFade 0.25s ease forwards;
-  will-change: opacity, transform;
+/* ===== 星宴详情 · 无遮罩暗金气泡弹窗 ===== */
+@keyframes rkPop {
+  0% { opacity: 0; transform: scale(.6) translateY(18px); }
+  62% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
 }
-@keyframes dialogFade {
-  from { opacity: 0; transform: scale(0.96) translateZ(0); }
-  to { opacity: 1; transform: scale(1) translateZ(0); }
+.rk-tel {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
 }
-.mask-layer {
-  will-change: backdrop-filter, opacity;
+.catcher { position: absolute; inset: 0; }
+.bubble {
+  position: relative; z-index: 10; width: min(680px, 100%); max-height: 84vh;
+  overflow: auto; color: #55503F;
+  background: #FDFAF3;
+  border: 1px solid rgba(184, 134, 59, .5); border-radius: 20px;
+  box-shadow: 0 30px 70px -28px rgba(46, 42, 34, .45);
+  animation: rkPop .5s cubic-bezier(.34, 1.56, .64, 1) backwards;
 }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-@media (max-width: 768px) {
-  .mask-layer { backdrop-filter: none !important; --tw-backdrop-blur: none !important; }
+
+/* 头部 */
+.bhead {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px 12px; border-bottom: 1px dashed rgba(184, 134, 59, .3);
+  position: sticky; top: 0; z-index: 2;
+  background: #FDFAF3;
+}
+.bcover {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Noto Serif SC', serif; font-size: 20px; font-weight: 900; color: #B8863B;
+  background: radial-gradient(circle at 30% 22%, rgba(184, 134, 59, .18), transparent 70%),
+    linear-gradient(160deg, #F5EDDA, #EFE2C4);
+  border: 1px solid rgba(184, 134, 59, .4);
+  text-shadow: 0 2px 10px rgba(184, 134, 59, .3);
+}
+.bt { min-width: 0; }
+.bt h4 { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 900; color: #2E2A22; letter-spacing: .04em; }
+.bt .tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+.bt .tags i {
+  font-style: normal; font-size: 9px; padding: 1.5px 8px; border-radius: 99px;
+  background: rgba(184, 134, 59, .1); color: #8a6d3b; border: 1px solid rgba(184, 134, 59, .28);
+}
+.bt .tags i.ai { color: #B8863B; border-color: rgba(184, 134, 59, .5); }
+.bclose {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid rgba(184, 134, 59, .4); background: none; color: #A08F6E;
+  display: flex; align-items: center; justify-content: center; transition: .25s; cursor: pointer;
+}
+.bclose:hover { color: #B8863B; border-color: #B8863B; transform: rotate(90deg); }
+
+/* 主体 */
+.bbody { padding: 14px 18px 18px; }
+.desc { font-size: 12px; line-height: 1.85; color: #55503F; margin-bottom: 13px; }
+
+.sec { margin-bottom: 15px; }
+.sec-h {
+  display: flex; align-items: baseline; gap: 9px; margin-bottom: 8px;
+  font-size: 10.5px; letter-spacing: .12em; color: #847C63;
+}
+.sec-h .wt { font-style: normal; margin-left: auto; }
+h6 {
+  font-size: 10.5px; letter-spacing: .2em; color: #A0722F; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+h6::before { content: ''; width: 14px; height: 1px; background: #B8863B; }
+h6 .subed {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 1.5px 8px; border-radius: 99px;
+  color: #5E8F5E; background: rgba(94, 143, 94, .1); border: 1px solid rgba(94, 143, 94, .4);
+}
+
+/* 营养四格：热量金 / 蛋白蓝 / 脂肪金 / 碳水绿 */
+.ntr { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ntr .cell {
+  border: 1px solid rgba(184, 134, 59, .28); border-radius: 10px;
+  padding: 10px 6px; text-align: center; background: #F8F2E3;
+}
+.ntr .cell b { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 900; color: #B8863B; display: block; }
+.ntr .cell span { font-size: 9px; color: #847C63; letter-spacing: .06em; }
+.ntr .cell.mp b { color: #4A6FA5; }
+.ntr .cell.mf b { color: #C08A2D; }
+.ntr .cell.mc b { color: #5E8F5E; }
+.good { color: #5E8F5E !important; }
+.badv { color: #B5442E !important; }
+
+/* 食材列表 */
+.ings { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ings li {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 8.5px 12px; border-radius: 10px; font-size: 11.5px;
+  border: 1px solid rgba(184, 134, 59, .25); background: rgba(184, 134, 59, .05);
+}
+.ings li.rep { border-color: rgba(94, 143, 94, .45); background: rgba(94, 143, 94, .08); }
+.ings li.unfit { border-color: rgba(181, 68, 46, .4); background: rgba(181, 68, 46, .06); }
+.ings .il { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; color: #55503F; }
+.ings .il s { color: #A08F6E; }
+.ings .il b { color: #5E8F5E; font-weight: 700; }
+.ings .arrow { font-style: normal; color: #A08F6E; }
+.ings .ir { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.ings .db { font-style: normal; font-size: 9.5px; color: #5E8F5E; }
+.ings .amt { font-size: 11px; color: #847C63; white-space: nowrap; }
+.pill {
+  font-style: normal; font-size: 9px; font-weight: 700; padding: 1.5px 8px; border-radius: 99px;
+}
+.pill.g { color: #5E8F5E; background: rgba(94, 143, 94, .12); border: 1px solid rgba(94, 143, 94, .45); }
+.pill.r { color: #B5442E; background: rgba(181, 68, 46, .1); border: 1px solid rgba(181, 68, 46, .45); }
+
+/* 步骤 */
+ol { list-style: none; counter-reset: dstp; }
+ol li {
+  counter-increment: dstp; display: flex; gap: 10px;
+  font-size: 11.5px; line-height: 1.85; color: #55503F; padding: 5px 0;
+}
+ol li .no {
+  counter-increment: none;
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #14110B;
+  background: linear-gradient(135deg, #E8B973, #B36B2A);
+}
+
+/* 替换建议盒（暗金三态） */
+.note {
+  margin-bottom: 15px; padding: 12px 14px; border-radius: 12px;
+}
+.note h6 { margin-bottom: 9px; }
+.note h6::before { display: none; }
+.note h6 svg { flex-shrink: 0; }
+.note.amber { border: 1px solid rgba(224, 176, 78, .35); background: rgba(224, 176, 78, .07); }
+.note.amber h6 { color: #8A6D3B; }
+.note.blue { border: 1px solid rgba(108, 143, 190, .35); background: rgba(108, 143, 190, .08); }
+.note.blue h6 { color: #4A6FA5; }
+.note.green { border: 1px solid rgba(127, 174, 142, .4); background: rgba(127, 174, 142, .08); }
+.note.green h6 { color: #5E8F5E; }
+.note-item { padding: 8px 10px; border-radius: 9px; background: rgba(184, 134, 59, .07); margin-bottom: 7px; }
+.note-item:last-child { margin-bottom: 0; }
+.ni-h { display: flex; align-items: center; gap: 8px; font-size: 11.5px; flex-wrap: wrap; }
+.ni-h b { font-weight: 700; }
+.note.amber .ni-h b { color: #A0722F; }
+.note.blue .ni-h b { color: #4A6FA5; }
+.ni-h em { font-style: normal; font-size: 10.5px; color: #847C63; }
+.alts { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+.alt-lb { font-size: 10.5px; color: #847C63; }
+.alt {
+  font-size: 10.5px; padding: 3px 10px; border-radius: 99px; cursor: pointer; font-family: inherit;
+  background: rgba(184, 134, 59, .07); color: #55503F;
+  border: 1px solid rgba(184, 134, 59, .38); transition: .25s;
+}
+.alt:hover { color: #B8863B; border-color: #B8863B; background: rgba(184, 134, 59, .12); }
+.alt em { font-style: normal; opacity: .7; font-size: 9.5px; }
+.applied {
+  display: flex; align-items: center; justify-content: space-between; gap: 9px;
+  padding: 5px 2px; font-size: 11.5px;
+}
+.applied s { color: #847C63; }
+.applied .arrow { font-style: normal; color: #847C63; margin: 0 5px; }
+.applied b { color: #5E8F5E; }
+.undo {
+  font-size: 10.5px; background: none; border: none; cursor: pointer; font-family: inherit;
+  color: #B5442E; transition: .2s;
+}
+.undo:hover { color: #8F2F1D; }
+
+/* 对比表 */
+.cmp-wrap { overflow-x: auto; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 11px; text-align: center; }
+.cmp th {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .06em; color: #847C63;
+  padding: 6px 8px; border-bottom: 1px solid rgba(184, 134, 59, .35);
+}
+.cmp td { padding: 7px 8px; color: #55503F; border-bottom: 1px solid rgba(184, 134, 59, .15); }
+.cmp td.tl { text-align: left; color: #847C63; }
+.cmp td.strong { color: #2E2A22; font-weight: 700; }
+.cmp-note { font-size: 10px; color: #847C63; margin-top: 7px; }
+
+/* 底部 */
+.bfoot { display: flex; gap: 9px; margin-top: 16px; }
+.bfoot .save {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; border-radius: 11px; padding: 9.5px 0; cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; font-family: inherit;
+  color: #14110B; background: linear-gradient(135deg, #E8B973, #B36B2A); transition: .25s;
+}
+.bfoot .save:hover { filter: brightness(1.1); }
+.bfoot .ghost {
+  border: 1px solid rgba(184, 134, 59, .4); background: none; border-radius: 11px;
+  padding: 0 20px; font-size: 12px; color: #8a6d3b; transition: .25s; cursor: pointer; font-family: inherit;
+}
+.bfoot .ghost:hover { color: #B8863B; border-color: #B8863B; }
+
+@media (max-width: 560px) {
+  .ntr { grid-template-columns: repeat(2, 1fr); }
+  .bfoot .ghost { padding: 0 14px; }
 }
 </style>

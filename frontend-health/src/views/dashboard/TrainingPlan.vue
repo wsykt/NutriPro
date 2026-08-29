@@ -1,327 +1,284 @@
 <template>
-  <div class="page-fade">
-    <!-- 顶部标题 -->
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-morandi-accent/10 flex items-center justify-center">
-            <Dumbbell class="w-6 h-6 text-morandi-accent" />
-          </div>
-          <div>
-            <h2 class="text-2xl font-bold text-morandi-text">AI 训练计划</h2>
-            <p class="text-sm text-morandi-lightText mt-0.5">基于近 7 日训练数据，与 AI 对话制定专属方案</p>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 text-xs text-morandi-lightText bg-white/60 px-3 py-2 rounded-xl border border-morandi-soft/50">
-        <Activity class="w-4 h-4 text-morandi-accent" />
-        <span>本周 {{ weekStats.count }} 次训练 · {{ weekStats.duration }} 分钟</span>
-      </div>
-    </div>
+  <div class="diet-page">
+    <!-- ===== 深壳星轨带（训练星阵 · 统计星球） ===== -->
+    <div class="db-band" ref="bandRef">
+      <div class="db-glow db-glow--1" aria-hidden="true"></div>
+      <div class="db-glow db-glow--2" aria-hidden="true"></div>
 
-    <!-- Tab 切换 -->
-    <div class="flex gap-2 mb-6 border-b border-morandi-soft">
-      <button
-        v-for="tab in tabs" :key="tab.key"
-        class="px-5 py-3 text-sm font-medium transition-all relative"
-        :class="activeTab === tab.key ? 'text-morandi-accent' : 'text-morandi-lightText hover:text-morandi-text'"
-        @click="activeTab = tab.key"
-      >
-        {{ tab.label }}
-        <span v-if="activeTab === tab.key" class="absolute bottom-0 left-0 right-0 h-0.5 bg-morandi-accent rounded-full"></span>
-      </button>
-    </div>
-
-    <!-- Tab 1: AI 对话生成计划 -->
-    <div v-if="activeTab === 'chat'">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 对话区 -->
-        <div class="glass rounded-2xl p-6 lg:col-span-2 flex flex-col" style="min-height: 520px">
-          <div ref="chatBoxRef" class="flex-1 overflow-y-auto mb-4 space-y-4 pr-2" style="max-height: 480px">
-            <div v-if="chatMessages.length === 0" class="text-morandi-lightText text-sm text-center py-16">
-              <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-morandi-accent/10 flex items-center justify-center">
-                <Dumbbell class="w-8 h-8 text-morandi-accent" />
-              </div>
-              <p class="font-medium text-morandi-text">你好！我是你的训练助手</p>
-              <p class="mt-2">告诉我你的训练目标，结合你近 7 日的训练数据，我来制定专属计划</p>
-              <div class="mt-4 text-xs text-morandi-lightText">
-                你可以说："帮我调整训练计划"、"我想增加胸肌训练"、"最近腿部练得太多"
-              </div>
-            </div>
-            <div v-for="(m, idx) in chatMessages" :key="idx" class="flex" :class="{ 'justify-end': m.role === 'user' }">
-              <div :class="[
-                'max-w-[85%] px-4 py-3 rounded-xl text-sm leading-relaxed',
-                m.role === 'user' ? 'bg-morandi-accent text-white' : 'bg-white/70 text-morandi-text'
-              ]">
-                <div class="whitespace-pre-wrap">{{ m.content }}</div>
-              </div>
-            </div>
-            <div v-if="chatLoading" class="flex">
-              <div class="bg-white/70 text-morandi-text px-4 py-3 rounded-xl text-sm">
-                <span class="inline-flex items-center gap-2">
-                  <Loader2 class="w-4 h-4 animate-spin text-morandi-accent" />
-                  正在分析你的训练数据...
-                </span>
-              </div>
-            </div>
-          </div>
-          <form @submit.prevent="sendChat" class="flex gap-3">
-            <input
-              v-model="chatInput"
-              class="flex-1 px-4 py-3 rounded-xl bg-white/70 border border-morandi-soft text-sm outline-none focus:border-morandi-accent"
-              placeholder="描述你的训练目标或想调整的方向..."
-              :disabled="chatLoading"
-            />
-            <button
-              type="submit" :disabled="chatLoading || !chatInput.trim()"
-              class="px-5 py-3 rounded-xl bg-morandi-accent text-white text-sm hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-2"
-            >
-              <Send class="w-4 h-4" />
-              {{ chatLoading ? '生成中...' : '发送' }}
+      <div class="db-top">
+        <div class="star-crumbs">
+          <span class="crumb-wrap">
+            <button class="crumb-node" @click="goHome">
+              <span class="nd"><LayoutGrid :size="12" /></span>首页
             </button>
-          </form>
+          </span>
+          <span class="crumb-wrap">
+            <span class="crumb-link"></span>
+            <button class="crumb-node" @click="goHub"><span class="nd"><Dumbbell :size="12" /></span>运动管理</button>
+          </span>
+          <span class="crumb-wrap">
+            <span class="crumb-link"></span>
+            <span class="crumb-node hot"><span class="nd"><Flame :size="13" /></span>训练计划</span>
+          </span>
+        </div>
+        <div class="db-top-right">
+          <span class="db-date"><Activity :size="12" />本周 <b>{{ weekStats.count }}</b> 次训练</span>
+        </div>
+      </div>
+
+      <div class="db-const">
+        <svg class="db-line" viewBox="0 0 1200 104" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M 150 52 C 300 8, 440 8, 560 52 S 830 96, 960 52 S 1130 8, 1200 52" />
+        </svg>
+
+        <!-- 核心恒星（左侧主体） -->
+        <div class="db-core-wrap">
+          <div class="db-core">
+            <span class="star"><Flame :size="26" /></span>
+            <span class="tt"><b>训练星阵</b><span>TRAINING MATRIX</span></span>
+          </div>
         </div>
 
-        <!-- 侧边栏 -->
-        <div class="space-y-4">
-          <!-- 快捷提问 -->
-          <div class="glass rounded-2xl p-5">
-            <h3 class="font-semibold mb-3 text-morandi-text flex items-center gap-2">
-              <Zap class="w-4 h-4 text-morandi-accent" />
-              快捷提问
-            </h3>
-            <div class="space-y-2">
-              <button v-for="q in quickQuestions" :key="q" @click="askQuick(q)" :disabled="chatLoading" class="w-full text-left px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-soft transition-colors disabled:opacity-60">
-                {{ q }}
-              </button>
+        <!-- 统计站点：标签在上 · 图星球居波线 · 数值在下 -->
+        <div
+          v-for="(s, i) in stations" :key="s.nm"
+          class="db-station-wrap"
+          :style="{ left: stationLeft(i, stations.length) + '%' }"
+        >
+          <span class="nm">{{ s.nm }}</span>
+          <div class="db-station-float" :style="floatStyle(i)">
+            <div class="db-station" :aria-label="s.nm">
+              <component :is="s.icon" :size="18" :stroke-width="1.75" />
             </div>
           </div>
-
-          <!-- AI 运动建议（专用接口） -->
-          <div class="glass rounded-2xl p-5">
-            <h3 class="font-semibold mb-3 text-morandi-text flex items-center gap-2">
-              <Sparkles class="w-4 h-4 text-morandi-accent" />
-              AI 运动建议
-            </h3>
-            <p class="text-xs text-morandi-lightText leading-relaxed mb-3">基于你的身体数据与训练记录，一键生成个性化运动方案</p>
-            <div class="space-y-2">
-              <button v-for="g in adviceGoals" :key="g.value" @click="getExerciseAdvice(g.value)" :disabled="!!adviceLoading" class="w-full flex items-center gap-2 px-4 py-2 rounded-xl bg-white/70 text-morandi-text text-sm hover:bg-morandi-accent/10 transition-colors disabled:opacity-60">
-                <component :is="g.icon" class="w-4 h-4 text-morandi-accent" />
-                <span>{{ g.label }}</span>
-                <component v-if="adviceLoading === g.value" :is="Loader2" class="ml-auto w-4 h-4 text-morandi-lightText animate-spin" />
-              </button>
-            </div>
-            <div v-if="exerciseAdviceResult" class="mt-3 p-4 rounded-xl bg-white/70 border border-morandi-soft/50 text-sm text-morandi-text whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
-              {{ exerciseAdviceResult }}
-            </div>
-          </div>
-
-          <!-- 近七日训练数据快照 -->
-          <div class="glass rounded-2xl p-5">
-            <h3 class="font-semibold mb-3 text-morandi-text flex items-center gap-2">
-              <Calendar class="w-4 h-4 text-morandi-accent" />
-              近七日训练数据快照
-            </h3>
-            <div v-if="weekStats.count > 0" class="text-xs text-morandi-text space-y-2.5 leading-relaxed">
-              <div class="flex items-center gap-2">
-                <Activity class="w-3.5 h-3.5 text-morandi-accent" />
-                <span>训练次数：<span class="font-semibold">{{ weekStats.count }} 次</span></span>
-              </div>
-              <div class="flex items-center gap-2">
-                <Clock class="w-3.5 h-3.5 text-morandi-accent" />
-                <span>总时长：<span class="font-semibold">{{ weekStats.duration }} 分钟</span></span>
-              </div>
-              <div class="flex items-center gap-2">
-                <Flame class="w-3.5 h-3.5 text-orange-500" />
-                <span>消耗：<span class="font-semibold">{{ weekStats.calories }} kcal</span></span>
-              </div>
-              <div class="flex items-center gap-2">
-                <Layers class="w-3.5 h-3.5 text-morandi-accent" />
-                <span>总组数：<span class="font-semibold">{{ weekStats.sets }} 组</span></span>
-              </div>
-
-              <div v-if="weekStats.byGroup.length > 0" class="mt-3 pt-3 border-t border-morandi-soft/40">
-                <div class="font-medium mb-2">部位分布：</div>
-                <div class="space-y-1">
-                  <div v-for="g in weekStats.byGroup" :key="g.name" class="flex items-center justify-between">
-                    <span class="text-morandi-lightText">{{ g.name }}</span>
-                    <span class="font-medium text-morandi-text">{{ g.count }} 次</span>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="weekStats.recent.length > 0" class="mt-3 pt-3 border-t border-morandi-soft/40">
-                <div class="font-medium mb-2">最近训练：</div>
-                <div class="space-y-1.5">
-                  <div v-for="r in weekStats.recent.slice(0, 5)" :key="r.id" class="pl-2 border-l-2 border-morandi-accent/40">
-                    <div class="font-medium text-morandi-text">
-                      {{ r.exerciseName }}
-                      <span class="text-morandi-lightText font-normal">
-                        · {{ r.sets }}×{{ r.reps }}{{ r.weight > 0 ? `@${r.weight}kg` : '' }}
-                      </span>
-                    </div>
-                    <div class="text-morandi-lightText">{{ r.date }} · {{ r.duration }}分钟</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-3 pt-3 border-t border-morandi-soft/40 text-morandi-lightText">
-                <User class="w-3.5 h-3.5 text-morandi-accent inline mr-1" />
-                体重 {{ userWeight }} kg · 人群 {{ userCrowdLabel }}
-              </div>
-            </div>
-            <div v-else class="text-xs text-morandi-lightText py-4 text-center">
-              <Activity class="w-8 h-8 mx-auto mb-2 opacity-30" />
-              近 7 日暂无训练记录
-              <div class="mt-2">
-                去 <router-link to="/dashboard/muscle-chart" class="text-morandi-accent hover:underline">运动管理</router-link> 记录训练
-              </div>
-            </div>
-          </div>
+          <span class="ds">{{ s.ds }}</span>
         </div>
       </div>
     </div>
 
-    <!-- Tab 2: 运动记录 -->
-    <div v-if="activeTab === 'records'">
-      <!-- 统计卡片 -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-        <div class="glass rounded-2xl p-4 text-center">
-          <div class="text-xs text-morandi-lightText mb-1">本周运动</div>
-          <div class="text-2xl font-bold text-morandi-accent">{{ weekStats.count }}<span class="text-xs font-normal text-morandi-lightText ml-1">次</span></div>
-        </div>
-        <div class="glass rounded-2xl p-4 text-center">
-          <div class="text-xs text-morandi-lightText mb-1">本周时长</div>
-          <div class="text-2xl font-bold text-morandi-text">{{ weekStats.duration }}<span class="text-xs font-normal text-morandi-lightText ml-1">分钟</span></div>
-        </div>
-        <div class="glass rounded-2xl p-4 text-center">
-          <div class="text-xs text-morandi-lightText mb-1">本周消耗</div>
-          <div class="text-2xl font-bold text-orange-500">{{ weekStats.calories }}<span class="text-xs font-normal text-morandi-lightText ml-1">千卡</span></div>
-        </div>
-        <div class="glass rounded-2xl p-4 text-center">
-          <div class="text-xs text-morandi-lightText mb-1">连续打卡</div>
-          <div class="text-2xl font-bold text-morandi-text">{{ streakDays }}<span class="text-xs font-normal text-morandi-lightText ml-1">天</span></div>
+    <!-- ===== 浅芯工作区（训练星阵） ===== -->
+    <div class="db-paper" ref="paperRef">
+      <div class="db-head" data-anim>
+        <div class="sec-t">训练星阵 · 本周训练总览与 AI 计划</div>
+      </div>
+
+      <!-- 统计四格 -->
+      <div class="tp-stats" data-anim>
+        <div class="tp-stat"><div class="sl">本周训练</div><div class="sv">{{ weekStats.count }}<small>次</small></div></div>
+        <div class="tp-stat"><div class="sl">总时长</div><div class="sv">{{ weekStats.duration }}<small>min</small></div></div>
+        <div class="tp-stat"><div class="sl">消耗热量</div><div class="sv">{{ weekStats.calories }}<small>kcal</small></div></div>
+        <div class="tp-stat"><div class="sl">连续打卡</div><div class="sv">{{ streakDays }}<small>天</small></div></div>
+      </div>
+
+      <!-- 本周训练日历 -->
+      <div class="db-block" style="margin-top:12px" data-anim>
+        <div class="bl-head"><b>本周训练日历</b></div>
+        <div class="tp-week-bar">
+          <div v-for="w in weekDays" :key="w.d" class="tp-week-day" :class="{ on: w.on }">
+            <span>{{ w.d }}</span>
+            <span class="dn">{{ w.on ? '✦' : '—' }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <!-- 历史记录 -->
-        <div class="glass rounded-2xl p-5 md:col-span-2">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold text-morandi-text flex items-center gap-2">
-              <History class="w-4 h-4 text-morandi-accent" />
-              历史运动记录
-            </h3>
-            <span class="text-xs text-morandi-lightText">共 {{ workoutRecords.length }} 条 · {{ totalRecordExercises }} 个动作</span>
+      <!-- 部位分布训练卡片星阵 -->
+      <div v-if="weekStats.byGroup.length > 0" class="tp-grid" data-anim>
+        <div v-for="g in weekStats.byGroup" :key="g.name" class="tp-card">
+          <div class="th">
+            <div class="ic"><Dumbbell :size="15" /></div>
+            <b>{{ g.name }}</b>
+            <span class="grp">{{ g.count }} 次</span>
           </div>
-          <div v-if="workoutRecords.length" class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-            <div v-for="r in workoutRecords" :key="r.id" class="p-3 rounded-xl bg-morandi-soft/30 hover:bg-morandi-soft/50 transition-colors">
-              <div class="flex items-center justify-between">
-                <div class="flex-1">
-                  <button @click="showExerciseStepsByName(r.exerciseName)" class="font-medium text-morandi-text text-sm hover:text-morandi-accent transition-colors">
-                    {{ r.exerciseName }}
-                  </button>
-                  <div class="text-xs text-morandi-lightText mt-0.5">
-                    {{ r.date }} · {{ r.sets }}组×{{ r.reps }}次
-                    <span v-if="r.weight > 0" class="text-morandi-accent">@{{ r.weight }}kg</span>
-                    <span v-else class="text-morandi-lightText">· 自重</span>
-                    · {{ r.duration }}分钟 · {{ intensityLabel(r.intensity) }}
-                  </div>
-                  <div class="text-[11px] text-morandi-lightText mt-0.5">
-                    部位：{{ r.category }} · MET {{ getExerciseMet(r.exerciseId) }}
-                  </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-semibold text-orange-500">{{ r.calories }} kcal</span>
-                  <button @click="removeRecord(r.id)" class="text-morandi-lightText hover:text-red-500 text-lg leading-none">×</button>
-                </div>
+          <div v-for="r in groupExercises(g.name)" :key="r.id" class="tp-ex">
+            <span class="en">{{ r.exerciseName }}</span>
+            <span class="es">{{ r.sets }}×{{ r.reps }}{{ r.weight > 0 ? `@${r.weight}kg` : '·自重' }}</span>
+            <span class="ek">{{ r.calories }} kcal</span>
+          </div>
+          <div v-if="groupExercises(g.name).length === 0" class="tp-ex">
+            <span class="en" style="color:rgba(42,38,32,.4)">暂无动作记录</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 对话区 -->
+      <div class="tp-chat" data-anim>
+        <div class="tp-chat-head"><Sparkles :size="13" />AI 训练助手 · 基于近 7 日数据制定方案</div>
+        <div ref="chatBoxRef" class="tp-chat-body">
+          <div v-if="chatMessages.length === 0" class="tp-msg ai">
+            <div class="who">训练助手</div>
+            <div class="bubble">你好！我是你的训练助手。结合你近 7 日训练数据（{{ weekStats.byGroup.map(g => `${g.name} ${g.count}次`).join('、') || '暂无记录' }}），告诉我你的目标，我来制定专属计划。</div>
+          </div>
+          <div v-for="(m, idx) in chatMessages" :key="idx" class="tp-msg" :class="m.role">
+            <div class="who">{{ m.role === 'user' ? '你' : '训练助手' }}</div>
+            <div class="bubble">{{ m.content }}</div>
+          </div>
+          <div v-if="chatLoading" class="tp-msg ai">
+            <div class="who">训练助手</div>
+            <div class="bubble">
+              <Loader2 :size="13" class="spin" /> 正在分析你的训练数据...
+            </div>
+          </div>
+        </div>
+        <div class="tp-chat-input">
+          <input v-model="chatInput" placeholder="描述你的训练目标..." @keydown.enter="sendChat" :disabled="chatLoading" />
+          <button @click="sendChat" :disabled="chatLoading || !chatInput.trim()">
+            <Send :size="12" />{{ chatLoading ? '生成中' : '发送' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 快捷提问 + AI 建议 -->
+      <div class="db-blocks" style="margin-top:12px">
+        <div class="db-block" data-anim>
+          <div class="bl-head"><b>快捷提问</b><span>一键发送常见训练问题</span></div>
+          <div class="quick-list">
+            <button v-for="q in quickQuestions" :key="q" @click="askQuick(q)" :disabled="chatLoading" class="quick-btn">
+              {{ q }}
+            </button>
+          </div>
+
+          <div class="sec-label" style="margin-top:12px">AI 运动建议</div>
+          <div class="advice-list">
+            <button v-for="g in adviceGoals" :key="g.value" @click="getExerciseAdvice(g.value)" :disabled="!!adviceLoading" class="advice-btn">
+              <component :is="g.icon" :size="13" />
+              <span>{{ g.label }}</span>
+              <Loader2 v-if="adviceLoading === g.value" :size="12" class="spin" style="margin-left:auto" />
+            </button>
+          </div>
+          <div v-if="exerciseAdviceResult" class="advice-result">{{ exerciseAdviceResult }}</div>
+        </div>
+
+        <!-- 运动记录 -->
+        <div class="db-block" data-anim>
+          <div class="bl-head"><b>运动记录</b><span>共 {{ workoutRecords.length }} 条 · {{ totalRecordExercises }} 个动作</span></div>
+          <div v-if="workoutRecords.length" class="record-list">
+            <div v-for="r in workoutRecords.slice(0, 10)" :key="r.id" class="record-item">
+              <div class="ri-main">
+                <button @click="showExerciseStepsByName(r.exerciseName)" class="ri-name">{{ r.exerciseName }}</button>
+                <span class="ri-meta">{{ r.date }} · {{ r.sets }}×{{ r.reps }}{{ r.weight > 0 ? `@${r.weight}kg` : '·自重' }} · {{ r.duration }}min</span>
+                <span class="ri-cat">{{ r.category }} · {{ intensityLabel(r.intensity) }}</span>
+              </div>
+              <div class="ri-right">
+                <span class="ri-kcal">{{ r.calories }} kcal</span>
+                <button @click="removeRecord(r.id)" class="ri-del">×</button>
               </div>
             </div>
           </div>
-          <div v-else class="text-center py-10 text-morandi-lightText text-sm">
-            <Activity class="w-10 h-10 mx-auto mb-2 opacity-30" />
-            暂无运动记录
-            <div class="mt-3">
-              <router-link to="/dashboard/muscle-chart" class="inline-block px-4 py-2 bg-morandi-accent text-white rounded-lg text-sm hover:opacity-90">
-                去运动管理记录
-              </router-link>
-            </div>
+          <div v-else class="record-empty">
+            <Activity :size="28" style="opacity:.3" />
+            <span>暂无运动记录</span>
+            <router-link to="/dashboard/muscle-chart" class="go-link">去运动管理记录</router-link>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 动作步骤弹窗 -->
-    <div v-if="showStepsModal" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" @click.self="showStepsModal = false">
-      <div class="bg-white rounded-2xl max-w-lg w-full shadow-xl max-h-[85vh] overflow-hidden flex flex-col">
-        <div class="flex items-center justify-between p-5 border-b border-morandi-soft">
-          <div>
-            <h3 class="text-lg font-semibold text-morandi-text">{{ currentExercise?.name }}</h3>
-            <p class="text-xs text-morandi-lightText mt-0.5">动作步骤说明</p>
-          </div>
-          <button @click="showStepsModal = false" class="text-morandi-lightText hover:text-morandi-text text-2xl leading-none">×</button>
-        </div>
-        <div v-if="currentExercise" class="p-5 overflow-y-auto space-y-4">
-          <div class="flex flex-wrap gap-2">
-            <span class="px-2 py-1 rounded-full bg-morandi-accent/10 text-morandi-accent text-xs">{{ currentExercise.category }}</span>
-            <span class="px-2 py-1 rounded-full bg-morandi-soft text-morandi-text text-xs">MET {{ currentExercise.met }}</span>
-            <span class="px-2 py-1 rounded-full bg-morandi-soft text-morandi-text text-xs">{{ currentExercise.difficulty }}</span>
-          </div>
-          <div class="bg-morandi-soft/20 rounded-xl p-3">
-            <div class="text-xs text-morandi-lightText mb-1">所需器械</div>
-            <div class="text-sm text-morandi-text font-medium">{{ currentExercise.equipment }}</div>
-          </div>
-          <div>
-            <div class="flex items-center gap-2 mb-3">
-              <div class="w-1 h-4 bg-morandi-accent rounded-full"></div>
-              <div class="text-sm font-semibold text-morandi-text">动作步骤</div>
+      <!-- 动作步骤弹窗（气泡式，无灰罩） -->
+      <Transition name="bubble">
+        <div v-if="showStepsModal" class="step-bubble" @click.self="showStepsModal = false">
+          <div class="sb-card">
+            <div class="sb-head">
+              <div>
+                <h3>{{ currentExercise?.name }}</h3>
+                <p>动作步骤说明</p>
+              </div>
+              <button @click="showStepsModal = false" class="sb-close">×</button>
             </div>
-            <ol class="space-y-3">
-              <li v-for="(step, i) in currentExercise.steps" :key="i" class="flex gap-3">
-                <span class="w-7 h-7 flex items-center justify-center rounded-full bg-morandi-accent text-white text-xs font-semibold shrink-0">{{ i + 1 }}</span>
-                <div class="flex-1">
-                  <div class="text-sm font-medium text-morandi-text">{{ step.title }}</div>
-                  <div class="text-xs text-morandi-lightText mt-0.5 leading-relaxed">{{ step.description }}</div>
-                </div>
-              </li>
-            </ol>
-          </div>
-          <div v-if="currentExercise.tips?.length">
-            <div class="flex items-center gap-2 mb-3">
-              <div class="w-1 h-4 bg-amber-500 rounded-full"></div>
-              <div class="text-sm font-semibold text-morandi-text">训练提示</div>
+            <div v-if="currentExercise" class="sb-body">
+              <div class="sb-tags">
+                <span class="sb-tag">{{ currentExercise.category }}</span>
+                <span class="sb-tag">MET {{ currentExercise.met }}</span>
+                <span class="sb-tag">{{ currentExercise.difficulty }}</span>
+              </div>
+              <div class="sb-equip">所需器械：{{ currentExercise.equipment }}</div>
+              <ol class="sb-steps">
+                <li v-for="(step, i) in currentExercise.steps" :key="i">
+                  <span class="step-num">{{ i + 1 }}</span>
+                  <div>
+                    <div class="step-title">{{ step.title }}</div>
+                    <div class="step-desc">{{ step.description }}</div>
+                  </div>
+                </li>
+              </ol>
+              <div v-if="currentExercise.tips?.length" class="sb-tips">
+                <div class="tips-label">训练提示</div>
+                <ul>
+                  <li v-for="(tip, i) in currentExercise.tips" :key="i">{{ tip }}</li>
+                </ul>
+              </div>
             </div>
-            <ul class="space-y-2">
-              <li v-for="(tip, i) in currentExercise.tips" :key="i" class="flex gap-2 text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded-lg">
-                <span class="text-amber-500 shrink-0"></span>
-                <span>{{ tip }}</span>
-              </li>
-            </ul>
           </div>
         </div>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
-import { Dumbbell, Activity, Send, Loader2, Zap, Calendar, Clock, Flame, Layers, User, History, Sparkles } from 'lucide-vue-next'
+import { Dumbbell, Activity, Send, Loader2, Flame, Sparkles, LayoutGrid, Calendar, Clock, Gauge } from 'lucide-vue-next'
 import { EXERCISES, getExerciseById, type ExerciseDetail } from '@/data/exercises'
 import { useWorkoutRecords, type WorkoutRecord } from '@/composables/useWorkoutRecords'
-import { CROWD_LABELS, MUSCLE_GROUPS } from '@/constants'
+import { MUSCLE_GROUPS } from '@/constants'
 
+const router = useRouter()
 const userStore = useUserStore()
 const workout = useWorkoutRecords()
 
-const tabs = [
-  { key: 'chat' as const, label: 'AI 对话生成' },
-  { key: 'records' as const, label: '运动记录' }
-]
-const activeTab = ref<'chat' | 'records'>('chat')
+function goHome() { router.push('/dashboard/home') }
+function goHub() { router.push({ path: '/dashboard/hub', query: { group: 'health' } }) }
 
+// ===== 星轨带统计站点 =====
+const stations = computed(() => [
+  { nm: '本周训练', ds: weekStats.value.count + ' 次', icon: Calendar },
+  { nm: '总时长', ds: weekStats.value.duration + ' min', icon: Clock },
+  { nm: '消耗热量', ds: weekStats.value.calories + ' kcal', icon: Flame },
+  { nm: '平均强度', ds: avgIntensityLabel.value, icon: Gauge }
+])
+
+const avgIntensityLabel = computed(() => {
+  const recent = workout.recentDays(7)
+  if (recent.length === 0) return '—'
+  const high = recent.filter(r => r.intensity === 'high').length
+  const low = recent.filter(r => r.intensity === 'low').length
+  if (high > recent.length / 2) return '高强度'
+  if (low > recent.length / 2) return '轻松'
+  return '中等'
+})
+
+function stationLeft(i: number, total: number): number {
+  if (total <= 1) return 60
+  // 自核心恒星向右延伸，与中转站星轨带同节奏（28% ~ 92%）
+  return Math.round(28 + (i * 64) / (total - 1))
+}
+function floatStyle(i: number) {
+  const durations = [4.6, 5.2, 5.6, 4.95]
+  const delays = [-0.3, -1.2, -2.1, -0.8]
+  return {
+    animation: `tpFloat ${durations[i % 4]}s ease-in-out ${delays[i % 4]}s infinite alternate`
+  }
+}
+
+// ===== 本周训练日历 =====
+const weekDays = computed(() => {
+  const recent = workout.recentDays(7)
+  const dayMap: Record<string, boolean> = {}
+  recent.forEach(r => { dayMap[r.date] = true })
+  const today = new Date()
+  const labels = ['日', '一', '二', '三', '四', '五', '六']
+  const result: { d: string; on: boolean }[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const ds = d.toISOString().slice(0, 10)
+    result.push({ d: labels[d.getDay()], on: !!dayMap[ds] })
+  }
+  return result
+})
+
+// ===== 用户数据 =====
 const userWeight = computed(() => Number(userStore.user?.weight) || 65)
 const userCrowdLabel = computed(() => {
   const c = userStore.user?.crowd_type || userStore.user?.crowdType || '普通人'
@@ -332,12 +289,12 @@ const userCrowdLabel = computed(() => {
   return map[c] || c
 })
 
-// ===== AI 运动建议（专用接口） =====
+// ===== AI 运动建议 =====
 const adviceGoals = [
   { value: '减脂', label: '减脂塑形', icon: Flame },
   { value: '增肌', label: '增肌力量', icon: Dumbbell },
   { value: '体态改善', label: '体态改善', icon: Activity },
-  { value: '保持健康', label: '保持健康', icon: User }
+  { value: '保持健康', label: '保持健康', icon: Sparkles }
 ]
 const adviceLoading = ref<string | null>(null)
 const exerciseAdviceResult = ref('')
@@ -356,7 +313,7 @@ async function getExerciseAdvice(goal: string) {
   }
 }
 
-// ===== 运动记录（来自共享存储） =====
+// ===== 运动记录 =====
 const workoutRecords = computed<WorkoutRecord[]>(() => workout.records.value)
 
 const weekStats = computed(() => {
@@ -399,24 +356,18 @@ const totalRecordExercises = computed(() => {
   return names.size
 })
 
-function removeRecord(id: string) {
-  workout.remove(id)
+function groupExercises(groupName: string): WorkoutRecord[] {
+  return workoutRecords.value.filter(r => (r.category || '其他') === groupName).slice(0, 4)
 }
+
+function removeRecord(id: string) { workout.remove(id) }
 
 function intensityLabel(i: string): string {
   return i === 'low' ? '轻松' : i === 'high' ? '高强度' : '中等'
 }
 
-function getExerciseMet(id: number): number {
-  return getExerciseById(id)?.met || 0
-}
-
 // ===== AI 对话 =====
-interface ChatMessage {
-  role: 'user' | 'ai'
-  content: string
-}
-
+interface ChatMessage { role: 'user' | 'ai'; content: string }
 const chatMessages = ref<ChatMessage[]>([])
 const chatInput = ref('')
 const chatLoading = ref(false)
@@ -438,7 +389,6 @@ function buildPrompt(userQuestion: string): string {
 - 身高：${userStore.user?.height || '未设置'} cm
 - 体重：${userWeight.value} kg
 - 人群类型：${userCrowdLabel.value}`
-
   return `你是一名专业的健身训练教练，请根据用户的身体数据和近 7 日训练记录，回答用户关于训练计划的问题。
 
 ${profile}
@@ -446,10 +396,10 @@ ${profile}
 ${snapshot}
 
 要求：
-1. 基于用户的实际训练数据（动作、组数、次数、重量、部位分布）进行分析，指出训练中的不足（如部位不平衡、强度不足、过量训练等）
-2. 给出具体的、可执行的调整建议，包括：推荐动作（可从卧推、深蹲、硬拉、引体向上、杠铃划船等中选择）、组数、次数、重量建议、训练频率
-3. 注意人群适配（如老年人避免大重量、孕妇避免核心压迫、糖尿病患者注意低血糖等）
-4. 回答简洁专业，使用要点列出，不要泛泛而谈
+1. 基于用户的实际训练数据进行分析，指出训练中的不足
+2. 给出具体的、可执行的调整建议，包括推荐动作、组数、次数、重量建议、训练频率
+3. 注意人群适配
+4. 回答简洁专业，使用要点列出
 
 用户问题：${userQuestion}`
 }
@@ -465,16 +415,13 @@ async function askQuick(question: string) {
   chatMessages.value.push({ role: 'user', content: question })
   chatLoading.value = true
   await scrollToBottom()
-
   try {
     const prompt = buildPrompt(question)
     const raw: any = await api.ai.consult(prompt)
     const reply = raw?.reply || (typeof raw === 'string' ? raw : '未返回内容，请稍后再试')
     chatMessages.value.push({ role: 'ai', content: reply })
-  } catch (e: any) {
-    // 后端不可用时，使用本地规则生成兜底回复
-    const fallback = localGenerate(question)
-    chatMessages.value.push({ role: 'ai', content: fallback })
+  } catch {
+    chatMessages.value.push({ role: 'ai', content: localGenerate(question) })
   } finally {
     chatLoading.value = false
     await scrollToBottom()
@@ -485,100 +432,299 @@ function localGenerate(question: string): string {
   const stats = weekStats.value
   const recent = stats.recent
   if (recent.length === 0) {
-    return ` 后端 AI 暂时不可用，以下是本地建议：
-
-你近 7 日还没有训练记录。建议从基础动作开始：
-• 胸部：卧推 3组×8-12次
-• 背部：引体向上/高位下拉 3组×8-12次
-• 腿部：深蹲 3组×8-12次
-每周训练 3 次，每次 40-60 分钟。
-
-请在「运动管理」记录训练后，再来让我为你制定个性化计划。`
+    return `后端 AI 暂时不可用，以下是本地建议：\n\n你近 7 日还没有训练记录。建议从基础动作开始：\n• 胸部：卧推 3组×8-12次\n• 背部：引体向上 3组×8-12次\n• 腿部：深蹲 3组×8-12次\n每周训练 3 次，每次 40-60 分钟。`
   }
-
-  // 分析部位平衡
   const weakGroups: string[] = []
   const trained = new Set(recent.map(r => r.category))
-  MUSCLE_GROUPS.forEach(g => {
-    if (!trained.has(g)) weakGroups.push(g)
-  })
-
-  let advice = ` 后端 AI 暂时不可用，以下是基于你训练数据的本地分析：\n\n`
-  advice += ` 近 7 日训练概况：\n`
-  advice += `• 训练 ${stats.count} 次，共 ${stats.duration} 分钟，消耗 ${stats.calories} kcal\n`
-  advice += `• 总组数 ${stats.sets} 组\n`
-  advice += `• 训练部位：${stats.byGroup.map(g => `${g.name}(${g.count})`).join('、')}\n\n`
-
-  if (weakGroups.length > 0) {
-    advice += ` 训练不足的部位：${weakGroups.join('、')}\n`
-    advice += `建议下周增加这些部位的训练。\n\n`
-  }
-
-  advice += ` 调整建议：\n`
+  MUSCLE_GROUPS.forEach(g => { if (!trained.has(g)) weakGroups.push(g) })
+  let advice = `后端 AI 暂时不可用，以下是基于你训练数据的本地分析：\n\n近 7 日训练概况：\n• 训练 ${stats.count} 次，共 ${stats.duration} 分钟，消耗 ${stats.calories} kcal\n• 总组数 ${stats.sets} 组\n• 训练部位：${stats.byGroup.map(g => `${g.name}(${g.count})`).join('、')}\n\n`
+  if (weakGroups.length > 0) { advice += `训练不足的部位：${weakGroups.join('、')}\n建议下周增加这些部位的训练。\n\n` }
+  advice += `调整建议：\n`
   if (/增肌|肌肉|力量/.test(question)) {
-    advice += `• 增肌期建议每个部位每周训练 2 次\n`
-    advice += `• 复合动作优先：深蹲、硬拉、卧推、引体向上\n`
-    advice += `• 重量选择：8-12RM（即每组只能做 8-12 次的重量）\n`
-    advice += `• 每组休息 60-90 秒，保证蛋白质摄入 1.6-2.2 g/kg`
+    advice += `• 增肌期建议每个部位每周训练 2 次\n• 复合动作优先：深蹲、硬拉、卧推、引体向上\n• 重量选择：8-12RM\n• 每组休息 60-90 秒，保证蛋白质摄入 1.6-2.2 g/kg`
   } else if (/减脂|减肥|瘦身/.test(question)) {
-    advice += `• 减脂期保持力量训练 + 增加有氧\n`
-    advice += `• 力量训练后加 20-30 分钟中等强度有氧\n`
-    advice += `• 重量适中，组数可增加，休息时间缩短到 30-60 秒\n`
-    advice += `• 热量缺口控制在 300-500 kcal/天`
+    advice += `• 减脂期保持力量训练 + 增加有氧\n• 力量训练后加 20-30 分钟中等强度有氧\n• 重量适中，组数可增加，休息时间缩短到 30-60 秒\n• 热量缺口控制在 300-500 kcal/天`
   } else {
-    advice += `• 保持当前训练频率，注意部位均衡\n`
-    advice += `• 循序渐进增加重量（每周 +2.5kg）\n`
-    advice += `• 保证充足睡眠和蛋白质摄入`
+    advice += `• 保持当前训练频率，注意部位均衡\n• 循序渐进增加重量（每周 +2.5kg）\n• 保证充足睡眠和蛋白质摄入`
   }
-
   return advice
 }
 
 async function scrollToBottom() {
   await nextTick()
-  if (chatBoxRef.value) {
-    chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight
-  }
+  if (chatBoxRef.value) chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight
 }
 
 // ===== 动作步骤弹窗 =====
 const showStepsModal = ref(false)
 const currentExercise = ref<ExerciseDetail | null>(null)
 
-function showExerciseSteps(id: number) {
-  const ex = getExerciseById(id)
-  if (ex) {
-    currentExercise.value = ex
-    showStepsModal.value = true
-  }
-}
-
 function showExerciseStepsByName(name: string) {
   const ex = EXERCISES.find(e => e.name === name)
-  if (ex) {
-    currentExercise.value = ex
-    showStepsModal.value = true
-  }
+  if (ex) { currentExercise.value = ex; showStepsModal.value = true }
 }
 
-// ===== 初始化 =====
+// ===== GSAP 入场 =====
+const bandRef = ref<HTMLElement | null>(null)
+const paperRef = ref<HTMLElement | null>(null)
+
 onMounted(() => {
   try { userStore.init() } catch { /* ignore */ }
+  // 入场动画
+  nextTick(() => {
+    if (!bandRef.value || !paperRef.value) return
+    const band = bandRef.value
+    const paper = paperRef.value
+    const tl = (window as any).gsap?.timeline?.() || null
+    if (tl) {
+      tl.from(band.querySelectorAll('.star-crumbs'), { opacity: 0, y: -10, duration: 0.4, ease: 'power2.out' })
+        .from(band.querySelectorAll('.db-core-wrap'), { opacity: 0, scale: 0.8, duration: 0.5, ease: 'back.out(1.4)' }, '-=0.2')
+        .from(band.querySelectorAll('.db-station-wrap'), { opacity: 0, y: 20, duration: 0.4, stagger: 0.08, ease: 'power2.out' }, '-=0.3')
+        .from(paper.querySelectorAll('[data-anim]'), { opacity: 0, y: 16, duration: 0.4, stagger: 0.06, ease: 'power2.out' }, '-=0.2')
+    } else {
+      // 无 GSAP 时 CSS fallback
+      paper.querySelectorAll('[data-anim]').forEach((el) => { (el as HTMLElement).style.opacity = '1' })
+    }
+  })
 })
 </script>
 
 <style scoped>
-.glass {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+.diet-page { font-family: 'Noto Sans SC', system-ui, sans-serif; }
+
+/* ===== 深壳星轨带 ===== */
+.db-band {
+  background: linear-gradient(180deg, #1A140C 0%, #2A2018 60%, #1A140C 100%);
+  border-radius: 18px; padding: 20px 28px 16px; position: relative; overflow: hidden;
+  margin-bottom: 16px;
 }
-.page-fade {
-  animation: fadeIn 0.3s ease forwards;
+.db-glow { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; }
+.db-glow--1 { width: 280px; height: 280px; background: rgba(217,162,74,.1); top: -80px; right: 10%; }
+.db-glow--2 { width: 200px; height: 200px; background: rgba(184,134,59,.08); bottom: -60px; left: 5%; }
+
+.db-top { display: flex; align-items: center; margin-bottom: 8px; }
+.star-crumbs { display: flex; align-items: center; gap: 0; }
+.crumb-wrap { display: inline-flex; align-items: center; }
+.crumb-link { width: 24px; height: 1px; background: rgba(217,162,74,.3); margin: 0 4px; }
+.crumb-node {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,.5);
+  background: none; border: none; cursor: pointer; font-family: inherit; transition: color .25s;
 }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.crumb-node:hover { color: rgba(255,255,255,.8); }
+.crumb-node.hot { color: #D9A24A; }
+.crumb-node .nd {
+  width: 18px; height: 18px; border-radius: 6px; background: rgba(217,162,74,.12);
+  display: flex; align-items: center; justify-content: center; color: #D9A24A;
 }
+.crumb-node.hot .nd { background: rgba(217,162,74,.25); }
+
+.db-top-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.db-date { font-size: 11px; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: 4px; }
+.db-date b { color: #D9A24A; font-family: 'Noto Serif SC', serif; }
+
+.db-const { position: relative; min-height: 104px; }
+.db-line { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .3; }
+.db-line path { fill: none; stroke: #D9A24A; stroke-width: 1.5; stroke-dasharray: 4 6; }
+
+/* 核心恒星（左侧主体） */
+.db-core-wrap { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 2; }
+.db-core { display: flex; align-items: center; gap: 14px; }
+.db-core .star {
+  width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%); color: #E8B973;
+  border: 1.5px solid rgba(217,162,74,.55);
+  box-shadow: 0 0 26px rgba(217,162,74,.28), inset 0 0 14px rgba(217,162,74,.14);
+}
+.db-core .tt { display: flex; flex-direction: column; gap: 3px; }
+.db-core .tt b { font-size: 20px; color: #F6EAD6; font-family: 'Noto Serif SC', serif; letter-spacing: .06em; }
+.db-core .tt span { font-size: 9px; color: rgba(217,162,74,.55); letter-spacing: .22em; }
+
+/* 统计站点：标签在上 · 图星球居波线 · 数值在下 */
+.db-station-wrap {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 7px; width: 96px;
+}
+.db-station-float { }
+.db-station {
+  width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  color: #E8B973;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1.5px solid rgba(217,162,74,.45); transition: .3s;
+}
+.db-station:hover { border-color: #E8B973; box-shadow: 0 0 14px rgba(217,162,74,.45); }
+.db-station-wrap .nm { font-size: 10.5px; color: rgba(255,255,255,.78); font-weight: 600; letter-spacing: .04em; }
+.db-station-wrap .ds { font-size: 9.5px; color: rgba(217,162,74,.75); font-family: 'Noto Serif SC', serif; }
+
+@keyframes tpFloat {
+  from { transform: translateY(-4px); }
+  to { transform: translateY(4px); }
+}
+
+/* ===== 浅芯工作区 ===== */
+.db-paper {
+  background: rgba(255,252,247,.92); border: 1px solid rgba(184,134,59,.14);
+  border-radius: 18px; padding: 20px 24px;
+}
+.db-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.sec-t { font-size: 14px; font-weight: 700; color: #2A2620; }
+
+/* 统计四格 */
+.tp-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.tp-stat {
+  background: rgba(255,255,255,.72); border: 1px solid rgba(184,134,59,.16);
+  border-radius: 11px; padding: 9px 11px; text-align: center;
+}
+.tp-stat .sl { font-size: 9.5px; color: rgba(42,38,32,.45); }
+.tp-stat .sv { font-family: 'Noto Serif SC', serif; font-size: 18px; font-weight: 900; color: #2A2620; margin-top: 2px; }
+.tp-stat .sv small { font-size: 10px; color: rgba(42,38,32,.45); }
+
+/* 本周日历 */
+.tp-week-bar { display: flex; gap: 4px; }
+.tp-week-day {
+  flex: 1; text-align: center; padding: 6px 0; border-radius: 8px;
+  background: rgba(255,255,255,.5); border: 1px solid rgba(184,134,59,.12);
+  font-size: 9.5px; color: rgba(42,38,32,.45);
+}
+.tp-week-day.on {
+  background: linear-gradient(135deg, rgba(217,162,74,.2), rgba(184,134,59,.12));
+  border-color: #B8863B; color: #B8863B; font-weight: 700;
+}
+.tp-week-day .dn { display: block; font-size: 11px; font-family: 'Noto Serif SC', serif; font-weight: 800; color: #2A2620; margin-top: 2px; }
+.tp-week-day.on .dn { color: #B8863B; }
+
+/* 训练卡片 */
+.tp-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-top: 12px; }
+.tp-card {
+  background: rgba(255,255,255,.72); border: 1px solid rgba(184,134,59,.16);
+  border-radius: 14px; padding: 14px; position: relative; overflow: hidden; transition: .25s;
+}
+.tp-card:hover { border-color: #B8863B; transform: translateY(-2px); box-shadow: 0 8px 24px -10px rgba(184,134,59,.25); }
+.tp-card::after { content: ''; position: absolute; right: -14px; top: -14px; width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle, rgba(217,162,74,.12), transparent 70%); }
+.tp-card .th { display: flex; align-items: center; gap: 8px; }
+.tp-card .th .ic {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1px solid rgba(217,162,74,.4); color: #D9A24A;
+  display: flex; align-items: center; justify-content: center;
+}
+.tp-card .th b { font-size: 12.5px; color: #2A2620; }
+.tp-card .th .grp { margin-left: auto; font-size: 9px; font-weight: 700; color: #B8863B; background: rgba(184,134,59,.12); padding: 2px 8px; border-radius: 99px; }
+.tp-ex { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed rgba(184,134,59,.12); font-size: 11px; }
+.tp-ex:last-child { border: none; }
+.tp-ex .en { flex: 1; color: #2A2620; }
+.tp-ex .es { font-size: 9.5px; color: rgba(42,38,32,.4); }
+.tp-ex .ek { font-family: 'Noto Serif SC', serif; font-weight: 800; color: #B8863B; }
+
+/* AI 对话 */
+.tp-chat { margin-top: 14px; border: 1px solid rgba(184,134,59,.2); border-radius: 14px; background: rgba(255,255,255,.6); overflow: hidden; }
+.tp-chat-head { padding: 10px 14px; background: rgba(184,134,59,.08); font-size: 11.5px; font-weight: 700; color: #2A2620; display: flex; align-items: center; gap: 7px; }
+.tp-chat-body { padding: 10px 14px; max-height: 220px; overflow-y: auto; }
+.tp-msg { margin-bottom: 8px; }
+.tp-msg .who { font-size: 9.5px; color: rgba(42,38,32,.4); margin-bottom: 2px; }
+.tp-msg .bubble { display: inline-block; font-size: 11.5px; line-height: 1.7; padding: 7px 12px; border-radius: 12px; max-width: 88%; white-space: pre-wrap; }
+.tp-msg.user .who { text-align: right; }
+.tp-msg.user .bubble { background: linear-gradient(135deg, #D9A24A, #B8863B); color: #fff; }
+.tp-msg.ai .bubble { background: #fff; border: 1px solid rgba(184,134,59,.2); color: #2A2620; }
+.tp-chat-input { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid rgba(184,134,59,.14); }
+.tp-chat-input input {
+  flex: 1; padding: 8px 11px; border-radius: 10px; border: 1px solid rgba(184,134,59,.25);
+  background: #fff; font-size: 12px; color: #2A2620; outline: none; font-family: inherit;
+}
+.tp-chat-input input:focus { border-color: #B8863B; }
+.tp-chat-input button {
+  padding: 8px 16px; border-radius: 10px; border: none;
+  background: linear-gradient(135deg, #D9A24A, #B8863B); color: #fff; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 5px; transition: opacity .2s;
+}
+.tp-chat-input button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* 快捷提问 */
+.quick-list { display: flex; flex-direction: column; gap: 5px; }
+.quick-btn {
+  text-align: left; padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(184,134,59,.14);
+  background: rgba(255,255,255,.6); font-size: 11.5px; color: #2A2620; cursor: pointer; font-family: inherit; transition: .2s;
+}
+.quick-btn:hover { background: rgba(184,134,59,.08); border-color: #B8863B; }
+.quick-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* AI 建议 */
+.advice-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.advice-btn {
+  display: flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 99px;
+  border: 1px solid rgba(184,134,59,.2); background: rgba(255,255,255,.6);
+  font-size: 11px; color: #2A2620; cursor: pointer; font-family: inherit; transition: .2s;
+}
+.advice-btn:hover { background: rgba(184,134,59,.1); border-color: #B8863B; }
+.advice-btn:disabled { opacity: .5; cursor: not-allowed; }
+.advice-btn svg { color: #B8863B; }
+.advice-result {
+  margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.6);
+  border: 1px solid rgba(184,134,59,.14); font-size: 11.5px; color: #2A2620; white-space: pre-wrap; line-height: 1.7; max-height: 200px; overflow-y: auto;
+}
+
+/* 运动记录 */
+.record-list { max-height: 280px; overflow-y: auto; }
+.record-item {
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
+  border-radius: 10px; background: rgba(255,255,255,.5); border: 1px solid rgba(184,134,59,.1); margin-bottom: 5px;
+}
+.ri-main { flex: 1; }
+.ri-name { font-size: 12px; font-weight: 600; color: #2A2620; cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
+.ri-name:hover { color: #B8863B; }
+.ri-meta { display: block; font-size: 10px; color: rgba(42,38,32,.45); margin-top: 1px; }
+.ri-cat { display: block; font-size: 9.5px; color: rgba(42,38,32,.35); }
+.ri-right { display: flex; align-items: center; gap: 8px; }
+.ri-kcal { font-size: 11.5px; font-weight: 700; color: #C0522F; font-family: 'Noto Serif SC', serif; }
+.ri-del { font-size: 16px; color: rgba(42,38,32,.3); cursor: pointer; background: none; border: none; padding: 0; line-height: 1; }
+.ri-del:hover { color: #C0522F; }
+
+.record-empty { text-align: center; padding: 24px 0; color: rgba(42,38,32,.4); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.go-link { margin-top: 4px; padding: 6px 16px; border-radius: 8px; background: linear-gradient(135deg, #D9A24A, #B8863B); color: #fff; font-size: 12px; text-decoration: none; }
+
+/* 通用 */
+.db-blocks { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.db-block { }
+.bl-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.bl-head b { font-size: 12.5px; color: #2A2620; }
+.bl-head span { font-size: 10px; color: rgba(42,38,32,.4); }
+.sec-label { font-size: 10px; font-weight: 700; color: rgba(42,38,32,.5); margin-top: 10px; margin-bottom: 5px; letter-spacing: .06em; }
+
+/* 动作步骤弹窗（气泡式） */
+.step-bubble {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgba(26,20,12,.15); backdrop-filter: blur(2px);
+}
+.sb-card {
+  background: rgba(255,252,247,.98); border: 1px solid rgba(184,134,59,.2); border-radius: 16px;
+  max-width: 480px; width: 92%; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 12px 48px -12px rgba(26,20,12,.2);
+}
+.sb-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(184,134,59,.14); }
+.sb-head h3 { font-size: 15px; font-weight: 700; color: #2A2620; font-family: 'Noto Serif SC', serif; margin: 0; }
+.sb-head p { font-size: 10px; color: rgba(42,38,32,.4); margin: 0; }
+.sb-close { font-size: 20px; color: rgba(42,38,32,.3); cursor: pointer; background: none; border: none; line-height: 1; }
+.sb-close:hover { color: #2A2620; }
+.sb-body { padding: 14px 18px; overflow-y: auto; }
+.sb-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.sb-tag { padding: 2px 8px; border-radius: 99px; background: rgba(184,134,59,.1); color: #B8863B; font-size: 10px; font-weight: 600; }
+.sb-equip { font-size: 11px; color: rgba(42,38,32,.5); margin-bottom: 10px; }
+.sb-steps { list-style: none; padding: 0; margin: 0 0 10px 0; }
+.sb-steps li { display: flex; gap: 10px; margin-bottom: 10px; }
+.step-num { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #D9A24A, #B8863B); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-title { font-size: 12px; font-weight: 600; color: #2A2620; }
+.step-desc { font-size: 11px; color: rgba(42,38,32,.5); line-height: 1.6; margin-top: 2px; }
+.sb-tips { margin-top: 8px; }
+.tips-label { font-size: 11px; font-weight: 700; color: #B8863B; margin-bottom: 5px; }
+.sb-tips ul { list-style: none; padding: 0; margin: 0; }
+.sb-tips li { font-size: 11px; color: rgba(42,38,32,.6); padding: 4px 8px; border-radius: 6px; background: rgba(184,134,59,.06); margin-bottom: 4px; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 气泡弹窗动画 */
+.bubble-enter-active, .bubble-leave-active { transition: all 0.25s ease; }
+.bubble-enter-from { opacity: 0; transform: scale(0.9); }
+.bubble-leave-to { opacity: 0; transform: scale(0.95); }
+
+[data-anim] { opacity: 0; }
 </style>

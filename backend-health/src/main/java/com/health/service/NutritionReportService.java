@@ -52,7 +52,9 @@ public class NutritionReportService {
             double bmr = NutritionCalculator.calculateBMR(user.getWeight(), user.getHeight(), user.getAge(), user.getGender());
             report.setUserBmr(bmr);
             if (report.getBmr() == null) report.setBmr(bmr);
-        } catch (Exception ignore) {}
+        } catch (Exception e) {
+            log.warn("BMR 计算失败，跳过: {}", e.getMessage());
+        }
 
         @SuppressWarnings("unchecked")
         Map<String, Object> total = (Map<String, Object>) analysisData.get("total");

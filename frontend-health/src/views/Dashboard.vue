@@ -1,31 +1,28 @@
 <template>
   <div class="app-layout">
-    <!-- ========== 顶栏（固定在顶部，不随滚动移动） ========== -->
+    <!-- ========== 顶栏（赭金深色壳，固定在顶部） ========== -->
     <header class="topbar h-20 w-full flex items-center z-50 fixed top-0 left-0 right-0">
       <div class="topbar-inner h-full w-full flex items-center">
         <!-- 左侧 -->
-        <div class="flex items-center h-full pl-5 pr-4">
-          <!-- NutriPro 小卡片（视频文字加大，替代叶子图标） -->
-          <div class="nutripro-card">
-            <span class="nutripro-name font-bold tracking-tight whitespace-nowrap">
-              <span class="nutripro-video-mask">
-                <span class="nutripro-fallback" aria-hidden="true"></span>
-                <video class="nutripro-video" autoplay muted loop playsinline preload="auto">
-                  <source src="https://videos.pexels.com/video-files/5866263/5866263-hd_1280_720_25fps.mp4" type="video/mp4" />
-                </video>
-              </span>
-              <span class="nutripro-text sr-only">NutriPro</span>
+        <div class="topbar-left flex items-center h-full pl-5 pr-4" ref="topbarLeftRef">
+          <!-- NutriPro 品牌视频文字 -->
+          <span class="brand-name">
+            <span class="nutripro-video-mask">
+              <span class="nutripro-fallback" aria-hidden="true">NutriPro</span>
+              <video class="nutripro-video" autoplay muted loop playsinline preload="auto">
+                <source src="https://videos.pexels.com/video-files/5866263/5866263-hd_1280_720_25fps.mp4" type="video/mp4" />
+              </video>
             </span>
-          </div>
-          <div class="mx-6 h-7 w-px bg-gradient-to-b from-transparent via-slate-300 to-transparent"></div>
-          <span class="text-sm text-slate-600 whitespace-nowrap font-medium">{{ currentPageTitle }}</span>
+          </span>
+          <div class="topbar-divider mx-6 h-7 w-px"></div>
+          <span class="topbar-page text-sm whitespace-nowrap font-medium">{{ currentPageTitle }}</span>
         </div>
 
         <!-- 右侧 -->
-        <div class="flex-1 flex items-center justify-end gap-1.5 pr-5 pl-4">
+        <div class="topbar-right flex-1 flex items-center justify-end gap-1.5 pr-5 pl-4" ref="topbarRightRef">
           <select
             v-model="selectedActAs"
-            class="hidden md:block px-3.5 py-1.5 rounded-lg text-xs text-slate-600 outline-none transition-all bg-white/70 border border-slate-200 hover:border-slate-300 hover:bg-white cursor-pointer font-medium"
+            class="act-select hidden md:block px-3.5 py-1.5 rounded-lg text-xs outline-none transition-all font-medium"
           >
             <option :value="-1">我自己</option>
             <option v-for="w in userStore.wards" :key="w.wardId" :value="w.wardId">
@@ -34,26 +31,25 @@
           </select>
           <span
             v-if="selectedActAs != -1"
-            class="hidden md:inline-flex items-center text-[11px] px-2.5 py-1 rounded-full text-white font-medium"
-            :style="{ background: 'linear-gradient(135deg, #E07A3F 0%, #C9642A 100%)' }"
+            class="hidden md:inline-flex items-center text-[11px] px-2.5 py-1 rounded-full text-white font-medium act-badge"
           >
             亲属代操作
           </span>
 
-          <div class="mx-1 h-6 w-px bg-gradient-to-b from-transparent via-slate-300 to-transparent"></div>
+          <div class="topbar-divider mx-1 h-6 w-px"></div>
 
           <div class="flex items-center gap-2.5">
-            <div class="avatar-btn w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs overflow-hidden shrink-0 ring-2 ring-white shadow-md"
-                 :style="{ background: 'linear-gradient(135deg, #2F5D4A 0%, #1F4636 100%)' }">
+            <div class="avatar-btn w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs overflow-hidden shrink-0"
+                 :style="{ background: 'linear-gradient(135deg, #E8B973 0%, #D9A24A 60%, #B36B2A 100%)' }">
               <img v-if="userAvatar" :src="userAvatar" class="w-full h-full object-cover" alt="头像" />
               <template v-else>{{ usernameInitial }}</template>
             </div>
             <div class="hidden sm:flex flex-col items-start">
-              <span class="text-xs font-semibold text-slate-700 leading-tight">{{ usernameText }}</span>
-              <span class="text-[10px] text-slate-400 font-medium">用户</span>
+              <span class="topbar-username text-xs font-semibold leading-tight">{{ usernameText }}</span>
+              <span class="topbar-userrole text-[10px] font-medium">用户</span>
             </div>
             <button @click="handleLogout"
-                    class="ml-0.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap">
+                    class="logout-btn ml-0.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap">
               退出
             </button>
           </div>
@@ -61,102 +57,99 @@
       </div>
     </header>
 
-    <!-- ========== 侧边栏 ========== -->
+    <!-- ========== 侧边栏（赭金深色壳 · 固定窄轨，点击图标进入二级导航） ========== -->
     <aside
-      class="sidebar-root fixed left-0 bottom-0 flex flex-col z-40 overflow-hidden"
-      :class="{ 'sidebar-expanded': sidebarHover }"
-      @mouseenter="sidebarHover = true"
-      @mouseleave="sidebarHover = false"
+      ref="sidebarRoot"
+      class="sidebar-root fixed left-0 bottom-0 flex flex-col z-40"
     >
       <div class="sidebar-inner h-full w-full flex flex-col">
-        <nav class="nav-scroll flex-1 overflow-y-auto sidebar-scrollbar py-3 relative z-10">
-          <!-- 首页入口（独立于菜单组，固定在最上方） -->
+        <nav ref="navRef" class="nav-scroll flex-1 px-1 py-3 relative z-10">
+          <!-- 首页入口 -->
           <button
-            class="menu-item relative mb-1.5 pl-0 pr-2 flex items-center text-left rounded-xl"
+            class="menu-item relative mb-1.5 flex items-center justify-center text-left rounded-xl"
             :class="isHubActive ? 'menu-active' : 'menu-inactive'"
+            title="首页"
             @click="goHub()"
-            :style="{ '--item-delay': '0s' }"
           >
-            <span v-if="isHubActive" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-emerald-500 pointer-events-none"></span>
+            <span v-if="isHubActive" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none"></span>
             <div class="menu-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10">
               <LayoutGrid
                 class="menu-icon w-[18px] h-[18px]"
-                :style="{ color: isHubActive ? '#0f172a' : '#64748b' }"
+                :style="{ color: isHubActive ? '#F6EAD6' : '#B9A78A' }"
                 stroke-width="1.75"
               />
             </div>
-            <div class="menu-label-wrap overflow-hidden ml-2.5 shrink-1 min-w-0 flex-1 relative z-10">
-              <span class="menu-label text-[13px] font-semibold block whitespace-nowrap tracking-tight"
-                    :style="{ color: isHubActive ? '#0f172a' : '#64748b' }">
-                首页
-              </span>
+            <div class="menu-flyout">
+              <span class="menu-label text-[13px] font-semibold block whitespace-nowrap tracking-tight">首页</span>
             </div>
           </button>
 
           <!-- 分割线 -->
-          <div class="mx-3 my-2 border-t border-slate-200/40"></div>
+          <div class="sidebar-sep mx-3 my-2"></div>
 
           <template v-for="(group, groupIndex) in groups" :key="group.key">
             <button
-              class="menu-item relative mb-1.5 pl-0 pr-2 flex items-center text-left rounded-xl"
+              class="menu-item relative mb-1.5 flex items-center justify-center text-left rounded-xl"
               :class="isGroupActive(group.key) ? 'menu-active' : 'menu-inactive'"
+              :title="group.name"
               @click="goGroup(group)"
-              :style="{ '--item-delay': (0.05 + groupIndex * 0.03) + 's' }"
             >
-              <!-- 选中左侧竖条指示器 -->
-              <span v-if="isGroupActive(group.key)" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-emerald-500 pointer-events-none"></span>
+              <span v-if="isGroupActive(group.key)" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none"></span>
 
-              <div class="menu-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10">
+              <div class="menu-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10" :data-orbit-group="group.key">
                 <component
                   :is="group.icon"
                   class="menu-icon w-[18px] h-[18px]"
-                  :style="{ color: isGroupActive(group.key) ? '#0f172a' : '#64748b' }"
+                  :style="{ color: isGroupActive(group.key) ? '#F6EAD6' : '#B9A78A' }"
                   stroke-width="1.75"
                 />
               </div>
-              <div class="menu-label-wrap overflow-hidden ml-2.5 shrink-1 min-w-0 flex-1 relative z-10">
-                <span class="menu-label text-[13px] font-semibold block whitespace-nowrap tracking-tight"
-                      :style="{ color: isGroupActive(group.key) ? '#0f172a' : '#64748b' }">
-                  {{ group.name }}
-                </span>
+              <div class="menu-flyout">
+                <span class="menu-label text-[13px] font-semibold block whitespace-nowrap tracking-tight">{{ group.name }}</span>
               </div>
             </button>
           </template>
         </nav>
 
-        <div class="sidebar-footer shrink-0 py-3 px-2 relative z-10 border-t border-slate-100/60">
+        <div class="sidebar-footer shrink-0 py-3 px-1 relative z-10">
           <button
-            class="menu-item relative w-full flex items-center text-left rounded-xl mb-1.5 pl-0 pr-2 py-1.5"
+            class="menu-item relative w-full flex items-center justify-center text-left rounded-xl mb-1.5"
             :class="isProfileActive ? 'menu-active' : 'menu-inactive'"
+            title="个人中心"
             @click="router.push('/dashboard/profile')"
           >
-            <!-- 选中左侧竖条指示器 -->
-            <span v-if="isProfileActive" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-emerald-500 pointer-events-none"></span>
+            <span v-if="isProfileActive" class="menu-indicator absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none"></span>
 
             <div class="menu-icon-wrap w-9 h-9 rounded-xl flex items-center justify-center shrink-0 relative z-10">
               <CircleUser
-                class="w-[18px] h-[18px]"
-                :style="{ color: isProfileActive ? '#0f172a' : '#64748b' }"
+                class="menu-icon w-[18px] h-[18px]"
+                :style="{ color: isProfileActive ? '#F6EAD6' : '#B9A78A' }"
                 stroke-width="1.75"
               />
             </div>
-            <div class="menu-label-wrap overflow-hidden ml-2.5 shrink-1 min-w-0 flex-1 relative z-10">
-              <span class="text-[13px] font-semibold block whitespace-nowrap tracking-tight"
-                    :style="{ color: isProfileActive ? '#0f172a' : '#64748b' }">{{ usernameText }}</span>
-              <span class="text-[10px] text-slate-400 font-medium block whitespace-nowrap">个人中心</span>
+            <div class="menu-flyout">
+              <span class="menu-label text-[13px] font-semibold block whitespace-nowrap tracking-tight">个人中心</span>
             </div>
           </button>
         </div>
       </div>
     </aside>
 
-    <!-- ========== 主内容区（固定尺寸：左边距固定 220px，不随侧边栏变化） ========== -->
+    <!-- ========== 主内容区（浅色舞台，固定左边距 220px） ========== -->
     <main class="content-main">
       <div class="p-6 lg:p-8 min-h-screen relative">
-        <div class="page-stage" :class="{ 'bubble-playing': bubbleAnimating }">
+        <div class="page-stage">
           <router-view v-slot="{ Component, route: r }">
-            <transition name="page-fade" mode="out-in">
-              <!-- key 绑定完整路径 + 操作身份：切换"替亲属操作"时强制重建子页面组件，按新身份重新拉取数据 -->
+            <!--
+              页面切换：保留已验证稳定的 CSS 冒泡（out-in 模式）。
+              GSAP 负责壳动画（侧栏/菜单/顶栏）+ 子页面 ScrollTrigger，不接管路由过渡以避免异步组件 done() 时序问题。
+            -->
+            <transition
+              mode="out-in"
+              appear
+              enter-active-class="bubble-enter-active"
+              leave-active-class="instant-leave-active"
+              appear-active-class="bubble-enter-active">
               <component :is="Component" :key="r.fullPath + '|' + (userStore.actAsUserId ?? 'self')" />
             </transition>
           </router-view>
@@ -167,9 +160,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore, type User } from '@/stores/user'
+import { useGsapAnim } from '@/composables/useGsapAnim'
 import {
   CircleUser,
   Users,
@@ -184,8 +178,13 @@ import type { Component } from 'vue'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const { menuEnter, topbarEnter } = useGsapAnim()
 
-const sidebarHover = ref(false)
+// GSAP 用的元素引用
+const sidebarRoot = ref<HTMLElement | null>(null)
+const navRef = ref<HTMLElement | null>(null)
+const topbarLeftRef = ref<HTMLElement | null>(null)
+const topbarRightRef = ref<HTMLElement | null>(null)
 
 const userInfo = computed(() => userStore.user || ({} as User))
 const usernameText = computed(() => userInfo.value.username || '')
@@ -195,7 +194,6 @@ const usernameInitial = computed(() => {
   return n ? n.slice(0, 1).toUpperCase() : 'U'
 })
 
-// 操作身份：-1 表示自己；其他值是 ward.userId（亲属代操作，保留原逻辑）
 const selectedActAs = computed({
   get: () => (userStore.actAsUserId != null ? userStore.actAsUserId : -1),
   set: (val: number) => {
@@ -204,53 +202,42 @@ const selectedActAs = computed({
     } else {
       userStore.setActAs(val)
     }
-    // 不再用 _t 参数 hack：router-view key 已绑定操作身份，切换后组件自动重建并重新拉数据
   }
 })
 
-// 功能分组：点击进入对应分组的功能卡片页（保留 health 原分组与路由）
 interface GroupItem { name: string; to: string }
 interface MenuGroup { key: string; name: string; icon: Component; items: GroupItem[] }
 const groups: MenuGroup[] = [
   { key: 'user', name: '用户中心', icon: Users, items: [
     { name: '个人中心', to: '/dashboard/profile' },
-    { name: '身体指标', to: '/dashboard/metrics-history' },
-    { name: '健康档案', to: '/dashboard/health-history' },
-    { name: '亲属管理', to: '/dashboard/family-relation' },
+    { name: '家庭管理', to: '/dashboard/family' },
   ]},
   { key: 'diet', name: '饮食管理', icon: Utensils, items: [
     { name: '饮食记录', to: '/dashboard/food-input' },
     { name: '营养分析', to: '/dashboard/nutrition' },
-    { name: '食物搜索', to: '/dashboard/food-search' },
-    { name: '添加食材', to: '/dashboard/food-add' },
-    { name: '亲属代录', to: '/dashboard/family-input' },
   ]},
   { key: 'health', name: '健康监测', icon: HeartPulse, items: [
     { name: '健康报告', to: '/dashboard/health-report' },
+    { name: '健康档案', to: '/dashboard/health-archive' },
     { name: '运动管理', to: '/dashboard/muscle-chart' },
   ]},
   { key: 'knowledge', name: '知识中心', icon: BookOpen, items: [
     { name: '科普文章', to: '/dashboard/articles' },
     { name: 'AI 咨询', to: '/dashboard/ai-consult' },
-    { name: '训练计划', to: '/dashboard/training-plan' },
   ]},
   { key: 'recipe', name: '菜谱美食', icon: ChefHat, items: [
     { name: '菜谱库', to: '/dashboard/recipe-library' },
-    { name: '饮食档案', to: '/dashboard/dietary-profile' },
   ]},
 ]
 
-// 点击分组 → 进入该分组的功能卡片页（保留原逻辑：/dashboard/hub?group=xxx）
 function goGroup(g: { key: string }) {
   router.push({ path: '/dashboard/hub', query: { group: g.key } })
 }
 
-// 首页入口 → 首页（原 demo 路由，已更名 home）
 function goHub() {
   router.push('/dashboard/home')
 }
 
-// 顶栏标题映射
 const routeToTitleMap: Record<string, string> = {
   hub: '首页',
   profile: '个人中心', 'metrics-history': '身体指标', 'health-history': '健康档案', 'family-relation': '亲属管理',
@@ -265,7 +252,6 @@ const currentPageTitle = computed(() => {
   const pathSegments = route.path.split('/').filter(Boolean)
   const last = pathSegments[pathSegments.length - 1] || ''
   if (routeToTitleMap[last]) return routeToTitleMap[last]
-  // 动态详情路由
   if (last === 'recipe-detail' || route.path.includes('/article-detail/')) return '详情'
   return '健康助手'
 })
@@ -280,7 +266,6 @@ const isGroupActive = (groupKey: string) => {
   if (!group) return false
   return group.items.some(it => {
     if (it.to === route.path) return true
-    // 动态路由（recipe-detail/:id）
     if (it.to.startsWith('/dashboard/recipe-detail') && route.path.startsWith('/dashboard/recipe-detail')) return true
     return false
   })
@@ -300,28 +285,27 @@ const handleLogout = () => {
 
 onMounted(() => {
   userStore.init()
-  triggerBubble()
-})
-
-const bubbleAnimating = ref(false)
-function triggerBubble() {
-  bubbleAnimating.value = false
+  // 顶栏元素 stagger 下落
   nextTick(() => {
-    bubbleAnimating.value = true
-    setTimeout(() => { bubbleAnimating.value = false }, 520)
+    const leftItems = topbarLeftRef.value?.children
+      ? Array.from(topbarLeftRef.value.children)
+      : []
+    const rightItems = topbarRightRef.value?.children
+      ? Array.from(topbarRightRef.value.children)
+      : []
+    if (leftItems.length) topbarEnter(leftItems as Element[])
+    if (rightItems.length) topbarEnter(rightItems as Element[])
+    // 菜单项 stagger 浮入
+    const menuItems = navRef.value
+      ? Array.from(navRef.value.querySelectorAll('.menu-item'))
+      : []
+    if (menuItems.length) menuEnter(menuItems as Element[])
   })
-}
-watch(() => route.fullPath, () => {
-  triggerBubble()
-})
-// 切换操作身份时也触发气泡动画（router-view key 重建组件的过渡动画之外的点缀效果）
-watch(() => userStore.actAsUserId, () => {
-  triggerBubble()
 })
 </script>
 
 <style scoped>
-/* ========== 布局 ========== */
+/* ========== 布局（浅色舞台） ========== */
 .app-layout {
   min-height: 100vh;
   position: relative;
@@ -329,36 +313,45 @@ watch(() => userStore.actAsUserId, () => {
   background: #F7F5F0;
 }
 
-/* ========== 顶栏 ========== */
+/* ========== 顶栏（赭金深色壳） ========== */
 .topbar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(1.8);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: #14110C;
+  border-bottom: 1px dashed rgba(217, 162, 74, 0.28);
 }
-.serif-mark {
-  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif;
-}
-/* ===== NutriPro 视频文字（SVG mask + 视频填充） ===== */
-.nutripro-name {
+.topbar-inner {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  overflow: hidden;
 }
+.topbar-inner::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 12% 0%, rgba(232,185,115,0.10) 0%, transparent 45%);
+}
+.brand-name {
+  display: inline-flex; align-items: center; height: 30px;
+}
+.topbar-divider {
+  background: linear-gradient(to bottom, transparent, rgba(217, 162, 74, 0.35), transparent);
+}
+/* NutriPro 视频文字（SVG mask + 视频填充，深底仍可见彩色视频） */
 .nutripro-video-mask {
   display: block;
-  width: 112px;
-  height: 100%;
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='30' viewBox='0 0 112 30'%3E%3Ctext x='0' y='23' font-size='24' font-weight='800' font-family='serif' fill='black'%3ENutriPro%3C/text%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='30' viewBox='0 0 112 30'%3E%3Ctext x='0' y='23' font-size='24' font-weight='800' font-family='serif' fill='black'%3ENutriPro%3C/text%3E%3C/svg%3E");
+  width: 140px;
+  height: 30px;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='30' viewBox='0 0 140 30'%3E%3Ctext x='0' y='24' font-size='23' font-weight='800' font-family='serif' fill='black'%3ENutriPro%3C/text%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='30' viewBox='0 0 140 30'%3E%3Ctext x='0' y='24' font-size='23' font-weight='800' font-family='serif' fill='black'%3ENutriPro%3C/text%3E%3C/svg%3E");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
+  position: relative;
+}
+.nutripro-fallback {
+  position: absolute; inset: 0;
+  display: flex; align-items: center;
+  font-family: 'Noto Serif SC', 'Songti SC', serif;
+  font-weight: 800; font-size: 21px;
+  color: #F6EAD6; /* 视频未加载时显示赭金文字，视频加载后覆盖 */
 }
 .nutripro-video {
   width: 100%;
@@ -367,180 +360,193 @@ watch(() => userStore.actAsUserId, () => {
   display: block;
   pointer-events: none;
 }
-.nutripro-text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+.topbar-divider {
+  background: linear-gradient(to bottom, transparent, rgba(217, 162, 74, 0.35), transparent);
 }
-
-.logo-wrap {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-  box-shadow: 0 6px 20px rgba(47, 93, 74, 0.28);
+.topbar-page {
+  color: #B9A78A;
 }
-.logo-wrap:hover {
-  transform: scale(1.08) rotate(-3deg);
-  box-shadow: 0 8px 24px rgba(47, 93, 74, 0.38);
+.act-select {
+  background: rgba(14, 12, 10, 0.5);
+  border: 1px solid rgba(217, 162, 74, 0.3);
+  color: #F6EAD6;
+  cursor: pointer;
 }
-.logo-anim {
-  animation: logoIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.act-select:hover {
+  border-color: rgba(217, 162, 74, 0.55);
+  background: rgba(20, 17, 12, 0.7);
 }
-@keyframes logoIn {
-  from { opacity: 0; transform: scale(0.7) rotate(-10deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
+.act-select option {
+  background: #14110C;
+  color: #F6EAD6;
+}
+.act-badge {
+  background: linear-gradient(135deg, #E8B973 0%, #D9A24A 60%, #B36B2A 100%) !important;
+  color: #1F170E;
 }
 .avatar-btn {
   transition: transform 0.25s ease;
+  box-shadow: 0 4px 14px rgba(217, 162, 74, 0.35);
 }
 .avatar-btn:hover {
   transform: scale(1.08);
 }
+.topbar-username {
+  color: #F6EAD6;
+}
+.topbar-userrole {
+  color: #8C7A5E;
+}
+.logout-btn {
+  color: #B9A78A;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.logout-btn:hover {
+  color: #F1CF92;
+  border-color: rgba(217, 162, 74, 0.3);
+  background: rgba(217, 162, 74, 0.06);
+}
 
-/* ========== 侧边栏 ========== */
+/* ========== 侧边栏（赭金深色壳，GSAP 接管 width/label） ========== */
 .sidebar-root {
   left: 0;
   top: 80px;
   width: 60px;
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* width transition 移除：交给 GSAP timeline 控制，避免双重动画 */
 }
 .sidebar-inner {
   height: 100%;
-  background: #ffffff;
-  border-right: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 0 24px 24px 0;
-  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+  background: linear-gradient(180deg, #14110C 0%, #110E09 100%);
+  border-right: 1px solid rgba(217, 162, 74, 0.18);
+  border-radius: 0;
   position: relative;
 }
-.sidebar-root.sidebar-expanded .sidebar-inner {
-  border-right-color: rgba(15, 23, 42, 0.08);
+.sidebar-inner::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(circle at 80% 8%, rgba(232,185,115,0.10) 0%, transparent 40%),
+    repeating-linear-gradient(0deg, rgba(217,162,74,0.022) 0 1px, transparent 1px 86px);
 }
-.sidebar-root.sidebar-expanded {
-  width: 220px;
+.sidebar-sep {
+  border-top: 1px dashed rgba(217, 162, 74, 0.18);
+  height: 0;
 }
 
-/* 菜单项 */
+/* 菜单项（固定窄轨：图标统一居中于同一条竖线） */
 .menu-item {
-  min-height: 42px;
-  padding: 5px 4px;
   width: 52px;
+  min-height: 44px;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
-  overflow: hidden;
-  transition: background 0.25s ease, width 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s ease;
-  animation: menuItemIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: var(--item-delay, 0s);
-}
-@keyframes menuItemIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: translateX(0); }
+  overflow: visible; /* 允许悬停标签浮出竖轨右侧 */
+  transition: background 0.3s ease;
 }
 .menu-inactive:hover {
-  background: rgba(15, 23, 42, 0.05);
-  transform: translateX(2px);
+  background: rgba(217, 162, 74, 0.1);
 }
 .menu-active {
-  background: rgba(47, 93, 74, 0.07);
+  background: rgba(217, 162, 74, 0.12);
 }
-/* 选中指示竖条 */
+/* 选中指示竖条（琥珀渐变） */
 .menu-indicator {
+  width: 3px;
+  height: 24px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, #E8B973 0%, #D9A24A 60%, #B36B2A 100%);
+  box-shadow: 0 2px 8px rgba(217, 162, 74, 0.45);
   left: 3px;
-  box-shadow: 0 2px 8px rgba(47, 93, 74, 0.35);
-}
-.sidebar-root.sidebar-expanded .menu-item {
-  width: 100%;
-}
-.sidebar-root.sidebar-expanded .menu-indicator {
-  left: 0;
 }
 
-/* 图标容器 */
+/* 图标容器：悬停轻微放大 + 高亮光晕 */
 .menu-icon-wrap {
   background: transparent;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.5, 1), background 0.28s ease, box-shadow 0.28s ease;
 }
 .menu-active .menu-icon-wrap {
   background: transparent;
 }
-.sidebar-root.sidebar-expanded .menu-active .menu-icon-wrap {
-  transform: scale(1);
+.menu-item:hover .menu-icon-wrap {
+  transform: scale(1.12);
+  background: rgba(217, 162, 74, 0.16);
+  box-shadow: 0 0 0 1px rgba(232, 185, 115, 0.35), 0 6px 18px rgba(217, 162, 74, 0.25);
 }
-.sidebar-root.sidebar-expanded .menu-item:hover .menu-icon-wrap {
-  transform: scale(1.05);
+/* 悬停时图标点亮（!important 覆盖内联色值） */
+.menu-item:hover .menu-icon {
+  color: #F6EAD6 !important;
 }
 
-/* 标签文字 */
-.menu-label-wrap {
-  max-width: 0;
+/* 悬停浮出的名称标签（图标右侧胶囊） */
+.menu-flyout {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translate(-6px, -50%);
   opacity: 0;
-  margin-left: 0;
-  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  transition-delay: var(--delay, 0s);
   pointer-events: none;
-}
-.menu-label {
+  background: rgba(24, 19, 12, 0.95);
+  border: 1px solid rgba(217, 162, 74, 0.4);
+  padding: 5px 12px;
+  border-radius: 999px;
   white-space: nowrap;
-  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.3, 0.5, 1);
+  z-index: 80;
 }
-.sidebar-root.sidebar-expanded .menu-label-wrap {
-  max-width: 160px;
+.menu-item:hover .menu-flyout,
+.menu-item:focus-visible .menu-flyout {
   opacity: 1;
-  margin-left: 10px;
-  pointer-events: auto;
+  transform: translate(0, -50%);
+}
+.menu-flyout .menu-label {
+  color: #F0E2C4 !important;
+  font-size: 12px;
+}
+
+/* StarOrbit 粒子飞入后的图标脉冲点亮（由 StarOrbit.vue 在粒子抵达时添加 class） */
+@keyframes orbitIconPulse {
+  0% { box-shadow: 0 0 0 0 rgba(232, 185, 115, 0.7); }
+  100% { box-shadow: 0 0 0 14px rgba(232, 185, 115, 0); }
+}
+.menu-icon-wrap.orbit-pulse {
+  animation: orbitIconPulse 0.6s ease-out;
 }
 
 /* 底部 */
 .sidebar-footer {
-  border-color: transparent;
-}
-.sidebar-root.sidebar-expanded .sidebar-footer {
-  border-color: rgba(15, 23, 42, 0.06);
+  border-top: 1px solid rgba(217, 162, 74, 0.15);
 }
 
-/* ========== 主内容区 ========== */
+/* ========== 主内容区（浅色舞台，固定窄轨布局） ========== */
 .content-main {
   min-height: calc(100vh - 80px);
-  margin-left: 220px;
+  margin-left: 60px; /* 侧栏固定窄轨宽度 */
   padding-top: 80px;
   position: relative;
   z-index: 1;
 }
 
-/* ========== 页面过渡动画 ========== */
+/* ========== 页面过渡动画（保留已稳定的 CSS 冒泡，out-in 模式） ========== */
 .page-stage {
   min-height: 100%;
 }
-.bubble-playing > * {
-  animation: pageBubbleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+.bubble-enter-active {
+  animation: pageBubbleIn 0.7s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+.instant-leave-active {
+  transition: opacity 0s;
 }
 @keyframes pageBubbleIn {
-  0% { opacity: 0; transform: translate3d(0, 28px, 0) scale(0.88); }
-  55% { opacity: 1; transform: translate3d(0, -6px, 0) scale(1.04); }
-  78% { transform: translate3d(0, 1px, 0) scale(0.99); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-}
-.page-fade-enter-active, .page-fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-.page-fade-enter-from, .page-fade-leave-to {
-  opacity: 0;
-}
-
-/* ========== 滚动条 ========== */
-.sidebar-scrollbar::-webkit-scrollbar { width: 4px; }
-.sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.08);
-  border-radius: 2px;
-}
-.sidebar-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.sidebar-root:not(.sidebar-expanded) .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-.sidebar-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(15, 23, 42, 0.08) transparent;
+  0%   { opacity: 0;  transform: translate3d(0, 22px, 0) scale(0.92); }
+  58%  { opacity: 1;  transform: translate3d(0, -3px, 0) scale(1.02); }
+  80%  {              transform: translate3d(0, 0.5px, 0) scale(1.002); }
+  100% { opacity: 1;  transform: translate3d(0, 0, 0)     scale(1);     }
 }
 </style>
 

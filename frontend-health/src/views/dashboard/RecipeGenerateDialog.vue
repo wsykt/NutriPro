@@ -1,176 +1,113 @@
 <template>
   <div v-if="modelValue">
     <Teleport to="body">
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div
-          class="absolute inset-0 bg-black/35 backdrop-blur-[3px] mask-layer transition-opacity duration-200"
-          @click="closeGenerateDialog"
-        ></div>
-        <div
-          class="relative z-10 bg-white rounded-2xl w-full max-w-[680px] max-h-[80vh] overflow-auto shadow-xl dialog-fade scrollbar-hide"
-          style="transform: translateZ(0);"
-          @click.stop
-        >
-          <div class="p-8">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-xl font-bold text-morandi-text">AI生成食谱</h3>
-              <button
-                @click="closeGenerateDialog"
-                class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-morandi-soft text-morandi-lightText hover:text-morandi-text transition-colors text-lg"
-              >
-                
-              </button>
+      <!-- 无遮罩气泡弹窗：透明点击层（视觉无灰色蒙层），点击气泡外关闭 -->
+      <div class="rk-tel">
+        <div class="catcher" @click="closeGenerateDialog"></div>
+        <div class="bubble scrollbar-hide" @click.stop>
+          <!-- 头部 -->
+          <div class="bhead">
+            <span class="bcover"><Sparkles :size="18" /></span>
+            <div class="bt">
+              <h4>AI 炼星 · 生成食谱</h4>
+              <p>描述你的需求，ASTRAL 为你炼制专属星宴</p>
             </div>
+            <button class="bclose" @click="closeGenerateDialog"><X :size="13" /></button>
+          </div>
 
+          <div class="bbody">
+            <!-- 需求描述 -->
+            <div class="fld-lb">需求描述</div>
             <textarea
               v-model="generatePrompt"
               @input="promptError = ''"
-              rows="4"
-              placeholder="请描述您想要的食谱，例如：适合减脂的午餐食谱，需要高蛋白低热量..."
-              class="w-full px-4 py-3 rounded-lg bg-white/70 border text-sm outline-none transition-all mb-2 resize-none"
-              :class="promptError ? 'border-red-300 focus:border-red-500' : 'border-morandi-soft focus:border-morandi-accent'"
+              rows="3"
+              placeholder="例如：适合减脂的午餐食谱，需要高蛋白低热量…"
+              :class="{ bad: !!promptError }"
             ></textarea>
 
-            <!-- 校验提示 -->
-            <div
-              v-if="promptError"
-              class="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm"
-            >
-              <component :is="Lightbulb" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <span class="text-amber-700">{{ promptError }}</span>
+            <div v-if="promptError" class="warn">
+              <Lightbulb :size="13" /><span>{{ promptError }}</span>
             </div>
 
-            <div class="mb-8">
-              <p class="text-xs text-morandi-lightText mb-3">人群标签：</p>
-              <div class="flex flex-wrap gap-2.5">
-                <button
-                  v-for="tag in personaTags"
-                  :key="tag"
-                  @click="selectedPersona = tag"
-                  :class="[
-                    'px-3 py-1.5 rounded-full text-xs transition-all duration-200',
-                    selectedPersona === tag
-                      ? 'bg-morandi-accent text-white shadow-sm'
-                      : 'bg-morandi-soft text-morandi-text hover:bg-morandi-soft/70'
-                  ]"
-                >
-                  {{ tag }}
-                </button>
-              </div>
+            <!-- 身份星域 -->
+            <div class="fld-lb">身份星域</div>
+            <div class="fg-chips">
+              <button
+                v-for="tag in personaTags"
+                :key="tag"
+                class="fg-chip"
+                :class="{ on: selectedPersona === tag }"
+                @click="selectedPersona = tag"
+              >
+                {{ tag }}
+              </button>
             </div>
 
+            <!-- 炼成按钮 -->
             <button
-              @click="generateRecipe"
+              class="gold-btn"
               :disabled="!generatePrompt.trim() || isGenerating"
-              class="w-full px-4 py-3 rounded-lg bg-morandi-accent text-white font-medium hover:opacity-90 hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="generateRecipe"
             >
-              {{ isGenerating ? '生成中，请稍候...' : '生成食谱' }}
+              <Flame :size="13" />{{ isGenerating ? '炼成中，请稍候…' : '开始炼成' }}
             </button>
 
             <!-- 生成中 loading 反馈：云端生成通常需 30~60 秒，避免用户误以为卡死 -->
-            <div
-              v-if="isGenerating"
-              class="mt-4 p-4 rounded-xl bg-morandi-soft/40 border border-morandi-soft/60 flex items-center gap-3"
-            >
-              <div class="w-5 h-5 rounded-full border-2 border-morandi-accent border-t-transparent animate-spin shrink-0"></div>
-              <div class="text-sm text-morandi-lightText">
-                <p class="font-medium text-morandi-text">AI 正在生成食谱...</p>
-                <p class="text-xs mt-0.5">通常需要 30 秒~2 分钟，请保持页面打开，勿重复点击</p>
+            <div v-if="isGenerating" class="loading">
+              <span class="spin-ring"></span>
+              <div>
+                <p class="lt">AI 正在炼制你的专属星宴…</p>
+                <p class="ld">通常需要 30 秒~2 分钟，请保持页面打开，勿重复点击</p>
               </div>
             </div>
 
-            <!-- 错误提示 -->
-            <div
-              v-if="promptError && !isGenerating"
-              class="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600"
-            >
-              {{ promptError }}
-            </div>
+            <!-- 炼成结果 -->
+            <div v-if="generatedRecipe" class="result">
+              <div class="r-head">
+                <span class="r-cover">{{ generatedRecipe.name?.slice(0, 1) || '食' }}</span>
+                <div class="r-tt">
+                  <h5>{{ generatedRecipe.name }}</h5>
+                  <p>{{ generatedRecipe.description }}</p>
+                </div>
+              </div>
 
-            <div
-              v-if="generatedRecipe"
-              class="mt-6 p-5 rounded-xl bg-morandi-soft/30 border border-morandi-soft/50"
-            >
-              <h4 class="font-semibold text-morandi-text mb-2 text-lg">{{ generatedRecipe.name }}</h4>
-              <p class="text-sm text-morandi-lightText mb-3">{{ generatedRecipe.description }}</p>
-              <div class="flex flex-wrap gap-2 mb-4">
-                <span
-                  v-for="tag in generatedRecipe.tags"
-                  :key="tag"
-                  class="px-2 py-1 rounded-full bg-morandi-soft text-morandi-text text-xs"
-                >
-                  {{ tag }}
-                </span>
+              <div v-if="generatedRecipe.tags?.length" class="r-tags">
+                <i v-for="tag in generatedRecipe.tags" :key="tag">{{ tag }}</i>
               </div>
 
               <!-- 食材清单（带数据库匹配信息） -->
-              <div class="text-sm mb-4">
-                <div class="font-medium text-morandi-text mb-2">食材清单：</div>
-                <ul class="text-morandi-lightText space-y-1.5">
-                  <li
-                    v-for="ing in generatedRecipe.ingredients"
-                    :key="ing.ingredient_name"
-                    class="flex items-center justify-between"
-                  >
-                    <span>{{ ing.ingredient_name }} {{ ing.amount }}{{ ing.unit }}</span>
-                    <span v-if="getIngredientDBLabel(ing.ingredient_name)" class="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-600 ml-2 flex-shrink-0">
-                      {{ getIngredientDBLabel(ing.ingredient_name) }}
-                    </span>
-                    <span v-else class="text-xs text-morandi-lightText italic ml-2 flex-shrink-0">
-                      待录入
-                    </span>
-                  </li>
-                </ul>
+              <div class="r-sec">
+                <h6>星材 · 食材清单</h6>
+                <div class="r-ings">
+                  <span v-for="ing in generatedRecipe.ingredients" :key="ing.ingredient_name" class="ing">
+                    {{ ing.ingredient_name }} {{ ing.amount }}{{ ing.unit }}
+                    <em v-if="getIngredientDBLabel(ing.ingredient_name)" class="db">{{ getIngredientDBLabel(ing.ingredient_name) }}</em>
+                    <em v-else class="todo">待录入</em>
+                  </span>
+                </div>
               </div>
 
               <!-- 烹饪步骤 -->
-              <div v-if="generatedRecipe.steps && generatedRecipe.steps.length > 0" class="text-sm mb-4">
-                <div class="font-medium text-morandi-text mb-2">烹饪步骤：</div>
-                <ol class="text-morandi-lightText space-y-2 list-decimal list-inside">
-                  <li v-for="(step, idx) in generatedRecipe.steps" :key="idx">
-                    {{ step }}
-                  </li>
+              <div v-if="generatedRecipe.steps && generatedRecipe.steps.length > 0" class="r-sec">
+                <h6>炼制之法 · 烹饪步骤</h6>
+                <ol>
+                  <li v-for="(step, idx) in generatedRecipe.steps" :key="idx">{{ step }}</li>
                 </ol>
               </div>
 
               <!-- 营养成分简表 -->
-              <div class="grid grid-cols-5 gap-2 text-center text-sm p-3 rounded-lg bg-white/50 mb-4">
-                <div>
-                  <div class="text-xs text-morandi-lightText">热量</div>
-                  <div class="font-bold text-morandi-accent">{{ generatedRecipe.calories }}kcal</div>
-                </div>
-                <div>
-                  <div class="text-xs text-morandi-lightText">蛋白</div>
-                  <div class="font-medium text-morandi-text">{{ generatedRecipe.protein }}g</div>
-                </div>
-                <div>
-                  <div class="text-xs text-morandi-lightText">脂肪</div>
-                  <div class="font-medium text-morandi-text">{{ generatedRecipe.fat }}g</div>
-                </div>
-                <div>
-                  <div class="text-xs text-morandi-lightText">碳水</div>
-                  <div class="font-medium text-morandi-text">{{ generatedRecipe.carbs }}g</div>
-                </div>
-                <div>
-                  <div class="text-xs text-morandi-lightText">纤维</div>
-                  <div class="font-medium text-morandi-text">{{ generatedRecipe.fiber }}g</div>
-                </div>
+              <div class="r-ntr">
+                <div class="cell"><b>{{ generatedRecipe.calories }}</b><span>千卡 KCAL</span></div>
+                <div class="cell mp"><b>{{ generatedRecipe.protein }}g</b><span>蛋白</span></div>
+                <div class="cell mf"><b>{{ generatedRecipe.fat }}g</b><span>脂肪</span></div>
+                <div class="cell mc"><b>{{ generatedRecipe.carbs }}g</b><span>碳水</span></div>
+                <div class="cell"><b>{{ generatedRecipe.fiber || 0 }}g</b><span>纤维</span></div>
               </div>
 
-              <div class="flex gap-3 mt-5">
-                <button
-                  @click="saveGeneratedRecipe"
-                  class="flex-1 px-4 py-2.5 rounded-lg bg-morandi-accent text-white text-sm hover:opacity-90 transition-opacity"
-                >
-                  保存到我的食谱
-                </button>
-                <button
-                  @click="generateRecipe"
-                  :disabled="!generatePrompt.trim() || isGenerating"
-                  class="flex-1 px-4 py-2.5 rounded-lg border border-morandi-soft text-morandi-text text-sm hover:bg-morandi-soft transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  重新生成
-                </button>
+              <div class="r-foot">
+                <button class="save" @click="saveGeneratedRecipe"><Heart :size="13" />保存到我的食谱</button>
+                <button class="ghost" :disabled="!generatePrompt.trim() || isGenerating" @click="generateRecipe">重新炼制</button>
               </div>
             </div>
           </div>
@@ -183,11 +120,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { api } from '@/api'
-import { Lightbulb } from 'lucide-vue-next'
+import { Sparkles, X, Lightbulb, Flame, Heart } from 'lucide-vue-next'
 
 const props = defineProps<{
   modelValue: boolean
   personaTags: string[]
+  /** 由侧栏炼星炉预选的身份星域 */
+  initialPersona?: string
 }>()
 
 const emit = defineEmits<{
@@ -302,7 +241,6 @@ const saveGeneratedRecipe = async () => {
       }),
       source: 'generated'
     })
-    alert('保存成功')
     emit('update:modelValue', false)
     emit('generated')
     // 重置内部状态
@@ -312,36 +250,201 @@ const saveGeneratedRecipe = async () => {
     generatedRecipe.value = null
   } catch (e: any) {
     console.error('保存食谱失败', e)
-    alert('保存失败：' + (e?.response?.data?.message || e?.message || '未知错误'))
+    promptError.value = '保存失败：' + (e?.response?.data?.message || e?.message || '未知错误')
   }
 }
 
-// 弹窗打开时重置内部状态（避免上次残留）
+// 弹窗打开时重置内部状态（避免上次残留），并应用侧栏预选的身份星域
 watch(() => props.modelValue, (val) => {
   if (val) {
     generatePrompt.value = ''
     promptError.value = ''
-    selectedPersona.value = '普通用户'
+    selectedPersona.value = props.initialPersona?.trim() ? props.initialPersona : '普通用户'
     generatedRecipe.value = null
   }
 })
 </script>
 
 <style scoped>
-.dialog-fade {
-  animation: dialogFade 0.25s ease forwards;
-  will-change: opacity, transform;
+/* ===== AI 炼星 · 无遮罩浅色气泡弹窗 ===== */
+@keyframes rkPop {
+  0% { opacity: 0; transform: scale(.6) translateY(18px); }
+  62% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
 }
-@keyframes dialogFade {
-  from { opacity: 0; transform: scale(0.96) translateZ(0); }
-  to { opacity: 1; transform: scale(1) translateZ(0); }
+.rk-tel {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
 }
-.mask-layer {
-  will-change: backdrop-filter, opacity;
+.catcher { position: absolute; inset: 0; }
+.bubble {
+  position: relative; z-index: 10; width: min(620px, 100%); max-height: 84vh;
+  overflow: auto; color: #55503F;
+  background: #FDFAF3;
+  border: 1px solid rgba(184, 134, 59, .5); border-radius: 20px;
+  box-shadow: 0 30px 70px -28px rgba(46, 42, 34, .45);
+  animation: rkPop .5s cubic-bezier(.34, 1.56, .64, 1) backwards;
 }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-@media (max-width: 768px) {
-  .mask-layer { backdrop-filter: none !important; --tw-backdrop-blur: none !important; }
+
+/* 头部 */
+.bhead {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px 12px; border-bottom: 1px dashed rgba(184, 134, 59, .3);
+  position: sticky; top: 0; z-index: 2;
+  background: #FDFAF3;
+}
+.bcover {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; color: #B8863B;
+  background: radial-gradient(circle at 30% 22%, rgba(184, 134, 59, .18), transparent 70%),
+    linear-gradient(160deg, #F5EDDA, #EFE2C4);
+  border: 1px solid rgba(184, 134, 59, .4);
+  box-shadow: 0 0 14px rgba(184, 134, 59, .18);
+}
+.bt h4 { font-family: 'Noto Serif SC', serif; font-size: 16px; font-weight: 900; color: #2E2A22; letter-spacing: .05em; }
+.bt p { font-size: 10.5px; color: #847C63; margin-top: 3px; }
+.bclose {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid rgba(184, 134, 59, .4); background: none; color: #A08F6E;
+  display: flex; align-items: center; justify-content: center; transition: .25s; cursor: pointer;
+}
+.bclose:hover { color: #B8863B; border-color: #B8863B; transform: rotate(90deg); }
+
+/* 主体 */
+.bbody { padding: 14px 18px 18px; }
+.fld-lb { font-size: 10.5px; letter-spacing: .2em; color: #A0722F; margin: 4px 0 8px; }
+textarea {
+  width: 100%; resize: none; outline: none;
+  background: #F8F2E3; color: #55503F;
+  border: 1px solid rgba(184, 134, 59, .35); border-radius: 12px;
+  padding: 11px 13px; font-size: 12.5px; line-height: 1.8; font-family: inherit;
+  transition: .25s;
+}
+textarea:focus { border-color: #B8863B; box-shadow: 0 0 0 3px rgba(184, 134, 59, .12); background: #FDFAF3; }
+textarea.bad { border-color: #B5442E; }
+textarea::placeholder { color: #A08F6E; }
+
+.warn {
+  display: flex; align-items: flex-start; gap: 7px; margin-top: 9px;
+  padding: 9px 12px; border-radius: 10px; font-size: 11.5px; line-height: 1.7;
+  color: #8A6D3B; background: rgba(224, 176, 78, .1); border: 1px solid rgba(224, 176, 78, .45);
+}
+.warn svg { flex-shrink: 0; margin-top: 2px; }
+
+/* 身份星域芯片 */
+.fg-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.fg-chip {
+  font-size: 10.5px; padding: 3.5px 12px; border-radius: 99px; cursor: pointer;
+  border: 1px solid rgba(184, 134, 59, .35); background: rgba(184, 134, 59, .06);
+  color: #8a6d3b; transition: .25s; font-family: inherit;
+}
+.fg-chip:hover { color: #B8863B; border-color: #B8863B; }
+.fg-chip.on {
+  color: #14110B; background: linear-gradient(135deg, #E8B973, #B36B2A);
+  border-color: transparent; font-weight: 700;
+}
+
+.gold-btn {
+  margin-top: 14px; width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: none; border-radius: 11px; padding: 10px 0; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .08em; font-family: inherit;
+  color: #14110B; background: linear-gradient(135deg, #E8B973, #B36B2A);
+  transition: .25s; box-shadow: 0 8px 20px -8px rgba(184, 134, 59, .5);
+}
+.gold-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.gold-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.loading {
+  display: flex; align-items: center; gap: 11px; margin-top: 13px;
+  padding: 12px 14px; border-radius: 12px;
+  border: 1px dashed rgba(184, 134, 59, .35); background: rgba(184, 134, 59, .05);
+}
+.loading .lt { font-size: 12px; font-weight: 700; color: #2E2A22; }
+.loading .ld { font-size: 10.5px; color: #847C63; margin-top: 2px; }
+.spin-ring {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border: 2px solid rgba(184, 134, 59, .25); border-top-color: #B8863B;
+  border-radius: 50%; animation: rkSpin .8s linear infinite;
+}
+@keyframes rkSpin { to { transform: rotate(360deg); } }
+
+/* 炼成结果 */
+.result {
+  margin-top: 16px; padding: 14px; border-radius: 14px;
+  border: 1px solid rgba(184, 134, 59, .4);
+  background: linear-gradient(165deg, rgba(184, 134, 59, .1), rgba(184, 134, 59, .03));
+  animation: rkRise .5s ease backwards;
+}
+@keyframes rkRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.r-head { display: flex; gap: 11px; align-items: center; }
+.r-cover {
+  width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Noto Serif SC', serif; font-size: 19px; font-weight: 900; color: #B8863B;
+  background: radial-gradient(circle at 30% 22%, rgba(184, 134, 59, .18), transparent 70%),
+    linear-gradient(160deg, #F5EDDA, #EFE2C4);
+  border: 1px solid rgba(184, 134, 59, .4);
+  text-shadow: 0 2px 10px rgba(184, 134, 59, .3);
+}
+.r-tt h5 { font-family: 'Noto Serif SC', serif; font-size: 15px; font-weight: 900; color: #2E2A22; }
+.r-tt p { font-size: 10.8px; line-height: 1.7; color: #847C63; margin-top: 3px; }
+.r-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 9px; }
+.r-tags i {
+  font-style: normal; font-size: 9px; padding: 1.5px 8px; border-radius: 99px;
+  background: rgba(184, 134, 59, .1); color: #8a6d3b; border: 1px solid rgba(184, 134, 59, .28);
+}
+.r-sec { margin-top: 13px; }
+.r-sec h6 {
+  font-size: 10.5px; letter-spacing: .2em; color: #A0722F; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 7px;
+}
+.r-sec h6::before { content: ''; width: 14px; height: 1px; background: #B8863B; }
+.r-ings { display: flex; gap: 5px; flex-wrap: wrap; }
+.r-ings .ing {
+  font-style: normal; font-size: 10px; padding: 3px 10px; border-radius: 99px;
+  border: 1px solid rgba(184, 134, 59, .3); background: rgba(184, 134, 59, .06); color: #55503F;
+}
+.r-ings .db { font-style: normal; color: #5E8F5E; margin-left: 3px; font-size: 9px; }
+.r-ings .todo { font-style: normal; color: #A08F6E; margin-left: 3px; font-size: 9px; }
+.r-sec ol { list-style: none; counter-reset: gstp; }
+.r-sec ol li {
+  counter-increment: gstp; display: flex; gap: 9px;
+  font-size: 11.5px; line-height: 1.85; color: #55503F; padding: 4px 0;
+}
+.r-sec ol li::before {
+  content: counter(gstp, decimal-leading-zero);
+  font-family: 'Noto Serif SC', serif; font-size: 11px; font-weight: 900;
+  color: #B8863B; flex-shrink: 0; margin-top: 2px;
+}
+.r-ntr { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin-top: 13px; }
+.r-ntr .cell {
+  border: 1px solid rgba(184, 134, 59, .28); border-radius: 10px;
+  padding: 9px 4px; text-align: center; background: #F8F2E3;
+}
+.r-ntr .cell b { font-family: 'Noto Serif SC', serif; font-size: 16px; font-weight: 900; color: #B8863B; display: block; }
+.r-ntr .cell span { font-size: 8.5px; color: #847C63; letter-spacing: .08em; }
+.r-ntr .cell.mp b { color: #4A6FA5; }
+.r-ntr .cell.mf b { color: #C08A2D; }
+.r-ntr .cell.mc b { color: #5E8F5E; }
+.r-foot { display: flex; gap: 9px; margin-top: 14px; }
+.r-foot .save {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; border-radius: 11px; padding: 9.5px 0; cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: .08em; font-family: inherit;
+  color: #14110B; background: linear-gradient(135deg, #E8B973, #B36B2A); transition: .25s;
+}
+.r-foot .save:hover { filter: brightness(1.08); }
+.r-foot .ghost {
+  border: 1px solid rgba(184, 134, 59, .4); background: none; border-radius: 11px;
+  padding: 0 18px; font-size: 12px; color: #8a6d3b; transition: .25s; cursor: pointer; font-family: inherit;
+}
+.r-foot .ghost:hover:not(:disabled) { color: #B8863B; border-color: #B8863B; }
+.r-foot .ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 560px) {
+  .r-ntr { grid-template-columns: repeat(3, 1fr); }
 }
 </style>

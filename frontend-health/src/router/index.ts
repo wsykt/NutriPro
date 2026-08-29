@@ -14,22 +14,6 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
   { path: '/onboarding', name: 'Onboarding', component: () => import('@/views/Onboarding.vue'), meta: { requiresAuth: true } },
   { path: '/admin', name: 'Admin', component: () => import('@/views/Admin.vue'), meta: { requiresAuth: true } },
-  // ===== 预览路由（管理员流程演示 · 先预览后发布）=====
-  // 1) 主路由：管理员 iframe 内嵌 / 新标签页打开"按 funcType 预览"
-  //    payload 通过 sessionStorage 传递（父流程面板生成 token 前先写入）
-  {
-    path: '/admin/preview/:funcType',
-    name: 'AdminPreviewByType',
-    component: () => import('@/views/preview/PreviewerWrapper.vue'),
-    meta: { requiresAuth: false } // iframe/new-tab 时避免二次登录跳转
-  },
-  // 2) 匿名 open 路由：配合一次性 token tok=... 做 1:1 预览（5 分钟内一次性有效）
-  {
-    path: '/admin/preview/open/:id',
-    name: 'AdminPreviewOpen',
-    component: () => import('@/views/preview/PreviewerWrapper.vue'),
-    meta: { requiresAuth: false }
-  },
   {
     path: '/dashboard',
     name: 'Dashboard',
@@ -41,36 +25,51 @@ const routes: Array<RouteRecordRaw> = [
       // 首页（原 demo 命名，已更名 home；保留旧路径重定向兼容历史链接）
       { path: 'home', component: () => import('@/views/dashboard/DashboardDemo.vue') },
       { path: 'demo', redirect: '/dashboard/home' },
-      { path: 'profile', component: () => import('@/views/dashboard/Profile.vue') },
-      { path: 'food-input', component: () => import('@/views/dashboard/FoodInput.vue') },
-      { path: 'food-add', component: () => import('@/views/dashboard/FoodAdd.vue') },
+
+      // ===== 个人中心（Tab：个人资料 / 饮食偏好） =====
+      { path: 'profile', component: () => import('@/views/dashboard/ProfileTab.vue') },
+      { path: 'dietary-profile', redirect: { path: '/dashboard/profile', query: { tab: 'dietary' } } },
+
+      // ===== 家庭管理（Tab：成员关系 / 代录饮食） =====
+      { path: 'family', component: () => import('@/views/dashboard/FamilyManage.vue') },
+      { path: 'family-relation', redirect: { path: '/dashboard/family', query: { tab: 'relation' } } },
+      { path: 'family-input', redirect: { path: '/dashboard/family', query: { tab: 'input' } } },
+
+      // ===== 饮食记录（Tab：记录三餐 / 食物查询 / 自定义食物） =====
+      { path: 'food-input', component: () => import('@/views/dashboard/FoodInputTab.vue') },
+      { path: 'food-search', redirect: { path: '/dashboard/food-input', query: { tab: 'search' } } },
+      { path: 'food-add', redirect: { path: '/dashboard/food-input', query: { tab: 'add' } } },
       { path: 'nutrition', component: () => import('@/views/dashboard/Nutrition.vue') },
-      { path: 'food-search', component: () => import('@/views/dashboard/FoodSearch.vue') },
-      { path: 'family-input', component: () => import('@/views/dashboard/FamilyFoodInput.vue') },
-      { path: 'ai-consult', component: () => import('@/views/dashboard/AiConsult.vue') },
-      { path: 'training-plan', component: () => import('@/views/dashboard/TrainingPlan.vue') },
-      // 已合并：AI对话助手 → AI健康咨询
-      { path: 'ai-chat', redirect: '/dashboard/ai-consult' },
-      // 已合并：功能中心 → 个人中心
-      { path: 'feature-hub', redirect: '/dashboard/profile' },
-      // 已合并：健康教育 → 科普文章
-      { path: 'health-education', redirect: '/dashboard/articles' },
-      { path: 'family-relation', component: () => import('@/views/dashboard/FamilyRelation.vue') },
-      { path: 'metrics-history', component: () => import('@/views/dashboard/MetricsHistory.vue') },
-      { path: 'health-history', component: () => import('@/views/dashboard/HealthHistory.vue') },
-      // 已合并：菜谱搜索 → 菜谱库
-      { path: 'recipe-search', redirect: '/dashboard/recipe-library' },
-      { path: 'recipe-detail/:id', component: () => import('@/views/dashboard/RecipeDetail.vue') },
-      { path: 'recipe-library', component: () => import('@/views/dashboard/RecipeLibrary.vue') },
-      { path: 'dietary-profile', component: () => import('@/views/dashboard/DietaryProfile.vue') },
+
+      // ===== 健康档案（Tab：身体指标 / 健康记录） =====
+      { path: 'health-archive', component: () => import('@/views/dashboard/HealthArchive.vue') },
+      { path: 'metrics-history', redirect: { path: '/dashboard/health-archive', query: { tab: 'metrics' } } },
+      { path: 'health-history', redirect: { path: '/dashboard/health-archive', query: { tab: 'records' } } },
+
+      // ===== 健康监测 =====
       { path: 'health-report', component: () => import('@/views/dashboard/HealthReport.vue') },
-      { path: 'muscle-chart', component: () => import('@/views/dashboard/MuscleChart.vue') },
+      // 运动管理（Tab：围度图表 / 训练计划）
+      { path: 'muscle-chart', component: () => import('@/views/dashboard/MuscleChartTab.vue') },
+      { path: 'training-plan', redirect: { path: '/dashboard/muscle-chart', query: { tab: 'training' } } },
+
+      // ===== 知识中心 =====
       { path: 'articles', component: () => import('@/views/dashboard/Articles.vue') },
       { path: 'article-detail/:id', component: () => import('@/views/dashboard/ArticleDetail.vue') },
+      { path: 'ai-consult', component: () => import('@/views/dashboard/AiConsult.vue') },
+
+      // ===== 菜谱美食 =====
+      { path: 'recipe-library', component: () => import('@/views/dashboard/RecipeLibrary.vue') },
+      { path: 'recipe-detail/:id', component: () => import('@/views/dashboard/RecipeDetail.vue') },
+
       // 开发辅助页面（不在菜单中展示）
       { path: 'icon-gallery', component: () => import('@/views/dashboard/IconGallery.vue') },
-      // 已移除：社区交流 → 个人中心
-      { path: 'community', redirect: '/dashboard/profile' }
+
+      // ===== 已合并的历史 redirect =====
+      { path: 'ai-chat', redirect: '/dashboard/ai-consult' },
+      { path: 'feature-hub', redirect: '/dashboard/profile' },
+      { path: 'health-education', redirect: '/dashboard/articles' },
+      { path: 'recipe-search', redirect: '/dashboard/recipe-library' },
+      { path: 'community', redirect: '/dashboard/profile' },
     ]
   }
 ]

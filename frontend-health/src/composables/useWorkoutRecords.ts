@@ -1,11 +1,15 @@
 import { ref, computed } from 'vue'
 import { setCache, getCache } from '@/utils/storage'
+import { api } from '@/api'
 
 /**
  * 训练记录共享存储 —— MuscleChart（运动管理）保存记录，
  * TrainingPlan（训练计划）读取并展示，实现两个页面间的数据流通。
  *
- * 存储位置：localStorage（key: health_workout_records）
+ * 数据来源：
+ * 1. 后端 /exercise/records（首屏异步拉取，含种子数据，作为可靠来源）
+ * 2. localStorage（key: health_workout_records）作为本地缓存
+ * 两者按 id 去重合并，避免历史/种子数据因 localStorage 过期而消失。
  */
 
 export type Intensity = 'low' | 'medium' | 'high'
@@ -35,11 +39,60 @@ const FULL_KEY = PREFIX + STORAGE_KEY
 const records = ref<WorkoutRecord[]>([])
 
 let loaded = false
+let remoteLoaded = false
+
+/** 将后端 ExerciseRecord 映射为前端 WorkoutRecord */
+function mapRemoteRecord(backendRecord: any): WorkoutRecord | null {
+  const type = String(backendRecord?.exerciseType ?? backendRecord?.exercise_type ?? '').trim()
+  const date = String(backendRecord?.recordDate ?? backendRecord?.record_date ?? '').trim()
+  if (!type || !date) return null
+  // 按运动类型归类（种子数据以有氧为主）
+  const cardio = ['跑', '走', '游泳', '骑行', '骑自行车', '跳绳', '徒步', '爬山', '舞蹈', '太极', '有氧']
+  const strength = ['力量', '举重', '深蹲', '卧推', '划船']
+  const category = cardio.some(k => type.includes(k)) ? '有氧'
+    : strength.some(k => type.includes(k)) ? '力量' : type
+  return {
+    id: `be-${backendRecord.id}`,
+    exerciseId: Number(backendRecord.exerciseId ?? 0) || 0,
+    exerciseName: type,
+    muscleGroup: category,
+    category,
+    date,
+    duration: Number(backendRecord.durationMin ?? backendRecord.duration_min ?? 0) || 0,
+    sets: Number(backendRecord.sets ?? 1) || 1,
+    reps: Number(backendRecord.reps ?? 0) || 0,
+    weight: Number(backendRecord.weight ?? 0) || 0,
+    intensity: (backendRecord.intensity as Intensity) || 'medium',
+    calories: Number(backendRecord.caloriesBurned ?? backendRecord.calories_burned ?? 0) || 0,
+    createdAt: backendRecord.createdAt ?? backendRecord.created_at ?? new Date().toISOString()
+  }
+}
+
+/** 从后端拉取运动记录（只执行一次），与本地记录按 id 去重合并 */
+function hydrateFromBackend() {
+  if (remoteLoaded || typeof window === 'undefined') { remoteLoaded = true; return }
+  remoteLoaded = true
+  api.exercise.getRecords()
+    .then((raw: any) => {
+      const list = Array.isArray(raw) ? raw : raw?.data
+      if (!Array.isArray(list) || list.length === 0) return
+      const remote = list.map(mapRemoteRecord).filter(Boolean) as WorkoutRecord[]
+      if (remote.length === 0) return
+      const byId = new Map<string, WorkoutRecord>()
+      records.value.forEach(r => byId.set(r.id, r))
+      remote.forEach(r => { if (!byId.has(r.id)) byId.set(r.id, r) })
+      records.value = Array.from(byId.values())
+      persist()
+    })
+    .catch(() => { /* 后端不可用时回退到本地缓存 */ })
+}
+
 function load() {
   if (loaded) return
   loaded = true
   const cached = getCache<WorkoutRecord[]>(STORAGE_KEY)
   if (cached && Array.isArray(cached)) records.value = cached
+  hydrateFromBackend()
 }
 
 function persist() {

@@ -6,7 +6,7 @@
       <p class="text-morandi-lightText text-xs mb-4">
         可能是预览令牌已过期，请从管理员流程演示页重新点击【预览】按钮。
       </p>
-      <button @click="() => window.close()" class="px-4 py-1.5 text-sm rounded-lg bg-morandi-accent text-white hover:bg-morandi-accent/90">
+      <button @click="closePreview" class="px-4 py-1.5 text-sm rounded-lg bg-morandi-accent text-white hover:bg-morandi-accent/90">
         关闭页面
       </button>
     </div>
@@ -64,6 +64,10 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { showTopBar: true })
 
 const emit = defineEmits<{ (e: 'loaded', snap: any): void }>()
+
+function closePreview() {
+  window.close()
+}
 
 const route = useRoute()
 const loading = ref(false)

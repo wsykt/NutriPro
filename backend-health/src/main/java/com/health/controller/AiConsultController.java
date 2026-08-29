@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.health.config.RestClientConfig;
 import com.health.dto.ApiResponse;
 import com.health.entity.User;
-import com.health.repository.UserRepository;
 import com.health.service.AiChatClientService;
 import com.health.service.AiConsultService;
 import com.health.service.AiContentService;
 import com.health.service.AiExerciseService;
 import com.health.service.AiNutritionService;
 import com.health.service.FamilyRelationService;
+import com.health.service.ProfileService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -28,12 +28,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/ai")
 @CrossOrigin
 public class AiConsultController {
 
-    private final UserRepository userRepository;
+    private final ProfileService profileService;
     private final FamilyRelationService familyRelationService;
     private final AiChatClientService aiChatClientService;
     private final AiConsultService aiConsultService;
@@ -44,7 +47,7 @@ public class AiConsultController {
     private final RestTemplate aiRestTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AiConsultController(UserRepository userRepository,
+    public AiConsultController(ProfileService profileService,
                                FamilyRelationService familyRelationService,
                                AiChatClientService aiChatClientService,
                                AiConsultService aiConsultService,
@@ -53,7 +56,7 @@ public class AiConsultController {
                                AiContentService aiContentService,
                                RestClientConfig restClientConfig,
                                @Qualifier("aiRestTemplate") RestTemplate aiRestTemplate) {
-        this.userRepository = userRepository;
+        this.profileService = profileService;
         this.familyRelationService = familyRelationService;
         this.aiChatClientService = aiChatClientService;
         this.aiConsultService = aiConsultService;
@@ -70,7 +73,7 @@ public class AiConsultController {
             return (User) authentication.getPrincipal();
         }
         try {
-            return userRepository.findByUsername(authentication.getName()).orElse(null);
+            return profileService.findByUsername(authentication.getName());
         } catch (Exception e) {
             return null;
         }
@@ -130,7 +133,9 @@ public class AiConsultController {
         if (current == null || current.getUserId() == null) {
             try {
                 emitter.send(SseEmitter.event().name("error").data("{\"message\":\"请先登录\"}"));
-            } catch (Exception ignore) { }
+            } catch (Exception e) {
+                log.warn("SSE 发送登录错误事件失败: {}", e.getMessage());
+            }
             emitter.complete();
             return emitter;
         }
@@ -139,7 +144,9 @@ public class AiConsultController {
         if (targetId == -1) {
             try {
                 emitter.send(SseEmitter.event().name("error").data("{\"message\":\"无权操作该用户，请先确认亲属关系\"}"));
-            } catch (Exception ignore) { }
+            } catch (Exception e) {
+                log.warn("SSE 发送越权错误事件失败: {}", e.getMessage());
+            }
             emitter.complete();
             return emitter;
         }
@@ -506,7 +513,11 @@ public class AiConsultController {
         }
         int topK = 3;
         if (body != null && body.get("top_k") != null) {
-            try { topK = Integer.parseInt(String.valueOf(body.get("top_k"))); } catch (Exception ignore) { }
+            try {
+                topK = Integer.parseInt(String.valueOf(body.get("top_k")));
+            } catch (Exception e) {
+                log.debug("top_k 参数解析失败，使用默认值 {}: {}", topK, e.getMessage());
+            }
         }
         if (topK < 1 || topK > 10) topK = 3;
         String crowd = body != null ? String.valueOf(body.getOrDefault("target_crowd", "")) : "";

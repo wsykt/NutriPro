@@ -15,12 +15,14 @@ NLU 自然语言饮食解析引擎
 
 import json
 import re
-import sqlite3
 import os
 from typing import Dict, List, Optional, Tuple
 
 # 从共享常量模块导入单位换算表
 from constants.food_units import UNIT_TO_GRAMS, ITEM_GRAM_PER_UNIT
+
+# 统一 SQLite 连接（WAL + busy_timeout）
+from utils.sqlite_utils import get_conn
 
 # ==============================================================
 # 数据库路径
@@ -52,7 +54,7 @@ def _load_food_db():
         _food_index = {}
         return
 
-    conn = sqlite3.connect(db_path)
+    conn = get_conn(db_path)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT food_name, food_category, calorie, protein, carb, fat,

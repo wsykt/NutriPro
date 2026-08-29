@@ -43,6 +43,12 @@ public class ProfileService {
         return userRepository.findById(userId).orElse(null);
     }
 
+    /** 按用户名查用户（Controller 层提取当前登录用户用），不存在返回 null。 */
+    public User findByUsername(String username) {
+        if (username == null || username.trim().isEmpty()) return null;
+        return userRepository.findByUsername(username).orElse(null);
+    }
+
     /**
      * 更新用户资料，并把今天的身高/体重/年龄/BMR 快照到身体指标历史表。
      * 返回值 Map 中包含 updatedUser 和 snapshotHistory。

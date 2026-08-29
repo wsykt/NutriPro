@@ -1,195 +1,246 @@
 <template>
   <div class="dashboard-demo min-h-full relative">
-    <div class="max-w-6xl mx-auto relative z-10">
+    <div class="dk-wrap relative z-10">
 
-      <!-- ===== 问候区 ===== -->
-      <div class="mb-8 pt-4 flex items-center gap-4">
-        <div class="greet-mark w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0"
-             style="background: linear-gradient(135deg, #2F5D4A 0%, #1F4636 100%); box-shadow: 0 10px 24px rgba(47,93,74,0.25)">
-          <Leaf class="w-6 h-6" />
+      <!-- ===== 墨玉问候横幅（深壳 · 方案E 观星台背景） ===== -->
+      <div class="dk-hero" ref="heroRef">
+        <!-- 观星台背景层：星盘刻线 / 星河微尘 / 噪点肌理 / 掠面光泽 / 暗角 -->
+        <div class="dk-hero-astro" aria-hidden="true">
+          <svg width="620" height="300" viewBox="0 0 620 300">
+            <g stroke="rgba(217,162,74,.2)" stroke-width="1">
+              <line
+                v-for="(t, i) in heroAstroTicks" :key="'t' + i"
+                :x1="t.x1" :y1="t.y1" :x2="t.x2" :y2="t.y2" :opacity="t.o"
+              />
+            </g>
+            <circle cx="310" cy="150" r="118" fill="none" stroke="rgba(217,162,74,.12)" stroke-width="1" />
+            <circle cx="310" cy="150" r="96" fill="none" stroke="rgba(217,162,74,.09)" stroke-width="1" stroke-dasharray="2 6" />
+            <circle cx="310" cy="150" r="142" fill="none" stroke="rgba(217,162,74,.07)" stroke-width="1" />
+            <g class="dk-hero-astro-rot">
+              <circle cx="310" cy="150" r="108" fill="none" stroke="rgba(217,162,74,.22)" stroke-width="1" stroke-dasharray="3 9" />
+              <circle
+                v-for="(p, i) in heroAstroPlanets" :key="'p' + i"
+                :cx="p.cx" :cy="p.cy" :r="p.r" :fill="'rgba(232,185,115,' + p.o + ')'"
+              />
+            </g>
+          </svg>
         </div>
-        <div>
-          <h1 class="text-[28px] font-bold text-slate-800 tracking-tight leading-tight" style="font-family: 'Noto Serif SC', serif">
-            <span class="text-animate-char" v-for="(c, i) in greetChars" :key="i" :style="{ animationDelay: (i * 0.05) + 's' }">{{ c }}</span>
-          </h1>
-          <p class="text-sm text-slate-500 mt-1 text-animate-fade" style="animation-delay: 0.8s">{{ todayText }}</p>
+        <div class="dk-hero-stars" aria-hidden="true">
+          <i v-for="(s, i) in heroStars" :key="i" :class="{ big: s.big }" :style="s.style"></i>
+        </div>
+        <div class="dk-hero-grain" aria-hidden="true"></div>
+        <div class="dk-hero-sheen" aria-hidden="true"></div>
+        <div class="dk-hero-vign" aria-hidden="true"></div>
+        <div class="dk-hero-main">
+          <div class="dk-eyebrow" data-anim>NutriPro · Health Desk</div>
+          <h1 class="dk-hello"><span class="dk-char" v-for="(c, i) in greetChars" :key="i">{{ c }}</span></h1>
+          <p class="dk-hello-sub" data-anim>{{ todayText }}</p>
+        </div>
+        <!-- 方案 F · 数据恒星：中心热量环 + 5 分组轨道导航 -->
+        <StarOrbit :percent="caloriePercent" />
+        <div class="dk-datecard" data-anim>
+          <span class="num">{{ todayDateNum }}</span>
+          <span class="lab"><span>{{ monthLab }}</span><span>本周第 {{ weekDayIdx }} 天打卡</span></span>
         </div>
       </div>
 
-      <!-- ===== 顶部双区：左(摄入+体重) / 右(科普+待办) ===== -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <!-- ===== 方案 F · 指标速览行（4 卡铺满一行，衔接深壳与浅芯） ===== -->
+      <div class="stat-row" ref="statRowRef">
+        <button class="stat-card" data-anim @click="go('/dashboard/food-input')">
+          <span class="stat-label"><Flame class="w-3.5 h-3.5" style="color:#E07A3F" /> 今日摄入</span>
+          <span class="stat-value">{{ todayKcal || '—' }}<i>kcal</i></span>
+          <span class="stat-sub">早 {{ mealKcal.breakfast }} · 午 {{ mealKcal.lunch }} · 晚 {{ mealKcal.dinner }} kcal</span>
+          <span class="stat-bar"><i :style="{ width: caloriePercent + '%', background: 'linear-gradient(90deg,#E07A3F,#D9A24A)' }"></i></span>
+        </button>
+        <button class="stat-card" data-anim @click="go('/dashboard/health-archive?tab=metrics')">
+          <span class="stat-label"><Activity class="w-3.5 h-3.5" style="color:#B8863B" /> BMI</span>
+          <span class="stat-value" :class="bmiClass">{{ bmi || '—' }}</span>
+          <span class="stat-sub">{{ bmiLabel }}</span>
+          <span class="stat-bar"><i :style="{ width: bmiBarPercent + '%', background: 'linear-gradient(90deg,#7FAE8E,#B8CE9E)' }"></i></span>
+        </button>
+        <button class="stat-card" data-anim @click="go('/dashboard/health-archive?tab=metrics')">
+          <span class="stat-label"><Scale class="w-3.5 h-3.5" style="color:#6C8FBE" /> 当前体重</span>
+          <span class="stat-value">{{ currentWeight || '—' }}<i>kg</i></span>
+          <span class="stat-sub" :style="{ color: weightWeekly < 0 ? '#4E8D6E' : weightWeekly > 0 ? '#B36B2A' : 'rgba(42,38,32,0.45)' }">{{ weightWeeklyText }}</span>
+          <span class="stat-bar"><i :style="{ width: '100%', background: 'linear-gradient(90deg,#6C8FBE,#8FA8C8)', opacity: currentWeight ? 0.35 : 0.12 }"></i></span>
+        </button>
+        <button class="stat-card" data-anim @click="go('/dashboard/health-report')">
+          <span class="stat-label"><FileText class="w-3.5 h-3.5" style="color:#B8863B" /> 健康报告</span>
+          <span class="stat-value">{{ reportCount }}<i>份</i></span>
+          <span class="stat-sub">{{ reportSub }}</span>
+          <span class="stat-bar"><i :style="{ width: reportCount ? '100%' : '8%', background: 'linear-gradient(90deg,#B8863B,#D9A24A)', opacity: reportCount ? 0.5 : 0.2 }"></i></span>
+        </button>
+      </div>
 
-        <!-- 左侧大卡：今日摄入 + 体重趋势（合并） -->
-        <div class="col-span-12 lg:col-span-7 feature-panel rounded-2xl p-6 relative overflow-visible blur-fade-card flex flex-col h-full" style="--bf-delay:0s">
+      <!-- ===== 暖纸浅芯面板（浅色工作区） ===== -->
+      <div class="dk-sheet" ref="sheetRef">
+
+      <!-- ===== 方案 H · Bento 网格 ===== -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+        <!-- 大格：体重趋势（含预测） -->
+        <div class="md:col-span-7 feature-panel rounded-2xl p-6 relative overflow-visible flex flex-col" data-anim>
           <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><Activity class="w-44 h-44" /></div>
-          <!-- 今日摄入（flex-1，和体重各占一半） -->
-          <div class="flex-1 min-h-0 flex flex-col relative">
-            <!-- 右下角火焰背景（和卡片统一） -->
-            <div class="absolute -right-4 -bottom-4 pointer-events-none opacity-[0.05]"><Flame class="w-40 h-40" /></div>
-            <div class="flex items-center justify-between mb-4 shrink-0">
-              <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
-                <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#E07A3F15;color:#E07A3F"><Flame class="w-4 h-4" /></span>
-                今日摄入
-              </h3>
-              <button @click="go('/dashboard/food-input')" class="text-xs text-morandi-accent hover:underline flex items-center gap-1">记录饮食 <ArrowRight class="w-3 h-3" /></button>
-            </div>
-            <div class="flex items-stretch justify-center gap-5 flex-1 pb-3">
-              <!-- 大圈：热量（红色，独立磨砂玻璃背景） -->
-              <div class="ring-tile flex flex-col items-center justify-center gap-1.5 shrink-0 rounded-2xl px-4 py-3 self-center"
-                   style="background:rgba(255,255,255,0.35);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.6);box-shadow:0 2px 12px rgba(31,42,36,0.05)">
-                <div class="relative w-28 h-28 shrink-0">
-                  <svg viewBox="0 0 112 112" class="w-28 h-28 -rotate-90">
-                    <circle cx="56" cy="56" r="46" fill="none" stroke="rgba(224,82,82,0.12)" stroke-width="10"/>
-                    <circle cx="56" cy="56" r="46" fill="none" :stroke="ringData.heat.color" stroke-width="10" stroke-linecap="round"
-                          :stroke-dasharray="(ringData.heat.percent * 289.0 / 100) + ' 289.0'"/>
-                  </svg>
-                  <div class="absolute inset-0 flex items-center justify-center flex-col">
-                    <span class="text-[20px] font-bold text-slate-800 tabular-nums" style="font-family: 'Noto Serif SC', serif">{{ ringData.heat.display }}</span>
-                    <span class="text-[10px] text-slate-400">kcal</span>
-                  </div>
-                </div>
-                <span class="text-xs font-medium text-slate-600">热量</span>
-                <span class="text-[10px] text-slate-400 tabular-nums">{{ ringData.heat.percent }}%</span>
-              </div>
-              <!-- 4 个小圈：各带独立磨砂玻璃小方块背景 -->
-              <div class="grid grid-cols-2 gap-x-3 gap-y-2 flex-1 content-center">
-                <div v-for="ring in ringData.small" :key="ring.key"
-                     class="ring-tile flex flex-col items-center justify-center gap-0.5 rounded-xl py-2"
-                     style="background:rgba(255,255,255,0.3);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.55);box-shadow:0 2px 10px rgba(31,42,36,0.04)">
-                  <div class="relative w-14 h-14 shrink-0">
-                    <svg viewBox="0 0 56 56" class="w-14 h-14 -rotate-90">
-                      <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(0,0,0,0.05)" stroke-width="6"/>
-                      <circle cx="28" cy="28" r="22" fill="none" :stroke="ring.color" stroke-width="6" stroke-linecap="round"
-                            :stroke-dasharray="(ring.percent * 138.2 / 100) + ' 138.2'"/>
-                    </svg>
-                    <div class="absolute inset-0 flex items-center justify-center flex-col">
-                      <span class="text-[11px] font-bold text-slate-700 tabular-nums">{{ ring.display }}</span>
-                    </div>
-                  </div>
-                  <span class="text-[11px] text-slate-600">{{ ring.label }}</span>
-                  <span class="text-[10px] text-slate-400 tabular-nums">{{ ring.percent }}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- 分隔线（绝对居中虚线，不占 flex 空间，对齐右卡缝隙） -->
-          <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 border-t border-dashed pointer-events-none" style="border-color:#E7E2D8"></div>
-          <!-- 体重趋势（flex-1，和今日摄入各占一半） -->
-          <div class="flex-1 min-h-0 flex flex-col justify-center pt-3">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
-                <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#2F5D4A15;color:#2F5D4A"><TrendingDown class="w-4 h-4" /></span>
-                体重趋势
-              </h3>
+          <div class="flex items-center justify-between mb-3 relative z-10 flex-wrap gap-y-2">
+            <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
+              <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#B8863B15;color:#B8863B"><TrendingDown class="w-4 h-4" /></span>
+              体重趋势
+            </h3>
+            <div class="flex items-center gap-2">
+              <span class="legend-dot" style="background:#B8863B"></span>
+              <span class="text-[10px] text-slate-400 mr-1.5">历史</span>
+              <span class="legend-dot" style="background:#E07A3F"></span>
+              <span class="text-[10px] text-slate-400 mr-2">预测</span>
               <span class="text-xs px-2 py-1 rounded-full" :class="weightChangeTrend === 'down' ? 'bg-emerald-50 text-emerald-600' : weightChangeTrend === 'up' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'">{{ weightChangeText }}</span>
             </div>
-            <!-- 体重趋势折线图（vue-echarts，autoresize 自动监听尺寸） -->
-            <v-chart :option="weightChartOption" autoresize class="w-full" style="height:148px" />
-            <!-- 指标 3 栏：体重 / BMI / BMR -->
-            <div class="mt-3 grid grid-cols-3 gap-3 relative">
-              <div class="bg-slate-50 rounded-xl py-2 text-center">
-                <div class="text-[10px] text-slate-400">体重</div>
-                <div class="font-bold text-slate-800 tabular-nums text-sm">{{ currentWeight || '—' }}<span class="text-[9px] font-normal text-slate-400"> kg</span></div>
+          </div>
+          <!-- 体重趋势折线图（vue-echarts：历史实线 + 预测虚线） -->
+          <div class="relative z-10 flex-1 min-h-[280px]">
+            <v-chart :option="weightChartOption" autoresize class="w-full h-full" />
+          </div>
+          <!-- 指标 3 栏：体重 / BMI / BMR -->
+          <div class="mt-3 grid grid-cols-3 gap-3 relative z-10">
+            <div class="bg-slate-50 rounded-xl py-2 text-center">
+              <div class="text-[10px] text-slate-400">体重</div>
+              <div class="font-bold text-slate-800 tabular-nums text-sm">{{ currentWeight || '—' }}<span class="text-[9px] font-normal text-slate-400"> kg</span></div>
+            </div>
+            <!-- BMI：绿字 + 悬停弹窗（向上弹出，利用折线图区域空白避免底部导航遮挡） -->
+            <div class="metric-tip relative bg-slate-50 rounded-xl py-2 text-center cursor-help">
+              <div class="text-[10px] font-semibold" style="color:#B8863B">BMI</div>
+              <div class="font-bold text-slate-800 tabular-nums text-sm" :class="bmiClass">{{ bmi || '—' }}</div>
+              <div class="metric-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl text-left z-50 hidden" style="background:#fff;box-shadow:0 10px 30px rgba(90,70,40,0.18);border:1px solid rgba(184,134,59,0.2)">
+                <div class="text-xs font-semibold text-slate-800 mb-1">BMI 身体质量指数</div>
+                <div class="text-[11px] text-slate-500 leading-relaxed mb-1.5">衡量体重与身高关系的指标，用于评估体重是否在健康范围。</div>
+                <div class="text-[11px] text-slate-600 font-medium mb-1">公式</div>
+                <div class="text-[10px] text-slate-500 leading-relaxed">BMI = 体重(kg) ÷ 身高(m)²</div>
+                <div class="text-[10px] text-slate-500 leading-relaxed mt-1">18.5–23.9 正常 · 24–27.9 超重 · ≥28 肥胖</div>
               </div>
-              <!-- BMI：绿字 + 悬停弹窗（向上弹出，利用折线图区域空白避免底部导航遮挡） -->
-              <div class="metric-tip relative bg-slate-50 rounded-xl py-2 text-center cursor-help">
-                <div class="text-[10px] font-semibold" style="color:#2F5D4A">BMI</div>
-                <div class="font-bold text-slate-800 tabular-nums text-sm" :class="bmiClass">{{ bmi || '—' }}</div>
-                <div class="metric-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl text-left z-50 hidden" style="background:#fff;box-shadow:0 10px 30px rgba(31,42,36,0.15);border:1px solid #F1EDE4">
-                  <div class="text-xs font-semibold text-slate-800 mb-1">BMI 身体质量指数</div>
-                  <div class="text-[11px] text-slate-500 leading-relaxed mb-1.5">衡量体重与身高关系的指标，用于评估体重是否在健康范围。</div>
-                  <div class="text-[11px] text-slate-600 font-medium mb-1">公式</div>
-                  <div class="text-[10px] text-slate-500 leading-relaxed">BMI = 体重(kg) ÷ 身高(m)²</div>
-                  <div class="text-[10px] text-slate-500 leading-relaxed mt-1">18.5–23.9 正常 · 24–27.9 超重 · ≥28 肥胖</div>
-                </div>
-              </div>
-              <!-- BMR：绿字 + 悬停弹窗（向上弹出，折线图 148px 空白足够承载 w-56 内容） -->
-              <div class="metric-tip relative bg-slate-50 rounded-xl py-2 text-center cursor-help">
-                <div class="text-[10px] font-semibold" style="color:#2F5D4A">BMR</div>
-                <div class="font-bold text-slate-800 tabular-nums text-sm">{{ bmr || '—' }}<span class="text-[9px] font-normal text-slate-400"> kcal</span></div>
-                <div class="metric-tooltip absolute bottom-full right-0 mb-2 w-56 p-3 rounded-xl text-left z-50 hidden" style="background:#fff;box-shadow:0 10px 30px rgba(31,42,36,0.15);border:1px solid #F1EDE4">
-                  <div class="text-xs font-semibold text-slate-800 mb-1">BMR 基础代谢率</div>
-                  <div class="text-[11px] text-slate-500 leading-relaxed mb-1.5">身体静息时维持生命所需的热量，是计算每日推荐摄入的基准。</div>
-                  <div class="text-[11px] text-slate-600 font-medium mb-1">公式（Mifflin-St Jeor）</div>
-                  <div class="text-[10px] text-slate-500 leading-relaxed">男性：10×体重 + 6.25×身高 − 5×年龄 + 5<br/>女性：10×体重 + 6.25×身高 − 5×年龄 − 161</div>
-                  <div class="text-[11px] text-slate-600 font-medium mt-1.5 mb-0.5">与推荐摄入的关系</div>
-                  <div class="text-[10px] text-slate-500 leading-relaxed">推荐摄入 = BMR × 活动系数（久坐 1.2 / 轻度 1.375 / 中度 1.55）</div>
-                </div>
+            </div>
+            <!-- BMR：绿字 + 悬停弹窗（向上弹出，折线图空白足够承载 w-56 内容） -->
+            <div class="metric-tip relative bg-slate-50 rounded-xl py-2 text-center cursor-help">
+              <div class="text-[10px] font-semibold" style="color:#B8863B">BMR</div>
+              <div class="font-bold text-slate-800 tabular-nums text-sm">{{ bmr || '—' }}<span class="text-[9px] font-normal text-slate-400"> kcal</span></div>
+              <div class="metric-tooltip absolute bottom-full right-0 mb-2 w-56 p-3 rounded-xl text-left z-50 hidden" style="background:#fff;box-shadow:0 10px 30px rgba(90,70,40,0.18);border:1px solid rgba(184,134,59,0.2)">
+                <div class="text-xs font-semibold text-slate-800 mb-1">BMR 基础代谢率</div>
+                <div class="text-[11px] text-slate-500 leading-relaxed mb-1.5">身体静息时维持生命所需的热量，是计算每日推荐摄入的基准。</div>
+                <div class="text-[11px] text-slate-600 font-medium mb-1">公式（Mifflin-St Jeor）</div>
+                <div class="text-[10px] text-slate-500 leading-relaxed">男性：10×体重 + 6.25×身高 − 5×年龄 + 5<br/>女性：10×体重 + 6.25×身高 − 5×年龄 − 161</div>
+                <div class="text-[11px] text-slate-600 font-medium mt-1.5 mb-0.5">与推荐摄入的关系</div>
+                <div class="text-[10px] text-slate-500 leading-relaxed">推荐摄入 = BMR × 活动系数（久坐 1.2 / 轻度 1.375 / 中度 1.55）</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 右侧：科普文章 + 今日待办 -->
-        <div class="col-span-12 lg:col-span-5 space-y-5 flex flex-col">
-
-          <!-- 科普文章展示 -->
-          <div class="feature-panel rounded-2xl p-6 relative overflow-hidden blur-fade-card flex-1" style="--bf-delay:0.12s">
-            <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><BookOpen class="w-40 h-40" /></div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
-                <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#60a5fa15;color:#60a5fa"><BookOpen class="w-4 h-4" /></span>
-                科普文章
-              </h3>
-              <button @click="go('/dashboard/articles')" class="text-xs text-morandi-accent hover:underline flex items-center gap-1">更多 <ArrowRight class="w-3 h-3" /></button>
-            </div>
-            <!-- 人群筛选 -->
-            <div class="flex items-center gap-1.5 mb-3 flex-wrap">
-              <span class="text-[11px] text-slate-400 whitespace-nowrap">人群</span>
-              <button
-                v-for="af in articleAudienceFilters" :key="af.key"
-                @click="articleAudience = af.key"
-                class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap"
-                :class="articleAudience === af.key ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'"
-                :style="articleAudience === af.key ? { background: '#60a5fa' } : {}"
-              >{{ af.label }}</button>
-            </div>
-            <!-- 文章窄条列表（可滚动） -->
-            <div class="article-scroll space-y-2 max-h-[240px] overflow-y-auto pr-1">
-              <div v-for="(art, i) in filteredArticles" :key="i"
-                   @click="go('/dashboard/articles')"
-                   class="article-row group relative flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-morandi-accent/30 hover:bg-white transition-all cursor-pointer overflow-hidden">
-                <!-- 悬停蓝色光条（从右侧滑入，仅色带无文字） -->
-                <div class="article-expand absolute right-0 top-0 bottom-0 w-0 overflow-hidden opacity-0 transition-all duration-300"
-                     style="background:linear-gradient(90deg,transparent 0%,rgba(96,165,250,0.08) 45%,rgba(96,165,250,0.16) 100%);border-left:2px solid rgba(96,165,250,0.45)"></div>
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:#60a5fa15;color:#60a5fa">
-                  <Newspaper class="w-4 h-4" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-[13px] font-medium text-slate-700 truncate">{{ art.title }}</div>
-                  <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                    <span v-if="art.audience" class="px-1.5 py-px rounded-full" style="background:#60a5fa12;color:#60a5fa">{{ art.audience }}</span>
-                    <span class="truncate">{{ art.summary || '点击阅读' }}</span>
-                  </div>
-                </div>
-                <ArrowRight class="w-3.5 h-3.5 text-slate-300 shrink-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-blue-500" />
-              </div>
-              <div v-if="!filteredArticles.length" class="text-center py-4 text-xs text-slate-400">该人群暂无文章</div>
-            </div>
-          </div>
-          <!-- 今日待办 -->
-          <div class="feature-panel rounded-2xl p-6 relative overflow-hidden blur-fade-card flex-1" style="--bf-delay:0.24s">
-            <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><CheckCircle2 class="w-40 h-40" /></div>
-            <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2 text-[15px]">
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#E07A3F15;color:#E07A3F"><CheckCircle2 class="w-4 h-4" /></span>
-              今日待办
+        <!-- 营养素速览格 -->
+        <div class="md:col-span-5 feature-panel rounded-2xl p-6 relative overflow-hidden flex flex-col" data-anim>
+          <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><PieChart class="w-40 h-40" /></div>
+          <div class="flex items-center justify-between mb-4 relative z-10">
+            <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
+              <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#6C8FBE15;color:#6C8FBE"><PieChart class="w-4 h-4" /></span>
+              营养素速览
             </h3>
-            <div class="space-y-2.5">
-              <div v-for="(todo, i) in todos" :key="i" class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-morandi-accent/30 hover:bg-white transition-all cursor-pointer"
-                   @click="todo.to && go(todo.to)">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :style="{ background: todo.color + '15', color: todo.color }">
-                  <component :is="todo.icon" class="w-4 h-4" />
+            <button @click="go('/dashboard/nutrition')" class="text-xs text-morandi-accent hover:underline flex items-center gap-1">详细分析 <ArrowRight class="w-3 h-3" /></button>
+          </div>
+          <div class="grid grid-cols-2 gap-3 flex-1 relative z-10">
+            <div v-for="ring in ringData.small" :key="ring.key" class="nutri-tile flex items-center gap-3 rounded-xl px-3 py-2.5">
+              <div class="relative w-14 h-14 shrink-0">
+                <svg viewBox="0 0 56 56" class="w-14 h-14 -rotate-90">
+                  <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(0,0,0,0.05)" stroke-width="6"/>
+                  <circle cx="28" cy="28" r="22" fill="none" data-ring :stroke="ring.color" stroke-width="6" stroke-linecap="round"
+                        :stroke-dasharray="(ring.percent * 138.2 / 100) + ' 138.2'"/>
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <span class="text-[10px] font-bold text-slate-700 tabular-nums">{{ ring.percent }}%</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium text-slate-700 truncate">{{ todo.text }}</div>
-                  <div class="text-[11px] text-slate-400 mt-0.5 truncate">{{ todo.detail }}</div>
-                </div>
-                <ArrowRight class="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-[12px] font-medium text-slate-700 truncate">{{ ring.label }}</div>
+                <div class="text-[10px] text-slate-400 tabular-nums">{{ ring.display }}</div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <!-- 今日待办格 -->
+        <div class="md:col-span-5 feature-panel rounded-2xl p-6 relative overflow-hidden" data-anim>
+          <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><CheckCircle2 class="w-40 h-40" /></div>
+          <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2 text-[15px] relative z-10">
+            <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#E07A3F15;color:#E07A3F"><CheckCircle2 class="w-4 h-4" /></span>
+            今日待办
+          </h3>
+          <div class="space-y-2.5 relative z-10">
+            <div v-for="(todo, i) in todos" :key="i" class="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-morandi-accent/30 hover:bg-white transition-all cursor-pointer"
+                 @click="todo.to && go(todo.to)">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :style="{ background: todo.color + '15', color: todo.color }">
+                <component :is="todo.icon" class="w-4 h-4" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-700 truncate">{{ todo.text }}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5 truncate">{{ todo.detail }}</div>
+              </div>
+              <ArrowRight class="w-3.5 h-3.5 text-slate-300 shrink-0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 科普文章格 -->
+        <div class="md:col-span-7 feature-panel rounded-2xl p-6 relative overflow-hidden flex flex-col" data-anim>
+          <div class="panel-bg-icon absolute -right-6 -bottom-6 pointer-events-none opacity-[0.05]"><BookOpen class="w-40 h-40" /></div>
+          <div class="flex items-center justify-between mb-3 relative z-10">
+            <h3 class="font-semibold text-slate-800 flex items-center gap-2 text-[15px]">
+              <span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#B8863B15;color:#B8863B"><BookOpen class="w-4 h-4" /></span>
+              科普文章
+            </h3>
+            <button @click="go('/dashboard/articles')" class="text-xs text-morandi-accent hover:underline flex items-center gap-1">更多 <ArrowRight class="w-3 h-3" /></button>
+          </div>
+          <!-- 人群筛选 -->
+          <div class="flex items-center gap-1.5 mb-3 flex-wrap relative z-10">
+            <span class="text-[11px] text-slate-400 whitespace-nowrap">人群</span>
+            <button
+              v-for="af in articleAudienceFilters" :key="af.key"
+              @click="articleAudience = af.key"
+              class="px-2 py-0.5 rounded-full text-[11px] font-medium transition-all whitespace-nowrap"
+              :class="articleAudience === af.key ? 'text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'"
+              :style="articleAudience === af.key ? { background: '#B8863B' } : {}"
+            >{{ af.label }}</button>
+          </div>
+          <!-- 文章窄条列表（可滚动） -->
+          <div class="article-scroll space-y-2 max-h-[240px] overflow-y-auto pr-1 relative z-10 flex-1">
+            <div v-for="(art, i) in filteredArticles" :key="i"
+                 @click="go('/dashboard/articles')"
+                 class="article-row group relative flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-morandi-accent/30 hover:bg-white transition-all cursor-pointer overflow-hidden">
+              <!-- 悬停金色光条（从右侧滑入，仅色带无文字） -->
+              <div class="article-expand absolute right-0 top-0 bottom-0 w-0 overflow-hidden opacity-0 transition-all duration-300"
+                   style="background:linear-gradient(90deg,transparent 0%,rgba(184,134,59,0.08) 45%,rgba(184,134,59,0.16) 100%);border-left:2px solid rgba(184,134,59,0.45)"></div>
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:#B8863B15;color:#B8863B">
+                <Newspaper class="w-4 h-4" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-medium text-slate-700 truncate">{{ art.title }}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                  <span v-if="art.audience" class="px-1.5 py-px rounded-full" style="background:#B8863B12;color:#B8863B">{{ art.audience }}</span>
+                  <span class="truncate">{{ art.summary || '点击阅读' }}</span>
+                </div>
+              </div>
+              <ArrowRight class="w-3.5 h-3.5 text-slate-300 shrink-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-amber-600" />
+            </div>
+            <div v-if="!filteredArticles.length" class="text-center py-4 text-xs text-slate-400">该人群暂无文章</div>
+          </div>
+        </div>
+
+        <!-- 下一步行动卡（习惯闭环收尾） -->
+        <div v-if="nextAction" class="act-card md:col-span-12 flex-wrap" data-anim @click="go(nextAction.to)">
+          <span class="act-dot" aria-hidden="true"></span>
+          <span class="act-chip">下一步</span>
+          <div class="flex-1 min-w-0">
+            <div class="act-title truncate">{{ nextAction.text }}</div>
+            <div class="act-sub truncate">{{ actSub }} · {{ nextAction.detail }}</div>
+          </div>
+          <span class="act-cta">去完成 <i>→</i></span>
+        </div>
+
+      </div><!-- /bento -->
 
       <!-- ===== 快捷操作 ===== -->
       <div class="mt-5 mb-2">
@@ -202,7 +253,7 @@
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button v-for="(act, i) in quickActions" :key="i" @click="go(act.to)"
-            class="feature-panel rounded-2xl p-4 flex items-center gap-3 text-left transition-all hover:-translate-y-1 relative overflow-hidden blur-fade-card" style="--bf-delay:0.1s">
+            class="feature-panel rounded-2xl p-4 flex items-center gap-3 text-left transition-all hover:-translate-y-1 relative overflow-hidden" data-anim>
             <div class="panel-bg-icon absolute -right-4 -bottom-4 pointer-events-none opacity-[0.05]"><component :is="act.icon" class="w-20 h-20" /></div>
             <div class="relative z-10 flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" :style="{ background: act.color + '15', color: act.color }">
@@ -217,35 +268,7 @@
         </div>
       </div>
 
-      <!-- ===== 全部功能（5 个一级卡） ===== -->
-      <div class="mt-6 mb-2">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-slate-800 text-[15px] flex items-center gap-2">
-            <span class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:#2F5D4A18;color:#2F5D4A"><LayoutGrid class="w-4 h-4" /></span>
-            全部功能
-          </h3>
-          <span class="text-xs text-slate-400">点击进入对应模块</span>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <button v-for="(group, i) in allGroups" :key="group.key" @click="goGroup(group)"
-            class="feature-panel rounded-2xl p-4 text-left transition-all hover:-translate-y-1 relative overflow-hidden blur-fade-card" style="--bf-delay:0.2s">
-            <div class="panel-bg-icon absolute -right-4 -bottom-4 pointer-events-none opacity-[0.05] transition-opacity group-hover:opacity-[0.09]">
-              <component :is="group.icon" class="w-20 h-20" />
-            </div>
-            <div class="relative z-10">
-              <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-3" :style="groupIconStyle(group, i)">
-                <component :is="group.icon" class="w-5.5 h-5.5" :size="22" />
-              </div>
-              <div class="text-[15px] font-semibold text-slate-800">{{ group.title }}</div>
-              <div class="text-[11px] text-slate-400 mt-0.5">{{ group.desc }}</div>
-              <div class="mt-2.5 flex items-center justify-between">
-                <span class="text-[10px] px-2 py-0.5 rounded-full" :style="{ background: groupColor(group) + '12', color: groupColor(group) }">{{ group.items.length }} 个功能</span>
-                <ArrowRight class="w-3.5 h-3.5 text-slate-300" />
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
+      </div><!-- /dk-sheet -->
     </div>
   </div>
 </template>
@@ -253,16 +276,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { gsap } from 'gsap'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
+import StarOrbit from './StarOrbit.vue'
 import echarts, { VChart } from '@/utils/echarts'
 import {
-  User, Users, Activity, FileText, UsersRound,
+  User, Activity, FileText, UsersRound,
   Utensils, PlusCircle, PieChart, Search,
-  HeartPulse, BarChart3, Dumbbell,
-  BookOpen, Newspaper, MessageCircle, ClipboardList, ChefHat,
-  Flame, Scale, LayoutGrid, ArrowRight, TrendingDown, CheckCircle2,
-  Camera, Mic, Sparkles, Calendar, Leaf, Zap, Info
+  BarChart3, Dumbbell,
+  BookOpen, Newspaper, MessageCircle, ClipboardList,
+  Flame, Scale, ArrowRight, TrendingDown, CheckCircle2,
+  Camera, Mic, Sparkles, Calendar, Zap, Info
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -270,6 +295,58 @@ const route = useRoute()
 const userStore = useUserStore()
 const username = computed(() => userStore.user?.username || '朋友')
 const today = new Date().toISOString().slice(0, 10)
+
+/* ===== 方案E 观星台：Hero 背景图层数据（稳定种子随机，刷新布局不变） ===== */
+function mulberry32(a: number) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/* 星盘刻线：60 根刻度（每 5 根加长） */
+const heroAstroTicks = Array.from({ length: 60 }, (_, i) => {
+  const a = (i / 60) * Math.PI * 2
+  const long = i % 5 === 0
+  const r1 = long ? 128 : 133
+  return {
+    x1: +(310 + Math.cos(a) * r1).toFixed(1),
+    y1: +(150 + Math.sin(a) * r1).toFixed(1),
+    x2: +(310 + Math.cos(a) * 138).toFixed(1),
+    y2: +(150 + Math.sin(a) * 138).toFixed(1),
+    o: long ? 0.9 : 0.45
+  }
+})
+
+/* 旋转虚线大环上的行星点 */
+const heroPlanet = (deg: number, r: number, size: number, o: number) => {
+  const a = (deg * Math.PI) / 180
+  return { cx: +(310 + Math.cos(a) * r).toFixed(1), cy: +(150 + Math.sin(a) * r).toFixed(1), r: size, o }
+}
+const heroAstroPlanets = [heroPlanet(30, 108, 2.6, 0.55), heroPlanet(168, 108, 1.8, 0.4), heroPlanet(285, 108, 1.4, 0.3)]
+
+/* 42 颗星尘（大小 / 相位错开） */
+const heroStars = (() => {
+  const rnd = mulberry32(7)
+  return Array.from({ length: 42 }, () => {
+    const big = rnd() > 0.86
+    const size = big ? 2.4 : 1 + rnd() * 1.2
+    return {
+      big,
+      style: `left:${(rnd() * 100).toFixed(2)}%;top:${(rnd() * 100).toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--o:${(0.22 + rnd() * 0.58).toFixed(2)};--d:${(2.6 + rnd() * 2.6).toFixed(2)}s;--dl:${(rnd() * -5).toFixed(2)}s`
+    }
+  })
+})()
+
+// ===== 墨玉问候横幅 =====
+const heroRef = ref<HTMLElement | null>(null)
+const sheetRef = ref<HTMLElement | null>(null)
+const statRowRef = ref<HTMLElement | null>(null)
+const todayDateNum = new Date().getDate()
+const monthLab = new Date().toLocaleDateString('zh-CN', { month: 'long', weekday: 'long' })
+const weekDayIdx = (() => { const d = new Date().getDay(); return d === 0 ? 7 : d })()
 
 const greetChars = computed(() => {
   const base = greeting.value + '，' + username.value
@@ -353,24 +430,60 @@ const bmiClass = computed(() => {
   return 'text-red-500'
 })
 
+// ===== 方案 F · 指标速览行 =====
+// 三餐热量分解（早餐/午餐/晚餐）
+const mealKcal = ref({ breakfast: 0, lunch: 0, dinner: 0 })
+function classifyMeal(t: any): 'breakfast' | 'lunch' | 'dinner' {
+  const s = String(t ?? '')
+  if (/早|breakfast/i.test(s)) return 'breakfast'
+  if (/晚|dinner|supper/i.test(s)) return 'dinner'
+  return 'lunch'
+}
+// BMI 分类文案 + 速览条百分比（18.5~23.9 正常区间映射到 40~80%）
+const bmiLabel = computed(() => {
+  const b = overview.value.bmi
+  if (b == null) return '记录身高体重后生成'
+  if (b < 18.5) return '偏瘦 · 建议均衡增重'
+  if (b < 24) return '正常范围 · 保持'
+  if (b < 28) return '超重 · 注意控糖控油'
+  return '肥胖 · 建议循序渐进干预'
+})
+const bmiBarPercent = computed(() => {
+  const b = overview.value.bmi
+  if (b == null) return 6
+  return Math.max(6, Math.min(100, 40 + (b - 18.5) / (23.9 - 18.5) * 40))
+})
+// 体重周变化（15 天窗口 ≈ 2 周）
+const weightWeekly = computed(() => {
+  const c = weightChange.value
+  if (!c) return 0
+  return Math.round(c / 2 * 10) / 10
+})
+const weightWeeklyText = computed(() => {
+  const w = weightWeekly.value
+  if (!w) return '近期保持平稳'
+  return (w < 0 ? '↓ ' : '↑ ') + Math.abs(w).toFixed(1) + ' kg / 周'
+})
+const reportSub = computed(() => reportCount.value ? '周报已生成 · 可回顾' : '记录饮食后自动生成')
+
 const nutritionBars = computed(() => [
   { label: '蛋白质', value: proteinG.value, target: proteinTarget, color: '#2F5D4A', percent: proteinPercent.value },
   { label: '脂肪', value: fatG.value, target: fatTarget, color: '#E07A3F', percent: fatPercent.value },
   { label: '碳水', value: carbG.value, target: carbTarget, color: '#8A928C', percent: carbPercent.value },
 ])
 
-// 5 个圆环：热量大圈红 + 蛋白棕/脂肪黄/碳水蓝/纤维绿
+// 5 个圆环：热量大圈红 + 蛋白蓝/脂肪黄/碳水绿/纤维暖灰
 const ringData = computed(() => ({
   heat: { display: todayKcal.value ? String(todayKcal.value) : '—', percent: caloriePercent.value, color: '#D97B6C' },
   small: [
-    { key: 'protein', label: '蛋白质', display: proteinG.value + 'g', percent: proteinPercent.value, color: '#B89B84' },
-    { key: 'carb', label: '碳水', display: carbG.value + 'g', percent: carbPercent.value, color: '#8FAFD6' },
+    { key: 'protein', label: '蛋白质', display: proteinG.value + 'g', percent: proteinPercent.value, color: '#6C8FBE' },
+    { key: 'carb', label: '碳水', display: carbG.value + 'g', percent: carbPercent.value, color: '#7FAE8E' },
     { key: 'fat', label: '脂肪', display: fatG.value + 'g', percent: fatPercent.value, color: '#D9BC6B' },
-    { key: 'fiber', label: '膳食纤维', display: fiberG.value + 'g', percent: fiberPercent.value, color: '#92BFA0' },
+    { key: 'fiber', label: '膳食纤维', display: fiberG.value + 'g', percent: fiberPercent.value, color: '#A8998A' },
   ]
 }))
 
-// ===== 体重趋势（ECharts 折线：历史实线 + 预测虚线） =====
+// 体重趋势（ECharts 折线：历史实线 + 预测虚线）
 const WEIGHT_DAYS = 15
 const prediction = ref<any>(null)
 const predictDays = ref(7)
@@ -510,14 +623,14 @@ const weightChartOption = computed(() => {
         symbolSize: (v: number, p: any) => (p?.dataIndex === lastHistIdx ? 11 : 7),
         itemStyle: {
           color: (p: any) => (p.dataIndex === lastHistIdx ? '#E07A3F' : '#fff'),
-          borderColor: (p: any) => (p.dataIndex === lastHistIdx ? '#fff' : '#2F5D4A'),
+          borderColor: (p: any) => (p.dataIndex === lastHistIdx ? '#fff' : '#B8863B'),
           borderWidth: (p: any) => (p.dataIndex === lastHistIdx ? 2.5 : 2),
         },
-        lineStyle: { color: '#2F5D4A', width: 2.5, cap: 'round' },
+        lineStyle: { color: '#B8863B', width: 2.5, cap: 'round' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(47,93,74,0.22)' },
-            { offset: 1, color: 'rgba(47,93,74,0.0)' },
+            { offset: 0, color: 'rgba(184,134,59,0.22)' },
+            { offset: 1, color: 'rgba(184,134,59,0.0)' },
           ]),
         },
         markPoint: lastHistValue != null ? {
@@ -579,7 +692,7 @@ const todos = computed(() => {
   })
   if (proteinPercent.value < 60) {
     list.push({
-      icon: Sparkles, color: '#2F5D4A',
+      icon: Sparkles, color: '#B8863B',
       text: '蛋白质摄入不足',
       detail: '今日 ' + proteinG.value + 'g / 目标 ' + proteinTarget + 'g，建议补充鸡胸/鱼虾/豆腐',
       to: '/dashboard/food-search'
@@ -592,7 +705,7 @@ const todos = computed(() => {
     to: '/dashboard/health-report'
   })
   list.push({
-    icon: MessageCircle, color: '#60a5fa',
+    icon: MessageCircle, color: '#6C8FBE',
     text: '让 AI 分析今日饮食',
     detail: '基于身体数据生成个性化建议',
     to: '/dashboard/ai-consult'
@@ -600,34 +713,54 @@ const todos = computed(() => {
   return list.slice(0, 4)
 })
 
+// ===== 行动卡（下一步）：取第一项待办，聚合数据副文案 =====
+const remainKcal = computed(() => Math.max(0, calorieTarget - todayKcal.value))
+const nextAction = computed(() => todos.value[0] || null)
+const actSub = computed(() => {
+  const parts: string[] = []
+  parts.push(todayKcal.value < calorieTarget ? '还可摄入 ' + remainKcal.value + ' kcal' : '已达到今日目标')
+  parts.push('今日 ' + todos.value.length + ' 项待办')
+  return parts.join(' · ')
+})
+
 // 快捷操作
 const quickActions = [
   { label: '记录饮食', desc: '快速记录三餐', icon: Camera, color: '#E07A3F', to: '/dashboard/food-input' },
-  { label: 'AI 咨询', desc: '个性化建议', icon: Sparkles, color: '#2F5D4A', to: '/dashboard/ai-consult' },
-  { label: '营养分析', desc: '三大营养素', icon: PieChart, color: '#60a5fa', to: '/dashboard/nutrition' },
-  { label: '运动管理', desc: '记录与围度', icon: Dumbbell, color: '#8b5cf6', to: '/dashboard/muscle-chart' },
+  { label: 'AI 咨询', desc: '个性化建议', icon: Sparkles, color: '#B8863B', to: '/dashboard/ai-consult' },
+  { label: '营养分析', desc: '三大营养素', icon: PieChart, color: '#6C8FBE', to: '/dashboard/nutrition' },
+  { label: '运动管理', desc: '记录与围度', icon: Dumbbell, color: '#B36B2A', to: '/dashboard/muscle-chart' },
 ]
 
-// 一级功能（5 个）
-const allGroups = [
-  { key: 'user', title: '用户中心', icon: Users, desc: '资料与档案', items: [{}, {}, {}, {}] },
-  { key: 'diet', title: '饮食管理', icon: Utensils, desc: '记录与分析', items: [{}, {}, {}, {}, {}] },
-  { key: 'health', title: '健康监测', icon: HeartPulse, desc: '报告与运动', items: [{}, {}, {}] },
-  { key: 'knowledge', title: '知识中心', icon: BookOpen, desc: '科普与AI', items: [{}, {}, {}] },
-  { key: 'recipe', title: '菜谱美食', icon: ChefHat, desc: '食谱与偏好', items: [{}, {}] },
-]
-const groupColors: Record<string, string> = {
-  user: '#2F5D4A', diet: '#E07A3F', health: '#2F5D4A', knowledge: '#60a5fa', recipe: '#E07A3F'
-}
-const groupColor = (group: any) => groupColors[group.key] || '#2F5D4A'
-const groupIconStyle = (group: any, i: number) => {
-  const c = groupColor(group)
-  return { background: c + '15', color: c }
-}
-function goGroup(group: any) {
-  router.push({ path: '/dashboard/hub', query: { group: group.key } })
-}
 function go(to: string) { router.push(to) }
+
+// ===== GSAP 入场：横幅 → 指标速览行 → 浅芯面板逐块浮现 =====
+function animateEntrance() {
+  const hero = heroRef.value
+  const sheet = sheetRef.value
+  const statRow = statRowRef.value
+  if (hero) {
+    gsap.fromTo(hero.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 24 },
+      { opacity: 1, y: 0, duration: 0.7, stagger: 0.09, ease: 'power3.out' })
+    gsap.fromTo(hero.querySelectorAll('.dk-char'),
+      { opacity: 0, y: 16, filter: 'blur(8px)' },
+      { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.55, stagger: 0.035, delay: 0.18, ease: 'power2.out' })
+  }
+  if (statRow) {
+    gsap.fromTo(statRow.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 26 },
+      { opacity: 1, y: 0, duration: 0.7, stagger: 0.07, delay: 0.2, ease: 'power3.out' })
+  }
+  if (sheet) {
+    gsap.fromTo(sheet.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 26 },
+      { opacity: 1, y: 0, duration: 0.75, stagger: 0.07, delay: 0.34, ease: 'power3.out' })
+  }
+}
+
+onMounted(() => {
+  animateEntrance()
+})
 
 onMounted(async () => {
   const [diet, snap, reports, hist, arts, pred] = await Promise.allSettled([
@@ -643,16 +776,24 @@ onMounted(async () => {
     const d = (diet.value as any)?.data ?? diet.value
     const meals = Array.isArray(d) ? d : []
     let kcal = 0, protein = 0, fat = 0, carb = 0, has = false
+    const slots = { breakfast: 0, lunch: 0, dinner: 0 }
     for (const m of meals) {
-      const items = m?.foods ?? m?.items ?? []
+      const items = m?.items ?? m?.foods ?? []
+      const slot = classifyMeal(m?.mealType ?? m?.meal_type)
       for (const it of items) {
-        const c = Number(it?.calories_kcal ?? it?.calories ?? it?.cal ?? 0)
+        // 后端返回的 calorie/protein/fat/carb 均为「每100克」的营养值，需按实际食用重量 eatWeight 折算
+        const factor = Number(it?.eatWeight ?? it?.quantity ?? 0) / 100
+        const c = Number(it?.calorie ?? it?.calories ?? 0) * factor
         kcal += c; if (c) has = true
-        protein += Number(it?.protein ?? 0)
-        fat += Number(it?.fat ?? 0)
-        carb += Number(it?.carb ?? it?.carbohydrate ?? 0)
+        if (slot === 'breakfast') slots.breakfast += c
+        else if (slot === 'dinner') slots.dinner += c
+        else slots.lunch += c
+        protein += Number(it?.protein ?? 0) * factor
+        fat += Number(it?.fat ?? 0) * factor
+        carb += Number(it?.carb ?? it?.carbohydrate ?? 0) * factor
       }
     }
+    mealKcal.value = { breakfast: Math.round(slots.breakfast), lunch: Math.round(slots.lunch), dinner: Math.round(slots.dinner) }
     overview.value.todayKcal = has ? Math.round(kcal) : null
     overview.value.protein = Math.round(protein)
     overview.value.fat = Math.round(fat)
@@ -694,18 +835,265 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ========== 墨玉问候横幅（深壳） ========== */
+.dk-wrap {
+  padding: 18px 26px 48px;
+}
+.dk-hero {
+  position: relative;
+  display: flex;
+  align-items: center; /* 文字块垂直居中，避免沉底偏下 */
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 30px 34px;
+  border-radius: 24px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(232, 185, 115, .11) 0%, transparent 42%),
+    radial-gradient(circle at 88% 88%, rgba(179, 107, 42, .09) 0%, transparent 46%),
+    radial-gradient(ellipse at 72% -24%, rgba(126, 92, 46, .16) 0%, transparent 52%),
+    linear-gradient(168deg, #17130D 0%, #100D0A 52%, #0B0908 100%);
+  border: 1px solid rgba(232, 185, 115, 0.14);
+  color: #F6EAD6;
+  margin-bottom: 18px;
+  /* 方案E · 观星台：顶缘金线 + 内侧描边 + 落影 */
+  box-shadow:
+    inset 0 1px 0 rgba(232, 185, 115, .13),
+    inset 0 0 0 1px rgba(232, 185, 115, .04),
+    0 24px 60px -32px rgba(46, 42, 34, .5);
+}
+/* 文字侧墨玉压暗，保证问候语可读性 */
+.dk-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(9, 7, 5, .5), transparent 52%);
+}
+/* ===== 方案E · 观星台背景图层 ===== */
+.dk-hero-astro,
+.dk-hero-stars,
+.dk-hero-grain,
+.dk-hero-sheen,
+.dk-hero-vign {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+/* 星盘刻线：置于轨道导航后方 */
+.dk-hero-astro svg {
+  position: absolute;
+  right: -70px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.dk-hero-astro-rot {
+  animation: dkAstroRot 75s linear infinite;
+  transform-origin: 310px 150px;
+}
+@keyframes dkAstroRot {
+  to { transform: rotate(360deg); }
+}
+/* 星河微尘：缓慢明灭 */
+.dk-hero-stars i {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(232, 185, 115, .9);
+  animation: dkStarTwinkle var(--d, 3.4s) ease-in-out var(--dl, 0s) infinite;
+}
+.dk-hero-stars i.big {
+  box-shadow: 0 0 7px rgba(232, 185, 115, .85);
+}
+@keyframes dkStarTwinkle {
+  0%, 100% { opacity: var(--o, .5); transform: scale(1); }
+  50% { opacity: calc(var(--o, .5) * .18); transform: scale(.82); }
+}
+/* 墨玉噪点肌理 */
+.dk-hero-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='0.5'/></svg>");
+  opacity: .055;
+  mix-blend-mode: overlay;
+}
+/* 掠面光泽：每 9.5s 扫过一次 */
+.dk-hero-sheen {
+  background: linear-gradient(105deg, transparent 42%, rgba(232, 185, 115, .055) 50%, transparent 58%);
+  background-size: 320% 100%;
+  background-repeat: no-repeat;
+  animation: dkSheen 9.5s ease-in-out infinite;
+}
+@keyframes dkSheen {
+  0%, 56% { background-position: 130% 0; }
+  88%, 100% { background-position: -70% 0; }
+}
+/* 暗角聚焦 */
+.dk-hero-vign {
+  background: radial-gradient(ellipse at 46% 40%, transparent 56%, rgba(5, 4, 3, .52) 100%);
+}
+.dk-hero-main { position: relative; z-index: 1; flex: 1; min-width: 260px; }
+.dk-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: #D9A24A;
+  margin-bottom: 12px;
+}
+.dk-hello {
+  font-family: 'Noto Serif SC', serif;
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 900;
+  line-height: 1.2;
+  color: #F6EAD6;
+}
+.dk-hello em,
+.dk-hello .dk-char {
+  font-style: normal;
+}
+.dk-hello .dk-char {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+.dk-hello-sub {
+  font-size: 12px;
+  color: rgba(246, 234, 214, 0.45);
+  margin-top: 8px;
+  letter-spacing: 0.06em;
+}
+.dk-datecard {
+  position: relative;
+  z-index: 1;
+  align-self: flex-end; /* 日期卡保持右下角锚点，不随文字居中抬升 */
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(232, 185, 115, 0.16);
+  border-radius: 16px;
+  padding: 12px 20px;
+  backdrop-filter: blur(10px);
+}
+.dk-datecard .num {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 30px;
+  font-weight: 900;
+  color: #E8B973;
+  line-height: 1;
+}
+.dk-datecard .lab {
+  font-size: 11px;
+  color: rgba(246, 234, 214, 0.45);
+  line-height: 1.6;
+}
+.dk-datecard .lab span { display: block; }
+
+/* ---- 方案 F · 指标速览行（4 卡铺满） ---- */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 20px 15px;
+  border-radius: 18px;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(184, 134, 59, 0.18);
+  box-shadow: 0 1px 3px rgba(90, 70, 40, 0.05), 0 10px 28px -14px rgba(90, 70, 40, 0.12);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(184, 134, 59, 0.45);
+  box-shadow: 0 24px 44px -22px rgba(90, 70, 40, 0.28);
+}
+.stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(42, 38, 32, 0.55);
+}
+.stat-value {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 28px;
+  font-weight: 900;
+  color: #2A2620;
+  line-height: 1.15;
+}
+.stat-value i {
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(42, 38, 32, 0.45);
+  margin-left: 5px;
+}
+.stat-sub {
+  font-size: 11px;
+  color: rgba(42, 38, 32, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.stat-bar {
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(184, 134, 59, 0.12);
+  margin-top: 3px;
+  overflow: hidden;
+}
+.stat-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+}
+@media (max-width: 1100px) {
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .stat-row { grid-template-columns: 1fr; }
+}
+
+/* ========== 暖纸浅芯面板（浅色工作区） ========== */
+.dk-sheet {
+  position: relative;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(184, 134, 59, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 86% 100%, rgba(201, 143, 62, 0.06) 0%, transparent 44%),
+    linear-gradient(180deg, #F8F4EA 0%, #F2EBDC 100%);
+  border: 1px solid rgba(232, 185, 115, 0.24);
+  border-radius: 24px;
+  padding: 22px 22px 26px;
+  box-shadow: 0 30px 60px -34px rgba(90, 70, 40, 0.28);
+}
+
+/* ---- 卡片（暖纸玻璃） ---- */
 .feature-panel {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(231, 226, 216, 0.8);
-  box-shadow: 0 1px 3px rgba(31, 42, 36, 0.06), 0 4px 14px rgba(31, 42, 36, 0.05);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(184, 134, 59, 0.18);
+  box-shadow: 0 1px 3px rgba(90, 70, 40, 0.05), 0 10px 28px -14px rgba(90, 70, 40, 0.12);
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
 }
 .feature-panel:hover {
   transform: translateY(-3px);
-  border-color: rgba(47, 93, 74, 0.2);
-  box-shadow: 0 16px 36px -12px rgba(47, 93, 74, 0.16);
+  border-color: rgba(184, 134, 59, 0.45);
+  box-shadow: 0 24px 44px -22px rgba(90, 70, 40, 0.28);
 }
 .panel-bg-icon {
   transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -714,21 +1102,125 @@ onMounted(async () => {
 .feature-panel:hover .panel-bg-icon {
   transform: scale(1.1);
 }
-.bmr-tip:hover .bmr-tooltip { display: block; }
-/* BMI/BMR 悬停弹窗 */
+
+/* ---- 圆环：数据到达时平滑绘制 ---- */
+circle[data-ring] {
+  transition: stroke-dasharray 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
+}
+
+/* ---- 行动卡（下一步 · 习惯闭环收尾） ---- */
+.act-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 20px;
+  border-radius: 16px;
+  cursor: pointer;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.62));
+  border: 1px solid rgba(224, 122, 63, 0.35);
+  box-shadow: 0 1px 3px rgba(90, 70, 40, 0.05), 0 10px 28px -14px rgba(224, 122, 63, 0.28);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.act-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(224, 122, 63, 0.6);
+  box-shadow: 0 24px 44px -20px rgba(224, 122, 63, 0.38);
+}
+.act-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #E07A3F, #D9A24A);
+}
+.act-dot {
+  position: relative;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #E07A3F;
+  flex-shrink: 0;
+  margin-right: 3px;
+}
+.act-dot::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(224, 122, 63, 0.55);
+  animation: actPulse 1.8s ease-out infinite;
+}
+@keyframes actPulse {
+  0%   { transform: scale(0.55); opacity: 1; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.act-chip {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: #A8632B;
+  background: rgba(224, 122, 63, 0.1);
+  border: 1px solid rgba(224, 122, 63, 0.3);
+  border-radius: 999px;
+  padding: 4px 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.act-title { font-size: 14px; font-weight: 700; color: #2A2620; }
+.act-sub { font-size: 11px; color: rgba(42, 38, 32, 0.5); margin-top: 2px; }
+.act-cta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #F8F4EA;
+  background: linear-gradient(120deg, #D9A24A, #B8863B);
+  border-radius: 999px;
+  padding: 9px 18px;
+  box-shadow: 0 6px 16px -6px rgba(184, 134, 59, 0.55);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.act-card:hover .act-cta {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 22px -8px rgba(184, 134, 59, 0.65);
+}
+.act-cta i { font-style: normal; transition: transform 0.3s ease; }
+.act-card:hover .act-cta i { transform: translateX(3px); }
+
+/* ---- 趋势图例点 / 营养素小格 ---- */
+.legend-dot { width: 14px; height: 2px; border-radius: 2px; display: inline-block; }
+.nutri-tile {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(184, 134, 59, 0.14);
+  transition: border-color 0.3s ease, transform 0.3s ease;
+}
+.nutri-tile:hover { border-color: rgba(184, 134, 59, 0.4); transform: translateY(-2px); }
+
+/* ---- 暖纸色系覆盖（Tailwind slate → 暖炭墨） ---- */
+.dk-sheet .text-slate-800 { color: #2A2620; }
+.dk-sheet .text-slate-700 { color: #3A342B; }
+.dk-sheet .text-slate-600 { color: rgba(42, 38, 32, 0.66); }
+.dk-sheet .text-slate-500 { color: rgba(42, 38, 32, 0.55); }
+.dk-sheet .text-slate-400 { color: rgba(42, 38, 32, 0.45); }
+.dk-sheet .text-slate-300 { color: rgba(42, 38, 32, 0.32); }
+.dk-sheet .bg-slate-50 { background: rgba(255, 255, 255, 0.6); }
+.dk-sheet .bg-slate-100 { background: rgba(184, 134, 59, 0.08); }
+.dk-sheet .border-slate-100 { border-color: rgba(184, 134, 59, 0.16); }
+.dk-sheet .text-morandi-accent { color: #B8863B; }
+.dk-sheet .hover\:border-morandi-accent\/30:hover { border-color: rgba(184, 134, 59, 0.45); }
+
+/* ---- BMI/BMR 悬停弹窗 ---- */
 .metric-tip:hover .metric-tooltip { display: block; }
-/* 文章悬停展开 */
+/* ---- 文章悬停展开 ---- */
 .article-row:hover .article-expand {
   width: 60%;
   opacity: 1;
 }
 .article-scroll::-webkit-scrollbar { width: 4px; }
-.article-scroll::-webkit-scrollbar-thumb { background: rgba(15,23,42,0.1); border-radius: 2px; }
+.article-scroll::-webkit-scrollbar-thumb { background: rgba(184, 134, 59, 0.25); border-radius: 2px; }
 .article-scroll::-webkit-scrollbar-track { background: transparent; }
-.greet-mark {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.greet-mark:hover {
-  transform: scale(1.05) rotate(-3deg);
-}
 </style>

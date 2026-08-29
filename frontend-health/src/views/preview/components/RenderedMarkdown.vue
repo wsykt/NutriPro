@@ -92,7 +92,7 @@ const blocks = computed<Block[]>(() => {
 })
 
 // 行内粗体 / 斜体 / 行内 code
-const Inliner = (p: { text: string }) => {
+const Inliner = (p: { text?: string }) => {
   const raw = p.text || ''
   const parts: any[] = []
   const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g

@@ -119,7 +119,9 @@ public class ArticleAnalysisService {
             try {
                 analyzeArticle(article.getId());
                 count++;
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("批量分析文章跳过 articleId={}: {}", article.getId(), e.getMessage());
+            }
         }
         return count;
     }

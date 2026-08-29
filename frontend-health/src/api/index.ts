@@ -6,7 +6,7 @@ import type {
   RecipeItem, ArticleItem, WardRelation, MetricsRecord, AiResult
 } from './types'
 
-const instance = axios.create({
+export const instance = axios.create({
   baseURL: '/api',
   timeout: 30000
 })
@@ -124,6 +124,7 @@ export const api = {
     listUsers: () => instance.get<any[], any[]>('/admin/users'),
     listUsersWithRelations: () => instance.get<any[], any[]>('/admin/users-with-relations'),
     getUserDetail: (userId: number) => instance.get<any, any>(`/admin/users/${userId}`),
+    // AI 流程展示：取目标用户的实时健康上下文（体征/饮食/运动），供流水线作为目标人群注入
     getFlowUserDetail: (userId: number) => instance.get<any, any>(`/admin/flow/user-detail/${userId}`),
     deleteUser: (userId: number) => instance.delete(`/admin/users/${userId}`),
     listFoods: () => instance.get<FoodItem[], FoodItem[]>('/admin/food/list'),
@@ -161,6 +162,7 @@ export const api = {
   },
   // 运动记录
   exercise: {
+    getRecords: () => instance.get<any, any>('/exercise/records'),
     recordsRange: (startDate: string, endDate: string) =>
       instance.get<any[], any[]>('/exercise/records/range', { params: { startDate, endDate } }),
     statsWeek: () => instance.get<any, any>('/exercise/stats/week'),
@@ -301,14 +303,6 @@ export const api = {
     // B方案双模型流水线（本地框架→云端外扩→本地校验）实测约 2~3 分钟，需单独放宽超时
     generate: (topic: string, persona?: string) =>
       instance.post<any, any>('/articles/generate', { topic, persona: persona || '普通人群' }, { timeout: 320000 }),
-    // 统一生成接口：仅需「文章主题 + 目标人群」，由本地大模型自动分类并生成标题/摘要/内容
-    // mode: rag（方案A，默认）/ hybrid（方案C 多Agent混合）
-    generateSmart: (topic: string, targetCrowd?: string, mode?: 'rag' | 'hybrid') =>
-      instance.post<any, any>(
-        '/articles/generate-smart',
-        { topic, target_crowd: targetCrowd || '普通人群', mode: mode || 'rag' },
-        { timeout: 320000 }
-      ),
     // 同主题不同篇幅的相关文章
     related: (topicGroupId: string, excludeId?: number) =>
       instance.get<ArticleItem[], ArticleItem[]>(`/articles/related/${topicGroupId}`, { params: { excludeId } }),
@@ -316,6 +310,3 @@ export const api = {
     topicGroup: (topicGroupId: string) => instance.get<ArticleItem[], ArticleItem[]>(`/articles/topic-group/${topicGroupId}`)
   }
 }
-
-// 暴露底层 axios instance，供新增模块（如 preview.ts）在不复制拦截器逻辑的前提下复用
-export { instance }

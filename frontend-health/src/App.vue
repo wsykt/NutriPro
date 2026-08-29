@@ -4,8 +4,8 @@
     <div class="ambient-glow ambient-glow-green"></div>
     <div class="ambient-glow ambient-glow-blue"></div>
 
-    <!-- 顶部导航（内部应用） -->
-    <nav v-if="userStore.isLoggedIn && !$route.path.startsWith('/dashboard') && !$route.path.startsWith('/admin')" class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm px-6 md:px-12 py-3 border-b border-morandi-soft/50 shadow-sm">
+    <!-- 顶部导航（内部应用）：排除 dashboard/admin，同时排除登录/注册/重置密码/首次引导页，防止登录跳转过程中 isLoggedIn 先变 true 导致顶部导航栏闪现 -->
+    <nav v-if="userStore.isLoggedIn && !$route.path.startsWith('/dashboard') && !$route.path.startsWith('/admin') && !isAuthPage($route.path)" class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm px-6 md:px-12 py-3 border-b border-morandi-soft/50 shadow-sm">
       <div class="max-w-7xl mx-auto flex items-center justify-between">
         <router-link to="/" class="text-lg font-bold text-morandi-text">HealthManage</router-link>
         <div class="hidden md:flex gap-6 text-sm font-medium">
@@ -22,7 +22,7 @@
       </div>
     </nav>
 
-    <div class="min-h-screen content-layer" :class="(userStore.isLoggedIn && !$route.path.startsWith('/dashboard') && !$route.path.startsWith('/admin')) ? 'py-6 md:py-8' : ''">
+    <div class="min-h-screen content-layer" :class="(userStore.isLoggedIn && !$route.path.startsWith('/dashboard') && !$route.path.startsWith('/admin') && !isAuthPage($route.path)) ? 'py-6 md:py-8' : ''">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -39,6 +39,12 @@ import { useUserStore } from './stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
+
+// 这些页面即使 isLoggedIn 为 true 也不显示 App 级顶部导航（各自有独立 header，或登录跳转过程中会出现闪现）
+const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/onboarding']
+function isAuthPage(path: string) {
+  return AUTH_PAGES.some(p => path === p || path.startsWith(p + '/'))
+}
 
 onMounted(() => { userStore.init() })
 

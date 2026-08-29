@@ -319,8 +319,9 @@ public class ArticleSplitUtil {
         }
         if (!found.isEmpty()) { errors.add("敏感话术：" + String.join(", ", found)); score -= 25; }
 
-        // ⑤ 相似度查重（预留，需向量检索）
-        // TODO: 接入向量检索比对已有文章
+        // ⑤ 相似度查重：主题级查重已在 Service 层（generateAndSave/importMotherDraft）完成——
+        //    同一主题已存在文章时直接拒绝生成。同一主题生成的内容天然雷同，
+        //    无需在此再做向量级内容比对（避免重复的 RAG 开销）。
 
         score = Math.max(0, score);
         return new ValidationResult(errors.isEmpty() && score >= 60, score, errors);

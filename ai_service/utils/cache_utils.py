@@ -15,6 +15,7 @@ import hashlib
 import os
 from typing import Any, Optional
 from config.settings import settings
+from utils.sqlite_utils import get_conn
 
 
 class PersistentCache:
@@ -49,11 +50,7 @@ class PersistentCache:
         )
 
     def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._db_path)
-        conn.execute("PRAGMA journal_mode=WAL")
-        # 写锁冲突时最多等待 5s，避免并发写入直接抛 database is locked
-        conn.execute("PRAGMA busy_timeout=5000")
-        return conn
+        return get_conn(self._db_path)
 
     def _execute(self, sql: str, params: tuple = ()):
         conn = self._get_conn()

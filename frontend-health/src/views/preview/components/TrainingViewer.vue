@@ -41,7 +41,7 @@
                 {{ ex.icon || defaultIcon(ex.name) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-morandi-text">{{ ex.name || ('动作 ' + (i+1)) }}</div>
+                <div class="text-sm font-semibold text-morandi-text">{{ actLabel(ex.name, i) }}</div>
                 <div class="text-xs text-morandi-lightText mt-0.5">
                   <span v-if="ex.sets">{{ ex.sets }}组 × </span>
                   <span v-if="ex.reps">{{ ex.reps }}次</span>
@@ -94,6 +94,10 @@ function defaultIcon(name: string) {
   if (/核心|plank|crunch|core|abs|腹/i.test(n)) return ''
   if (/拉|伸|stretch|yoga|瑜伽/i.test(n)) return ''
   return ''
+}
+
+function actLabel(name: any, i: string | number): string {
+  return name || ('动作 ' + (Number(i) + 1))
 }
 
 const weeklyPlan = computed<any[]>(() => {

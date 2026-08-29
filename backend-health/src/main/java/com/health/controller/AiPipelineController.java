@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.health.dto.ApiResponse;
 import com.health.entity.AiPreviewSnapshot;
 import com.health.entity.User;
-import com.health.repository.AiPreviewSnapshotRepository;
-import com.health.repository.UserRepository;
 import com.health.service.AiChatClientService;
+import com.health.service.AiPreviewService;
+import com.health.service.ProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -43,8 +43,8 @@ import java.util.concurrent.TimeUnit;
 @PreAuthorize("hasRole('ADMIN')")
 public class AiPipelineController {
 
-    private final AiPreviewSnapshotRepository snapRepo;
-    private final UserRepository userRepo;
+    private final AiPreviewService aiPreviewService;
+    private final ProfileService profileService;
     private final AiChatClientService aiChatClient;
     private final ObjectMapper om = new ObjectMapper();
 
@@ -55,11 +55,11 @@ public class AiPipelineController {
         return t;
     });
 
-    public AiPipelineController(AiPreviewSnapshotRepository snapRepo,
-                                UserRepository userRepo,
+    public AiPipelineController(AiPreviewService aiPreviewService,
+                                ProfileService profileService,
                                 AiChatClientService aiChatClient) {
-        this.snapRepo = snapRepo;
-        this.userRepo = userRepo;
+        this.aiPreviewService = aiPreviewService;
+        this.profileService = profileService;
         this.aiChatClient = aiChatClient;
     }
 
@@ -228,7 +228,7 @@ public class AiPipelineController {
                     snap.setTitle(titleOf(realPayload, title));
                     snap.setSummary(summaryOf(realPayload, summary));
                     snap.setPayloadJson(finalJson);
-                    snap = snapRepo.save(snap);
+                    snap = aiPreviewService.save(snap);
                     t.finalSnapshotId = String.valueOf(snap.getId());
                     output = mapOf("snapshotId", snap.getId(), "funcType", snap.getFuncType(), "sessionId", snap.getSessionId(),
                             "payloadBytes", finalJson.length(), "savedAt", AiPipelineEngine.nowIso());
@@ -338,7 +338,7 @@ public class AiPipelineController {
             p.put("note", "未选择用户。请先在左侧选择测试用户（user001-006 / test001-003），再重新执行流水线。");
             return p;
         }
-        User u = userRepo.findById(userId).orElse(null);
+        User u = profileService.getProfile(userId);
         if (u == null) {
             p.put("source", "missing");
             p.put("note", "userId=" + userId + " 不存在，请选择左侧示例用户后重跑。");

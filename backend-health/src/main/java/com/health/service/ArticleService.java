@@ -188,6 +188,11 @@ public class ArticleService {
         return articleRepository.findAll();
     }
 
+    /** 按主题分组ID获取三版文章（速读卡/深度文/综述文，长度类型升序）。 */
+    public List<Article> getArticlesByTopicGroup(String topicGroupId) {
+        return articleRepository.findByTopicGroupIdOrderByLengthTypeAsc(topicGroupId);
+    }
+
     /** 管理员：直接返回Article或null，避免Optional处理 */
     public Article getArticleByIdDirect(Integer id) {
         return articleRepository.findById(id).orElse(null);
@@ -242,6 +247,15 @@ public class ArticleService {
         }
         if (persona == null || persona.trim().isEmpty()) {
             persona = "普通人群";
+        }
+
+        // ⓪' 主题查重：同一主题生成的内容天然雷同，已存在同主题文章时直接拒绝，
+        //     避免重复入库。管理员需更换主题或删除原文章后再生成。
+        List<Article> existingByTopic = articleRepository.findByTopicOrderByCreatedAtDesc(topic.trim());
+        if (existingByTopic != null && !existingByTopic.isEmpty()) {
+            String groupId = existingByTopic.get(0).getTopicGroupId();
+            throw new RuntimeException("该主题已存在文章（topicGroupId=" + groupId
+                    + "），同一主题无需重复生成，请更换主题或删除原文章后重试");
         }
 
         // ⓪ B方案：母稿由 AI 服务内双模型流水线生成
@@ -322,6 +336,14 @@ public class ArticleService {
         }
         if (persona == null || persona.trim().isEmpty()) {
             persona = "普通人群";
+        }
+
+        // 主题查重：与 generateAndSave 同规则，避免外部母稿重复导入同一主题
+        List<Article> existingByTopic = articleRepository.findByTopicOrderByCreatedAtDesc(topic.trim());
+        if (existingByTopic != null && !existingByTopic.isEmpty()) {
+            String groupId = existingByTopic.get(0).getTopicGroupId();
+            throw new RuntimeException("该主题已存在文章（topicGroupId=" + groupId
+                    + "），同一主题无需重复导入，请更换主题或删除原文章后重试");
         }
 
         // ① 拆分三版（复用现有工具，pipeline 母稿格式与后端一致）
@@ -557,7 +579,9 @@ public class ArticleService {
                         enriched.put("suggestion", issue.get("suggestion"));
                         allIssues.add(enriched);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("富化文章 {} 的 issue 记录失败: {}", article.getId(), e.getMessage());
+                }
             }
         }
 

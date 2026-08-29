@@ -103,6 +103,7 @@ type Day = {
   dinner: any[]
   snack?: string[]
   tip?: string
+  extra?: any
 }
 
 const days = computed<Day[]>(() => {

@@ -506,6 +506,7 @@ public class DataInitializer implements CommandLineRunner {
             createFood("豆瓣酱", "调味料", 143, 8, 6, 12, 4.5, 20, 160, 0, 35),
             createFood("番茄酱", "调味料", 83, 1.7, 0.2, 19, 1.2, 15, 14, 0, 5),
             createFood("蚝油", "调味料", 75, 2.5, 0.3, 16, 0, 15, 40, 0, 8),
+            createFood("甜面酱", "调味料", 134, 3.6, 0.7, 28, 0.5, 40, 40, 0, 12),
 
             // 新增肉蛋类
             createFood("猪小排(生)", "肉蛋类", 264, 18, 21, 0, 0, 0, 14, 8, 5),

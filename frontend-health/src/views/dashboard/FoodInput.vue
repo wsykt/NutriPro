@@ -1,255 +1,236 @@
 <template>
-  <div class="page-fade">
-    <h2 class="text-2xl font-bold mb-2 text-morandi-text">录入饮食</h2>
-    <p class="text-morandi-lightText mb-6 text-sm">按餐次记录今天的食物摄入。支持监护人代亲属录入。</p>
+  <div class="diet-page">
+    <!-- ===== 深壳星轨带（与首页/中转页同构 · 四餐站点上下浮动） ===== -->
+    <div class="db-band" ref="bandRef">
+      <div class="db-glow db-glow--1" aria-hidden="true"></div>
+      <div class="db-glow db-glow--2" aria-hidden="true"></div>
 
-    <!-- 日期 & 总览 -->
-    <div class="glass rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
-      <div>
-        <label class="block text-xs text-morandi-lightText mb-1">日期</label>
-        <input v-model="form.date" type="date" class="px-3 py-2 rounded-lg bg-white/70 border border-morandi-soft text-sm" />
+      <div class="db-top">
+        <div class="star-crumbs">
+          <span class="crumb-wrap">
+            <button class="crumb-node" @click="goHome">
+              <span class="nd"><LayoutGrid :size="12" /></span>首页
+            </button>
+          </span>
+          <span class="crumb-wrap">
+            <span class="crumb-link"></span>
+            <button class="crumb-node" @click="goHub"><span class="nd"><Utensils :size="12" /></span>饮食管理</button>
+          </span>
+          <span class="crumb-wrap">
+            <span class="crumb-link"></span>
+            <span class="crumb-node hot"><span class="nd"><ClipboardList :size="13" /></span>记录三餐</span>
+          </span>
+        </div>
+        <div class="db-top-right">
+          <label class="db-date">
+            <Calendar :size="12" />
+            <input v-model="form.date" type="date" />
+          </label>
+        </div>
       </div>
-      <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="text-center">
-          <div class="text-xs text-morandi-lightText">总热量</div>
-          <div class="text-xl font-bold text-morandi-accent">{{ totalCalories }} kcal</div>
+
+      <div class="db-const">
+        <svg class="db-line" viewBox="0 0 1200 104" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M 150 52 C 300 8, 440 8, 560 52 S 830 96, 960 52 S 1130 8, 1200 52" />
+        </svg>
+
+        <div class="db-core-wrap">
+          <div class="db-core">
+            <span class="star"><Utensils :size="19" /></span>
+            <span class="tt"><b>饮食记录</b><span>DIET LOG</span></span>
+          </div>
         </div>
-        <div class="text-center">
-          <div class="text-xs text-morandi-lightText">蛋白质</div>
-          <div class="text-xl font-bold text-morandi-text">{{ totalProtein }} g</div>
-        </div>
-        <div class="text-center">
-          <div class="text-xs text-morandi-lightText">脂肪</div>
-          <div class="text-xl font-bold text-morandi-text">{{ totalFat }} g</div>
-        </div>
-        <div class="text-center">
-          <div class="text-xs text-morandi-lightText">碳水</div>
-          <div class="text-xl font-bold text-morandi-text">{{ totalCarbs }} g</div>
+
+        <div
+          v-for="(meal, i) in meals"
+          :key="meal.type"
+          class="db-station-wrap"
+          :style="{ left: stationLeft(i) + '%' }"
+        >
+          <div class="db-station-float" :style="floatStyle(i)">
+            <button
+              class="db-station"
+              :class="{ now: currentMeal === meal.type }"
+              @click="switchMeal(meal.type)"
+              :aria-label="meal.label"
+            >
+              <component :is="meal.icon" :size="16" />
+              <span class="nm">{{ meal.label }} · {{ mealTotalCalorie(meal.type) > 0 ? mealTotalCalorie(meal.type) : '待记录' }}</span>
+              <span class="ds">{{ meal.time }} · 已记录 {{ mealItems(meal.type).length }} 项</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 四个餐次分组 -->
-    <div class="space-y-6">
-      <section v-for="meal in meals" :key="meal.type" class="glass rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="font-semibold text-lg text-morandi-text">{{ meal.label }}</h3>
-            <p class="text-xs text-morandi-lightText">约 {{ mealTotalCalorie(meal.type) }} kcal · 共 {{ mealItems(meal.type).length }} 项</p>
+    <!-- ===== 浅芯工作区（7:5 · 与首页浅芯面板同源） ===== -->
+    <div class="db-paper" ref="paperRef">
+      <div class="db-head" data-anim>
+        <div class="sec-t">{{ currentMealLabel }}工作区 · 与首页浅芯面板同源</div>
+        <div class="db-pills">
+          <span class="pill"><Flame :size="11" />今日 <b>{{ totalCalories }}</b> kcal</span>
+          <span class="pill">蛋白 <b>{{ totalProtein }}g</b></span>
+          <span class="pill">脂肪 <b>{{ totalFat }}g</b></span>
+          <span class="pill">碳水 <b>{{ totalCarbs }}g</b></span>
+        </div>
+      </div>
+
+      <div class="db-blocks">
+        <!-- 左：当前餐次明细 -->
+        <div class="db-block main" data-anim ref="mainRef">
+          <div class="db-block-head">
+            <b>{{ currentMealLabel }}已记录 · {{ currentItems.length }} 项</b>
+            <span class="db-block-kcal">{{ currentMealKcal }} kcal</span>
           </div>
-          <button
-            @click="openAddDialog(meal.type)"
-            class="px-4 py-2 rounded-lg bg-morandi-accent text-white text-sm hover:opacity-90 transition-opacity"
-          >+ 添加食物</button>
+
+          <div v-if="currentItems.length === 0" class="db-empty" @click="openAddDialog(currentMeal)">
+            <Plus :size="14" />
+            还没有记录，点这里添加
+          </div>
+          <div v-else class="db-items">
+            <div v-for="(item, idx) in currentItems" :key="item.mealId + '-' + idx" class="db-item">
+              <span class="nm">
+                {{ item.foodName }}
+                <em>{{ item.foodCategory }}</em>
+              </span>
+              <span class="meta">
+                {{ item.eatWeight }} g · 蛋白 {{ roundOne(item.protein * item.eatWeight / 100) }} ·
+                脂肪 {{ roundOne(item.fat * item.eatWeight / 100) }} ·
+                碳水 {{ roundOne(item.carb * item.eatWeight / 100) }}
+                <template v-if="item.giValue != null"> · GI {{ item.giValue }}</template>
+              </span>
+              <span class="k">{{ roundOne(item.calorie * item.eatWeight / 100) }} kcal</span>
+              <button class="x" title="删除该餐" @click="handleDeleteMeal(item.mealId)"><X :size="11" /></button>
+            </div>
+          </div>
+
+          <div class="db-foot">
+            <button class="ghost-add" @click="openAddDialog(currentMeal)"><Plus :size="13" />添加食物</button>
+            <button class="ghost-add solid" @click="toggleVoiceInput"><Mic :size="13" />语音报餐</button>
+          </div>
         </div>
 
-        <div v-if="mealItems(meal.type).length === 0" class="text-sm text-morandi-lightText text-center py-6 border border-dashed border-morandi-soft rounded-xl">
-          还没有记录，点右上角添加
-        </div>
-        <div v-else class="space-y-2">
-          <div
-            v-for="(item, idx) in mealItems(meal.type)" :key="item.mealId + '-' + idx"
-            class="flex items-center justify-between bg-white/70 rounded-xl px-4 py-3"
-          >
-            <div>
-              <p class="text-sm font-medium text-morandi-text">{{ item.foodName }} <span class="text-xs text-morandi-lightText ml-1">{{ item.foodCategory }}</span></p>
-              <p class="text-xs text-morandi-lightText mt-0.5">
-                {{ item.eatWeight }} g · 蛋白 {{ roundOne(item.protein * item.eatWeight / 100) }} g ·
-                脂肪 {{ roundOne(item.fat * item.eatWeight / 100) }} g ·
-                碳水 {{ roundOne(item.carb * item.eatWeight / 100) }} g
-                <span v-if="item.giValue != null" class="ml-2">GI {{ item.giValue }}</span>
-              </p>
+        <!-- 右：今日小结 -->
+        <div class="db-block side" data-anim>
+          <div class="db-side-head">
+            <b>今日小结</b>
+            <span>{{ form.date }}</span>
+          </div>
+          <div class="db-macros">
+            <div v-for="m in macroShares" :key="m.key" class="db-macro">
+              <div class="lb"><i :style="{ background: m.color }"></i>{{ m.key }}<b>{{ m.g }} g · {{ m.pct }}%</b></div>
+              <div class="bar"><i :style="{ width: m.pct + '%', background: m.color }"></i></div>
             </div>
-            <div class="text-right">
-              <div class="text-sm font-semibold text-morandi-accent">{{ roundOne(item.calorie * item.eatWeight / 100) }} kcal</div>
-              <button
-                @click="handleDeleteMeal(item.mealId)"
-                class="text-xs text-red-500 mt-1 hover:underline"
-              >删除该餐</button>
+          </div>
+          <div class="db-dist">
+            <div v-for="d in mealDist" :key="d.label" class="db-dist-row" :class="{ dim: d.kcal === 0 }">
+              <span class="lb">{{ d.label }}</span>
+              <div class="bar"><i :style="{ width: d.pct + '%' }"></i></div>
+              <span class="k">{{ d.kcal > 0 ? d.kcal + ' kcal' : '待记录' }}</span>
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
 
-    <!-- 添加食物弹窗 -->
-    <div v-if="dialogOpen" class="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" @click.self="closeAddDialog">
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-        <div class="sticky top-0 bg-white rounded-t-2xl border-b border-morandi-soft px-6 py-4 flex items-center justify-between">
-          <h3 class="font-semibold text-morandi-text">添加到「{{ currentMealLabel }}」</h3>
-          <button @click="closeAddDialog" class="text-morandi-lightText hover:text-morandi-text text-2xl leading-none">×</button>
+    <!-- ===== 气泡弹窗（无灰遮罩 · 气泡弹出） ===== -->
+    <div v-if="dialogOpen" class="pop-mask" @click.self="closeAddDialog">
+      <div class="pop-bubble">
+        <div class="pop-head">
+          <h3>添加到「{{ currentMealLabel }}」</h3>
+          <button class="pop-close" @click="closeAddDialog"><X :size="18" /></button>
         </div>
 
-        <div class="p-6 space-y-4">
-          <!-- 分类 tab -->
-          <div class="flex flex-wrap gap-2">
+        <div class="pop-body">
+          <!-- 分类 chips -->
+          <div class="pop-chips">
             <button
               v-for="c in categories" :key="c"
+              class="chip" :class="{ on: activeCategory === c }"
               @click="activeCategory = c"
-              :class="['px-3 py-1.5 text-xs rounded-full border transition-all', activeCategory === c ? 'bg-morandi-accent text-white border-morandi-accent' : 'bg-white border-morandi-soft text-morandi-text hover:border-morandi-accent']"
             >{{ c }}</button>
           </div>
 
-          <!-- 搜索 & GI 提示 & 语音/图片录入 -->
-          <div class="flex flex-wrap items-center gap-3">
-            <div class="relative flex-1">
-              <input v-model="keyword" placeholder="搜索食物名称" class="w-full pl-3 pr-12 py-2 rounded-lg bg-white border border-morandi-soft text-sm" />
-              <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <button 
-                  @click="toggleVoiceInput"
-                  :disabled="isRecording"
-                  class="p-1.5 rounded-lg hover:bg-morandi-soft transition-colors"
-                  :class="isRecording ? 'bg-red-100 text-red-500' : 'text-morandi-lightText'"
-                  title="语音搜索"
-                >
-                  <Mic :size="18" />
-                </button>
-                <button 
-                  @click="triggerImageUpload"
-                  class="p-1.5 rounded-lg hover:bg-morandi-soft text-morandi-lightText transition-colors"
-                  title="拍照识别"
-                >
-                  <ImagePlus :size="18" />
-                </button>
+          <!-- 搜索 & GI 提示 -->
+          <div class="pop-search">
+            <div class="pop-search-box">
+              <input v-model="keyword" placeholder="搜索食物名称" />
+              <div class="pop-search-tools">
+                <button
+                  class="tool" :class="{ rec: isRecording }" :disabled="isRecording"
+                  title="语音搜索" @click="toggleVoiceInput"
+                ><Mic :size="16" /></button>
               </div>
             </div>
-            <label v-if="isDiabetes" class="text-xs text-morandi-accent">⤴ 糖尿病用户：优先按低 GI 排序</label>
+            <label v-if="isDiabetes" class="pop-gi-hint">⤴ 糖尿病用户：优先按低 GI 排序</label>
           </div>
-          
+
           <!-- 语音识别结果 -->
-          <div v-if="voiceResult" class="p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <MessageCircle class="w-4 h-4 text-amber-600" />
-                <span class="text-sm text-gray-700">语音识别: {{ voiceResult }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <button @click="applyVoiceResult" class="px-3 py-1 text-sm bg-morandi-accent text-white rounded-md hover:opacity-90 transition-opacity">
-                  使用
-                </button>
-                <button @click="clearVoiceResult" class="px-3 py-1 text-sm bg-gray-200 text-gray-600 rounded-md hover:bg-gray-300 transition-colors">
-                  清除
-                </button>
-              </div>
+          <div v-if="voiceResult" class="pop-voice">
+            <MessageCircle :size="15" />
+            <span>语音识别: {{ voiceResult }}</span>
+            <div class="pop-voice-ops">
+              <button class="mini-btn gold" @click="applyVoiceResult">使用</button>
+              <button class="mini-btn" @click="clearVoiceResult">清除</button>
             </div>
-          </div>
-          
-          <!-- 图片识别结果 -->
-          <div v-if="imageAnalysisResult" class="p-4 bg-green-50 rounded-xl border border-green-200">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 flex items-center justify-center bg-green-100 rounded-lg shrink-0">
-                <CheckCircle class="w-5 h-5 text-green-600" />
-              </div>
-              <div class="flex-1">
-                <h4 class="font-medium text-green-800">识别成功</h4>
-                <p class="text-sm text-green-700 mt-1">识别为：<span class="font-bold">{{ imageAnalysisResult.foodName }}</span></p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <span 
-                    v-for="(item, index) in imageAnalysisResult.alternatives" 
-                    :key="index"
-                    class="px-2 py-1 text-xs bg-green-200 text-green-700 rounded-md"
-                  >
-                    {{ item }}
-                  </span>
-                </div>
-                <button 
-                  @click="applyImageResult" 
-                  class="mt-3 px-4 py-2 bg-morandi-accent text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
-                >
-                  确认使用
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 图片上传区域 -->
-          <div v-if="showImageUpload" class="relative border-2 border-dashed border-morandi-accent rounded-xl p-6 text-center">
-            <input 
-              ref="imageInput"
-              type="file" 
-              accept="image/*" 
-              class="absolute inset-0 opacity-0 cursor-pointer"
-              @change="handleImageChange"
-            />
-            <ImagePlus :size="48" class="mx-auto text-morandi-accent mb-3" />
-            <p class="text-sm text-morandi-text">点击上传食物图片</p>
-            <p class="text-xs text-morandi-lightText mt-1">支持 JPG、PNG 格式</p>
           </div>
 
           <!-- 食物列表 -->
           <div class="food-pick-list">
-            <div v-if="filteredFoods.length === 0" class="text-center text-sm text-morandi-lightText py-6">没有匹配的食物</div>
+            <div v-if="filteredFoods.length === 0" class="food-pick-none">没有匹配的食物</div>
             <div
               v-for="(f, idx) in filteredFoods" :key="f.foodId ?? idx"
+              class="food-pick-item" :class="{ picked: selectedFood && selectedFood.foodId === f.foodId }"
               @click="pickFood(f)"
-              :class="['food-pick-item', selectedFood && selectedFood.foodId === f.foodId ? 'bg-morandi-accent text-white' : 'hover:bg-morandi-soft text-morandi-text']"
             >
-              <div class="flex justify-between items-center">
-                <span class="font-medium">{{ f.foodName }} <span class="opacity-70 text-xs">({{ f.foodCategory }})</span></span>
-                <span class="text-xs opacity-80">{{ f.calorie }} kcal/100g · GI {{ f.giValue ?? '-' }}</span>
+              <div class="fp-top">
+                <span class="fp-name">{{ f.foodName }} <em>({{ f.foodCategory }})</em></span>
+                <span class="fp-kcal">{{ f.calorie }} kcal/100g · GI {{ f.giValue ?? '-' }}</span>
               </div>
-              <div class="text-xs opacity-80">
+              <div class="fp-sub">
                 蛋白 {{ f.protein }} g · 脂肪 {{ f.fat }} g · 碳水 {{ f.carb }} g · 钙 {{ f.calcium ?? 0 }} mg · 叶酸 {{ f.folicAcid ?? 0 }} μg · DHA {{ f.dha ?? 0 }} mg
               </div>
             </div>
           </div>
 
           <!-- 选中食物的分量 -->
-          <div v-if="selectedFood" class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-morandi-soft/40 rounded-xl p-4">
-            <div class="md:col-span-2">
-              <label class="block text-xs text-morandi-lightText mb-1">食用重量（克）</label>
-              <input v-model.number="form.amount" type="number" min="1" class="w-full px-3 py-2 rounded-lg bg-white border border-morandi-soft text-sm" />
+          <div v-if="selectedFood" class="pop-portion">
+            <div class="pp-field">
+              <label>食用重量（克）</label>
+              <input v-model.number="form.amount" type="number" min="1" />
             </div>
-            <div>
-              <label class="block text-xs text-morandi-lightText mb-1">预计热量</label>
-              <div class="px-3 py-2 rounded-lg bg-white border border-morandi-soft text-sm font-semibold text-morandi-accent">
-                {{ roundOne((selectedFood.calorie ?? 0) * form.amount / 100) }} kcal
-              </div>
+            <div class="pp-field">
+              <label>预计热量</label>
+              <div class="pp-kcal">{{ roundOne((selectedFood.calorie ?? 0) * form.amount / 100) }} kcal</div>
             </div>
           </div>
-          
-          <!-- 智能食材替换建议（隐形设计，选中食物后自动显示） -->
-          <div v-if="selectedFood && substitutionSuggestions.length > 0" class="bg-blue-50 rounded-xl p-4 border border-blue-100">
-            <div class="flex items-center gap-2 mb-3">
-              <Lightbulb :size="16" class="text-blue-500" />
-              <span class="text-sm font-medium text-blue-700">营养优化建议</span>
-            </div>
-            <div class="space-y-2">
-              <div 
-                v-for="suggestion in substitutionSuggestions" 
-                :key="suggestion.foodId"
-                @click="pickFood(suggestion)"
-                class="flex items-center justify-between p-2 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors"
-              >
-                <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 flex items-center justify-center bg-blue-100 rounded-lg text-xs font-bold text-blue-600">
-                    {{ suggestion.foodName.slice(0, 1) }}
-                  </div>
-                  <div>
-                    <p class="text-sm font-medium text-blue-800">{{ suggestion.foodName }}</p>
-                    <p class="text-xs text-blue-600">{{ suggestion.calorie }} kcal/100g · GI {{ suggestion.giValue ?? '-' }}</p>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div 
-                    class="text-xs font-medium px-2 py-1 rounded-full"
-                    :class="suggestion.calorie < selectedFood.calorie ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
-                  >
-                    {{ suggestion.calorie < selectedFood.calorie ? '更低热量' : '相近热量' }}
-                  </div>
-                  <p class="text-xs text-blue-600 mt-1">
-                    蛋白 {{ suggestion.protein }}g · 碳水 {{ suggestion.carb }}g
-                  </p>
-                </div>
+
+          <!-- 智能食材替换建议 -->
+          <div v-if="selectedFood && substitutionSuggestions.length > 0" class="pop-subst">
+            <div class="ps-head"><Lightbulb :size="15" /><span>营养优化建议</span></div>
+            <div
+              v-for="suggestion in substitutionSuggestions" :key="suggestion.foodId"
+              class="ps-row" @click="pickFood(suggestion)"
+            >
+              <span class="ps-badge">{{ suggestion.foodName.slice(0, 1) }}</span>
+              <div class="ps-info">
+                <p>{{ suggestion.foodName }}</p>
+                <span>{{ suggestion.calorie }} kcal/100g · GI {{ suggestion.giValue ?? '-' }}</span>
+              </div>
+              <div class="ps-right">
+                <i :class="suggestion.calorie < selectedFood.calorie ? 'down' : 'flat'">
+                  {{ suggestion.calorie < selectedFood.calorie ? '更低热量' : '相近热量' }}
+                </i>
+                <span>蛋白 {{ suggestion.protein }}g · 碳水 {{ suggestion.carb }}g</span>
               </div>
             </div>
           </div>
 
-          <div v-if="errorMessage" class="text-xs text-red-500 text-right">{{ errorMessage }}</div>
+          <div v-if="errorMessage" class="pop-error">{{ errorMessage }}</div>
 
-          <div class="flex justify-end gap-3 pt-2 border-t border-morandi-soft">
-            <button @click="closeAddDialog" class="px-5 py-2 rounded-lg bg-morandi-soft text-morandi-text text-sm hover:opacity-90">取消</button>
-            <button :disabled="!selectedFood || saving" @click="confirmAddItem" class="px-5 py-2 rounded-lg bg-morandi-accent text-white text-sm hover:opacity-90 disabled:opacity-50">
+          <div class="pop-foot">
+            <button class="ghost-add solid" @click="closeAddDialog">取消</button>
+            <button class="confirm-btn" :disabled="!selectedFood || saving" @click="confirmAddItem">
               {{ saving ? '添加中...' : '确认添加' }}
             </button>
           </div>
@@ -260,23 +241,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { Mic, ImagePlus, X, CheckCircle, MessageCircle, Lightbulb } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { gsap } from 'gsap'
+import {
+  Mic, X, MessageCircle, Lightbulb,
+  LayoutGrid, Utensils, ClipboardList, Sunrise, Sun, Moon, Cookie,
+  Calendar, Flame, Plus
+} from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { useDietStore } from '@/stores/diet'
 import { FOOD_CATEGORY_ORDER } from '@/constants'
 import { api } from '@/api'
 
+const router = useRouter()
 const userStore = useUserStore()
 const dietStore = useDietStore()
 
 const today = new Date().toISOString().slice(0, 10)
 
+// ===== 四餐站点定义 =====
 const meals = [
-  { type: '早餐', label: '早餐' },
-  { type: '午餐', label: '午餐' },
-  { type: '晚餐', label: '晚餐' },
-  { type: '加餐', label: '加餐' }
+  { type: '早餐', label: '早餐', time: '06:00 – 10:00', icon: Sunrise },
+  { type: '午餐', label: '午餐', time: '11:00 – 14:00', icon: Sun },
+  { type: '晚餐', label: '晚餐', time: '17:00 – 20:00', icon: Moon },
+  { type: '加餐', label: '加餐', time: '任意时段', icon: Cookie }
 ]
 
 const form = ref({
@@ -290,16 +279,22 @@ const activeCategory = ref<string>('全部')
 const keyword = ref<string>('')
 const selectedFood = ref<any | null>(null)
 const dialogOpen = ref(false)
-const currentMeal = ref<string>('午餐')
+const currentMeal = ref<string>(defaultMeal())
 const saving = ref(false)
 const errorMessage = ref('')
 const mealsData = computed(() => dietStore.currentMeals)
 
+// 按当前时刻默认聚焦对应餐次
+function defaultMeal(): string {
+  const h = new Date().getHours()
+  if (h < 10) return '早餐'
+  if (h < 15) return '午餐'
+  if (h < 21) return '晚餐'
+  return '加餐'
+}
+
 const isRecording = ref(false)
 const voiceResult = ref('')
-const showImageUpload = ref(false)
-const imageInput = ref<HTMLInputElement | null>(null)
-const imageAnalysisResult = ref<{ foodName: string; alternatives: string[] } | null>(null)
 
 const isDiabetes = computed(() => {
   const c = userStore.user?.crowdType || userStore.user?.crowd_type || ''
@@ -309,6 +304,24 @@ const isDiabetes = computed(() => {
 const currentMealLabel = computed(() => (meals.find((m) => m.type === currentMeal.value) || meals[1]).label)
 
 const substitutionSuggestions = computed(() => [] as Array<{ foodId: number; foodName: string; calorie: number; giValue?: number; protein: number; carb: number }>)
+
+function goHome() { router.push('/dashboard/home') }
+function goHub() { router.push({ path: '/dashboard/hub', query: { group: 'diet' } }) }
+function switchMeal(type: string) {
+  if (dialogOpen.value) closeAddDialog()
+  currentMeal.value = type
+}
+
+// ===== 星轨站点：横向分布 + 各自漂浮节奏 =====
+function stationLeft(i: number): number {
+  return 34 + i * 20
+}
+function floatStyle(i: number): Record<string, string> {
+  return {
+    animationDuration: (4.6 + (i % 4) * 0.45) + 's',
+    animationDelay: -(i * 0.9) + 's'
+  }
+}
 
 // ---- 载入食物库 ----
 async function loadFoods() {
@@ -364,7 +377,9 @@ async function loadRecords() {
 function mealItems(type: string): any[] {
   const result: any[] = []
   mealsData.value.forEach((m: any) => {
-    if (m.mealType === type && Array.isArray(m.items)) {
+    // 兼容 mealType / meal_type 两种字段格式
+    const mt = m.mealType || m.meal_type
+    if (mt === type && Array.isArray(m.items)) {
       m.items.forEach((it: any) => result.push({ ...it, mealId: m.mealId }))
     }
   })
@@ -378,6 +393,9 @@ function mealTotalCalorie(type: string): number {
   })
   return Math.round(total)
 }
+
+const currentItems = computed(() => mealItems(currentMeal.value))
+const currentMealKcal = computed(() => mealTotalCalorie(currentMeal.value))
 
 // ---- 总汇总 ----
 const totalCalories = computed(() => meals.reduce((sum, m) => sum + mealTotalCalorie(m.type), 0))
@@ -397,6 +415,31 @@ function sumNutrient(key: string): number {
   })
   return Math.round(total)
 }
+
+// ---- 今日小结：三色宏量占比（蛋白蓝 / 脂肪黄 / 碳水绿） + 四餐分布 ----
+const macroShares = computed(() => {
+  const p = totalProtein.value * 4
+  const f = totalFat.value * 9
+  const c = totalCarbs.value * 4
+  const total = p + f + c
+  const mk = (key: string, g: number, kcalPart: number, color: string) => ({
+    key, g, color,
+    pct: total > 0 ? Math.max(2, Math.round((kcalPart / total) * 100)) : 0
+  })
+  return [
+    mk('蛋白质', totalProtein.value, p, '#6C8FBE'),
+    mk('脂肪', totalFat.value, f, '#D9A24A'),
+    mk('碳水', totalCarbs.value, c, '#7FAE8E')
+  ]
+})
+
+const mealDist = computed(() => {
+  const total = totalCalories.value
+  return meals.map((m) => {
+    const k = mealTotalCalorie(m.type)
+    return { label: m.label, kcal: k, pct: total > 0 ? Math.max(k > 0 ? 3 : 0, Math.round((k / total) * 100)) : 0 }
+  })
+})
 
 function roundOne(n: number): number {
   return Math.round(n * 10) / 10
@@ -469,28 +512,28 @@ const startRecording = () => {
     errorMessage.value = '您的浏览器不支持语音识别功能'
     return
   }
-  
+
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   const recognition = new SpeechRecognition()
-  
+
   recognition.lang = 'zh-CN'
   recognition.continuous = false
   recognition.interimResults = false
-  
+
   recognition.onresult = (event: any) => {
     const transcript = event.results[0][0].transcript
     voiceResult.value = transcript
   }
-  
-  recognition.onerror = (event: any) => {
+
+  recognition.onerror = () => {
     errorMessage.value = '语音识别失败，请重试'
     isRecording.value = false
   }
-  
+
   recognition.onend = () => {
     isRecording.value = false
   }
-  
+
   recognition.start()
   isRecording.value = true
   errorMessage.value = ''
@@ -513,32 +556,41 @@ const clearVoiceResult = () => {
   voiceResult.value = ''
 }
 
-// ---- 图片识别功能 ----
-const triggerImageUpload = () => {
-  showImageUpload.value = !showImageUpload.value
-  imageAnalysisResult.value = null
-}
+// ===== 入场动效（与首页/中转页同节奏：面包屑点亮 → 站点弹出 → 浅芯浮起） =====
+const bandRef = ref<HTMLElement | null>(null)
+const paperRef = ref<HTMLElement | null>(null)
+const mainRef = ref<HTMLElement | null>(null)
 
-const handleImageChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    analyzeImage(file)
+function animateEntrance() {
+  const band = bandRef.value
+  const paper = paperRef.value
+  if (band) {
+    gsap.fromTo(band.querySelectorAll('.crumb-node'),
+      { opacity: 0, y: 12, scale: 0.6 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.15, ease: 'back.out(2)' })
+    gsap.fromTo(band.querySelectorAll('.db-top-right, .db-core-wrap'),
+      { opacity: 0, y: 14 },
+      { opacity: 1, y: 0, duration: 0.6, delay: 0.15, ease: 'power3.out' })
+    // 站点沿星轨依次弹出
+    gsap.fromTo(band.querySelectorAll('.db-station-wrap'),
+      { scale: 0, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.5, stagger: 0.08, delay: 0.35, ease: 'back.out(1.7)', clearProps: 'opacity,transform' })
+  }
+  if (paper) {
+    gsap.fromTo(paper.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 24 },
+      { opacity: 1, y: 0, duration: 0.7, stagger: 0.1, delay: 0.35, ease: 'power3.out' })
   }
 }
 
-const analyzeImage = async (_file: File) => {
-  imageAnalysisResult.value = null
-  errorMessage.value = '图片识别暂不可用'
-}
-
-const applyImageResult = () => {
-  if (imageAnalysisResult.value) {
-    keyword.value = imageAnalysisResult.value.foodName
-    imageAnalysisResult.value = null
-    showImageUpload.value = false
-  }
-}
+// 切换餐次时，主工作卡轻微浮起过渡
+watch(currentMeal, () => {
+  nextTick(() => {
+    if (mainRef.value) {
+      gsap.fromTo(mainRef.value, { opacity: 0.35, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' })
+    }
+  })
+})
 
 watch(
   () => form.value.date,
@@ -548,6 +600,7 @@ watch(
 )
 
 onMounted(async () => {
+  animateEntrance()
   userStore.init()
   await loadFoods()
   await loadRecords()
@@ -555,54 +608,563 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.glass {
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+.diet-page {
+  position: relative;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
 }
 
-.food-pick-list {
-  max-height: 320px;
-  overflow-y: auto;
-  border: 1px solid rgba(210, 200, 190, 0.5);
-  border-radius: 0.5rem;
+/* ========== 深壳星轨带 ========== */
+.db-band {
+  position: relative;
+  padding: 14px 24px 10px;
+  border-radius: 20px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% 24%, rgba(232, 185, 115, 0.1) 0%, transparent 44%),
+    radial-gradient(circle at 88% 88%, rgba(179, 107, 42, 0.08) 0%, transparent 46%),
+    linear-gradient(180deg, #14110C 0%, #0E0C0A 100%);
+  border: 1px solid rgba(232, 185, 115, 0.14);
+  color: #F6EAD6;
+}
+.db-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+}
+.db-glow--1 {
+  width: 200px; height: 200px;
+  right: -60px; top: -110px;
+  background: rgba(232, 185, 115, 0.12);
+  animation: dbGlowFloat 9s ease-in-out infinite alternate;
+}
+.db-glow--2 {
+  width: 170px; height: 170px;
+  left: -70px; bottom: -100px;
+  background: rgba(179, 107, 42, 0.1);
+  animation: dbGlowFloat 11s ease-in-out infinite alternate-reverse;
+}
+@keyframes dbGlowFloat {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(16px, 10px, 0) scale(1.12); }
 }
 
-.food-pick-item {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  border-bottom: 1px solid rgba(210, 200, 190, 0.35);
+/* ---- 顶行：星座面包屑 + 日期 ---- */
+.db-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.star-crumbs { display: flex; align-items: center; }
+.crumb-wrap { display: flex; align-items: center; }
+.crumb-link { width: 42px; height: 0; border-top: 1.5px dashed rgba(184, 134, 59, 0.45); margin: 0 5px; }
+.crumb-node {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: #8C7A5E;
+  background: none; border: none; padding: 0;
+  font-family: inherit; letter-spacing: 0.04em;
+}
+.crumb-node .nd {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid rgba(217, 162, 74, 0.4); color: #8C7A5E;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(24, 19, 12, 0.9); transition: 0.25s;
+}
+button.crumb-node { cursor: pointer; transition: color 0.25s ease; }
+button.crumb-node:hover { color: #E8B973; }
+.crumb-node.hot { color: #F6EAD6; font-weight: 700; }
+.crumb-node.hot .nd {
+  color: #E8B973; border-color: #E8B973;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  box-shadow: 0 0 14px rgba(217, 162, 74, 0.45);
+}
+.db-top-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.db-date {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #B9A78A;
+  border: 1px solid rgba(217, 162, 74, 0.3);
+  background: rgba(217, 162, 74, 0.08);
+  border-radius: 999px; padding: 3px 10px;
+}
+.db-date svg { color: #E8B973; flex-shrink: 0; }
+.db-date input {
+  background: transparent; border: none; outline: none;
+  color: #F0E2C4; font-size: 11px; font-family: inherit;
+  color-scheme: dark; cursor: pointer; letter-spacing: 0.03em;
+}
+
+/* ---- 星轨带 ---- */
+.db-const {
+  position: relative;
+  z-index: 1;
+  height: 104px;
+  margin-top: 6px;
+}
+.db-line {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  overflow: visible;
+}
+.db-line path {
+  fill: none;
+  stroke: rgba(217, 162, 74, 0.35);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 6;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---- 核心恒星（上下浮动） ---- */
+.db-core-wrap {
+  position: absolute; left: 4px; top: 50%;
+  margin-top: -23px; z-index: 2;
+}
+.db-core {
+  display: flex; align-items: center; gap: 10px;
+  animation: dbFloat 6.4s ease-in-out infinite alternate;
+  animation-delay: -0.6s;
+}
+.db-core .star {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1px solid rgba(232, 185, 115, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  color: #E8B973;
+  box-shadow: 0 0 22px rgba(217, 162, 74, 0.32);
+  animation: dbBreath 3.2s ease-in-out infinite;
+}
+@keyframes dbBreath {
+  0%, 100% { box-shadow: 0 0 18px rgba(217, 162, 74, 0.3); }
+  50% { box-shadow: 0 0 34px rgba(217, 162, 74, 0.52); }
+}
+.db-core .tt b {
+  display: block; font-size: 12.5px; color: #F6EAD6;
+  font-weight: 700; letter-spacing: 0.08em;
+}
+.db-core .tt span {
+  display: block; margin-top: 2px; font-size: 9.5px;
+  color: #9A8A6C; letter-spacing: 0.12em;
+}
+
+/* ---- 四餐站点（wrapper 定位 / 内层上下浮动 / 按钮悬停缩放，三层分离避免冲突） ---- */
+.db-station-wrap {
+  position: absolute; top: 50%;
+  width: 44px; height: 44px;
+  margin: -22px 0 0 -22px;
+  z-index: 3;
+}
+.db-station-float {
+  width: 100%; height: 100%;
+  animation: dbFloat 4.6s ease-in-out infinite alternate;
+}
+@keyframes dbFloat {
+  from { transform: translateY(4px); }
+  to   { transform: translateY(-8px); }
+}
+.db-station {
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 50%;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  background: rgba(24, 19, 12, 0.95);
+  border: 1px solid rgba(217, 162, 74, 0.45);
+  color: #E8B973;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.5, 0.5, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.db-station .nm {
+  position: absolute; top: -26px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px; color: #F0E2C4;
+  white-space: nowrap; letter-spacing: 0.06em;
+  opacity: 0.72; transition: opacity 0.3s ease, color 0.3s ease;
+}
+.db-station .ds {
+  position: absolute; top: calc(100% + 10px); left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  font-size: 9.5px; color: #F6EAD6;
+  background: rgba(24, 19, 12, 0.95);
+  border: 1px solid rgba(217, 162, 74, 0.4);
+  padding: 2px 9px; border-radius: 999px;
+  opacity: 0; transition: opacity 0.28s ease, transform 0.28s ease;
+  pointer-events: none;
+}
+.db-station:hover {
+  transform: scale(1.14);
+  border-color: #E8B973;
+  box-shadow: 0 0 0 5px rgba(217, 162, 74, 0.14), 0 10px 26px rgba(217, 162, 74, 0.32);
+}
+.db-station:hover .ds { opacity: 1; transform: translateX(-50%) translateY(0); }
+.db-station:hover .nm { opacity: 1; color: #E8B973; }
+.db-station.now {
+  border-color: #E8B973;
+  box-shadow: 0 0 0 6px rgba(217, 162, 74, 0.14), 0 0 22px rgba(217, 162, 74, 0.4);
+}
+.db-station.now .nm { opacity: 1; color: #E8B973; font-weight: 700; }
+
+/* ========== 浅芯工作区 ========== */
+.db-paper {
+  position: relative;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(184, 134, 59, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 86% 100%, rgba(201, 143, 62, 0.06) 0%, transparent 44%),
+    linear-gradient(180deg, #F8F4EA 0%, #F2EBDC 100%);
+  border: 1px solid rgba(232, 185, 115, 0.24);
+  border-radius: 20px;
+  padding: 18px 22px 22px;
+  box-shadow: 0 30px 60px -34px rgba(90, 70, 40, 0.28);
+}
+.db-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.sec-t {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: #2A2620;
+  letter-spacing: 0.02em;
+}
+.sec-t::before {
+  content: ''; width: 3px; height: 14px; border-radius: 99px;
+  background: linear-gradient(180deg, #E8B973, #B8863B);
+}
+.db-pills { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.pill {
+  font-size: 11px; color: #6E6350;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(184, 134, 59, 0.2);
+  padding: 4px 12px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.pill svg { color: #B8863B; }
+.pill b { color: #B8863B; font-weight: 700; }
+
+.db-blocks {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.db-block {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(184, 134, 59, 0.16);
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+.db-block-head {
+  display: flex; align-items: baseline; gap: 8px;
+}
+.db-block-head b { font-size: 13px; color: #2A2620; font-weight: 700; }
+.db-block-kcal {
+  margin-left: auto; font-family: 'Noto Serif SC', serif;
+  font-size: 17px; font-weight: 900; color: #B8863B;
+}
+.db-empty {
+  margin-top: 12px;
+  border: 1px dashed rgba(184, 134, 59, 0.35);
+  border-radius: 12px; padding: 22px 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 12px; color: #8C7A5E;
+  cursor: pointer; transition: 0.25s;
+}
+.db-empty:hover {
+  border-color: #B8863B; color: #B8863B;
+  background: rgba(217, 162, 74, 0.06);
+}
+.db-items { margin-top: 6px; }
+.db-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed rgba(184, 134, 59, 0.18);
+  font-size: 12.5px; color: #2A2620;
+}
+.db-item:last-child { border-bottom: none; }
+.db-item .nm { font-weight: 700; white-space: nowrap; }
+.db-item .nm em {
+  font-style: normal; font-weight: 500;
+  color: rgba(42, 38, 32, 0.45); font-size: 10.5px; margin-left: 5px;
+}
+.db-item .meta {
+  color: rgba(42, 38, 32, 0.5); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.db-item .k {
+  font-size: 11.5px; color: #B8863B; font-weight: 700;
+  white-space: nowrap; margin-left: auto;
+}
+.db-item .x {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: none; background: none; color: #C98F6F;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: 0.2s; flex-shrink: 0;
+}
+.db-item .x:hover { background: rgba(201, 110, 80, 0.12); }
+.db-foot {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+.ghost-add {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px dashed rgba(184, 134, 59, 0.4);
+  color: #B8863B; background: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.05em;
+  border-radius: 10px; padding: 8px 14px; transition: 0.25s;
+}
+.ghost-add:hover { background: rgba(217, 162, 74, 0.1); border-color: #B8863B; }
+.ghost-add.solid { border-style: solid; }
+
+/* ---- 今日小结 ---- */
+.db-side-head {
+  display: flex; align-items: baseline; gap: 8px;
+}
+.db-side-head b { font-size: 13px; color: #2A2620; font-weight: 700; }
+.db-side-head span { font-size: 10.5px; color: rgba(42, 38, 32, 0.45); }
+.db-macros {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 12px;
+}
+.db-macro .lb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; color: rgba(42, 38, 32, 0.55);
+}
+.db-macro .lb i { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+.db-macro .lb b { margin-left: auto; color: #2A2620; font-size: 11px; }
+.db-macro .bar {
+  height: 6px; border-radius: 99px;
+  background: rgba(184, 134, 59, 0.1); margin-top: 4px;
+  overflow: hidden;
+}
+.db-macro .bar i {
+  display: block; height: 100%; border-radius: 99px;
+  transition: width 0.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.db-dist {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed rgba(184, 134, 59, 0.2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.db-dist-row {
+  display: flex; align-items: center; gap: 10px; font-size: 11px;
+}
+.db-dist-row .lb { width: 32px; color: rgba(42, 38, 32, 0.55); flex-shrink: 0; }
+.db-dist-row .bar {
+  flex: 1; height: 5px; border-radius: 99px;
+  background: rgba(184, 134, 59, 0.1); overflow: hidden;
+}
+.db-dist-row .bar i {
+  display: block; height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #E8B973, #B8863B);
+  transition: width 0.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.db-dist-row .k {
+  width: 72px; text-align: right; color: #B8863B; font-weight: 700; flex-shrink: 0;
+}
+.db-dist-row.dim .k { color: rgba(42, 38, 32, 0.4); font-weight: 500; }
+
+/* ========== 气泡弹窗（无灰遮罩 · 气泡弹出动画） ========== */
+.pop-mask {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: transparent;
+}
+.pop-bubble {
+  width: 100%; max-width: 760px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: #FDFBF4;
+  border: 1px solid rgba(232, 185, 115, 0.45);
+  border-radius: 20px;
+  box-shadow: 0 30px 70px -20px rgba(90, 70, 40, 0.35), 0 0 0 6px rgba(217, 162, 74, 0.08);
+  overflow: hidden;
+}
+/* 气泡弹出：scale + 上浮，带轻微回弹 */
+.pop-mask-enter-active { transition: opacity 0.2s ease; }
+.pop-mask-enter-from { opacity: 0; }
+.pop-mask-leave-active { transition: opacity 0.18s ease; }
+.pop-mask-leave-to { opacity: 0; }
+.pop-mask-enter-active .pop-bubble {
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+.pop-mask-enter-from .pop-bubble {
+  transform: scale(0.7) translateY(36px); opacity: 0;
+}
+.pop-mask-leave-active .pop-bubble {
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.pop-mask-leave-to .pop-bubble {
+  transform: scale(0.92) translateY(12px); opacity: 0;
+}
+.pop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(184, 134, 59, 0.16);
+  background: #FDFBF4; flex-shrink: 0;
+}
+.pop-head h3 { font-size: 14px; font-weight: 700; color: #2A2620; }
+.pop-close {
+  border: none; background: none; color: rgba(42, 38, 32, 0.45);
+  cursor: pointer; padding: 4px; border-radius: 8px; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.pop-close:hover { color: #2A2620; background: rgba(184, 134, 59, 0.1); }
+.pop-body {
+  padding: 16px 20px 18px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.pop-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-size: 11px; color: #6E6350;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(184, 134, 59, 0.2);
+  padding: 5px 12px; border-radius: 999px;
+  cursor: pointer; transition: 0.25s; font-family: inherit;
+}
+.chip:hover { border-color: #B8863B; color: #B8863B; background: rgba(217, 162, 74, 0.08); }
+.chip.on {
+  background: linear-gradient(135deg, #E8B973, #B8863B);
+  color: #fff; border-color: transparent; font-weight: 600;
+}
+.pop-search { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pop-search-box { position: relative; flex: 1; min-width: 240px; }
+.pop-search-box input {
+  width: 100%; padding: 8px 76px 8px 12px;
+  border-radius: 10px; border: 1px solid rgba(184, 134, 59, 0.25);
+  background: #fff; font-size: 12.5px; color: #2A2620; outline: none;
+  transition: border-color 0.25s ease;
+}
+.pop-search-box input:focus { border-color: #B8863B; }
+.pop-search-tools {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 2px;
+}
+.pop-search-tools .tool {
+  border: none; background: none; padding: 5px; border-radius: 8px;
+  color: rgba(42, 38, 32, 0.45); cursor: pointer; transition: 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.pop-search-tools .tool:hover { background: rgba(184, 134, 59, 0.1); color: #B8863B; }
+.pop-search-tools .tool.rec { color: #C0522F; background: rgba(201, 110, 80, 0.12); }
+.pop-gi-hint { font-size: 11px; color: #B8863B; }
+.pop-voice {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(217, 162, 74, 0.1);
+  border: 1px solid rgba(217, 162, 74, 0.3);
+  border-radius: 10px; padding: 9px 12px;
+  font-size: 12px; color: #2A2620;
+}
+.pop-voice svg { color: #B8863B; flex-shrink: 0; }
+.pop-voice-ops { margin-left: auto; display: flex; gap: 6px; }
+.mini-btn {
+  font-size: 11px; padding: 4px 12px; border-radius: 8px;
+  border: 1px solid rgba(184, 134, 59, 0.25);
+  background: rgba(255, 255, 255, 0.8); color: #6E6350;
+  cursor: pointer; transition: 0.2s; font-family: inherit;
+}
+.mini-btn:hover { border-color: #B8863B; color: #B8863B; }
+.mini-btn.gold {
+  background: linear-gradient(135deg, #E8B973, #B8863B);
+  color: #fff; border-color: transparent; font-weight: 600;
+}
+.mini-btn.gold:hover { opacity: 0.9; }
+.mini-btn.gold.big { padding: 7px 16px; margin-top: 8px; }
+.food-pick-list {
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid rgba(184, 134, 59, 0.2);
+  border-radius: 12px; background: #fff;
+}
+.food-pick-none {
+  text-align: center; font-size: 12px; color: rgba(42, 38, 32, 0.45); padding: 22px 0;
+}
+.food-pick-item {
+  padding: 9px 12px; cursor: pointer;
+  border-bottom: 1px solid rgba(184, 134, 59, 0.12);
+  transition: background-color 0.18s ease;
 }
 .food-pick-item:last-child { border-bottom: none; }
+.food-pick-item:hover { background: rgba(217, 162, 74, 0.08); }
+.food-pick-item.picked { background: linear-gradient(135deg, rgba(232, 185, 115, 0.22), rgba(184, 134, 59, 0.16)); }
+.fp-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.fp-name { font-size: 12.5px; font-weight: 600; color: #2A2620; }
+.fp-name em { font-style: normal; font-weight: 400; font-size: 10.5px; color: rgba(42, 38, 32, 0.45); }
+.fp-kcal { font-size: 10.5px; color: rgba(42, 38, 32, 0.55); white-space: nowrap; }
+.fp-sub { font-size: 10.5px; color: rgba(42, 38, 32, 0.45); margin-top: 2px; }
+.food-pick-list::-webkit-scrollbar { width: 8px; }
+.food-pick-list::-webkit-scrollbar-track { background: rgba(184, 134, 59, 0.08); border-radius: 4px; }
+.food-pick-list::-webkit-scrollbar-thumb { background: rgba(184, 134, 59, 0.4); border-radius: 4px; }
+.food-pick-list::-webkit-scrollbar-thumb:hover { background: rgba(150, 100, 40, 0.6); }
+.pop-portion {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  background: rgba(217, 162, 74, 0.07);
+  border: 1px solid rgba(184, 134, 59, 0.18);
+  border-radius: 12px; padding: 12px 14px;
+}
+.pp-field label {
+  display: block; font-size: 10.5px; color: rgba(42, 38, 32, 0.5); margin-bottom: 4px;
+}
+.pp-field input {
+  width: 100%; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid rgba(184, 134, 59, 0.25);
+  background: #fff; font-size: 12.5px; color: #2A2620; outline: none;
+}
+.pp-field input:focus { border-color: #B8863B; }
+.pp-kcal {
+  padding: 8px 10px; border-radius: 10px;
+  border: 1px solid rgba(184, 134, 59, 0.25);
+  background: #fff; font-size: 12.5px; font-weight: 700; color: #B8863B;
+}
+.pop-subst {
+  background: rgba(108, 143, 190, 0.08);
+  border: 1px solid rgba(108, 143, 190, 0.25);
+  border-radius: 12px; padding: 12px 14px;
+}
+.ps-head {
+  display: flex; align-items: center; gap: 7px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 600; color: #4A6FA0;
+}
+.ps-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 6px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+}
+.ps-row:hover { background: rgba(108, 143, 190, 0.1); }
+.ps-badge {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(108, 143, 190, 0.15); color: #4A6FA0;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ps-info p { font-size: 12px; font-weight: 600; color: #2A2620; }
+.ps-info span { font-size: 10.5px; color: rgba(42, 38, 32, 0.5); }
+.ps-right { margin-left: auto; text-align: right; }
+.ps-right i {
+  font-style: normal; font-size: 10px; padding: 2px 8px; border-radius: 99px;
+}
+.ps-right i.down { background: rgba(127, 174, 142, 0.16); color: #2F7D5B; }
+.ps-right i.flat { background: rgba(217, 162, 74, 0.16); color: #B8863B; }
+.ps-right > span { display: block; font-size: 10px; color: rgba(42, 38, 32, 0.5); margin-top: 3px; }
+.pop-error { font-size: 11px; color: #C0522F; text-align: right; }
+.pop-foot {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding-top: 12px; border-top: 1px solid rgba(184, 134, 59, 0.16);
+}
+.confirm-btn {
+  padding: 8px 20px; border-radius: 10px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #E8B973, #B8863B);
+  color: #fff; font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em;
+  transition: 0.25s; font-family: inherit;
+}
+.confirm-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.confirm-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-.food-pick-list::-webkit-scrollbar {
-  width: 8px;
-}
-.food-pick-list::-webkit-scrollbar-track {
-  background: rgba(210, 200, 190, 0.15);
-  border-radius: 4px;
-}
-.food-pick-list::-webkit-scrollbar-thumb {
-  background: rgba(180, 160, 145, 0.55);
-  border-radius: 4px;
-}
-.food-pick-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(150, 130, 115, 0.75);
-}
-.page-fade {
-  animation: fadeIn 0.3s ease forwards;
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ---- 响应式 ---- */
+@media (max-width: 1000px) {
+  .db-blocks { grid-template-columns: 1fr; }
+  .db-item .meta { display: none; }
 }
 </style>

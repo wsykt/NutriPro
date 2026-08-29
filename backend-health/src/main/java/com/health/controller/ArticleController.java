@@ -1,9 +1,9 @@
 package com.health.controller;
 
 import com.health.entity.Article;
-import com.health.repository.ArticleRepository;
 import com.health.service.ArticleService;
 import com.health.service.AsyncArticleTaskService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,13 +17,11 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/articles")
+@Slf4j
 public class ArticleController {
 
     @Autowired
     private ArticleService articleService;
-    
-    @Autowired
-    private ArticleRepository articleRepository;
 
     @Autowired
     private AsyncArticleTaskService asyncArticleTaskService;
@@ -35,7 +33,7 @@ public class ArticleController {
         if ((category != null && !category.isEmpty()) || (audience != null && !audience.isEmpty())) {
             return ResponseEntity.ok(articleService.getArticlesByFilter(category, audience));
         }
-        return ResponseEntity.ok(articleRepository.findAll());
+        return ResponseEntity.ok(articleService.getAllArticlesForAdmin());
     }
 
     @GetMapping("/latest")
@@ -181,7 +179,7 @@ public class ArticleController {
     /** 按主题分组ID获取三版文章 */
     @GetMapping("/topic-group/{topicGroupId}")
     public ResponseEntity<List<Article>> getByTopicGroup(@PathVariable String topicGroupId) {
-        return ResponseEntity.ok(articleRepository.findByTopicGroupIdOrderByLengthTypeAsc(topicGroupId));
+        return ResponseEntity.ok(articleService.getArticlesByTopicGroup(topicGroupId));
     }
 
     /**
@@ -286,7 +284,9 @@ public class ArticleController {
         if (body != null && body.get("max_results") != null) {
             try {
                 maxResults = Integer.parseInt(String.valueOf(body.get("max_results")));
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException e) {
+                log.debug("max_results 参数解析失败，使用默认值 {}: {}", maxResults, e.getMessage());
+            }
         }
 
         @SuppressWarnings("unchecked")

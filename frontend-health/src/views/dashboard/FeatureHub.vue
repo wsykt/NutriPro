@@ -1,153 +1,90 @@
 <template>
   <div class="feature-hub min-h-full relative">
-    <div v-if="currentCategory || !currentGroup" class="max-w-5xl mx-auto relative z-10">
-      <!-- 标题区 -->
-      <div class="mb-10 pt-4 hub-header">
-        <div class="flex items-center gap-5 mb-4">
-          <div class="hub-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center text-white relative overflow-hidden"
-               :style="{ background: grad(currentTheme.primary) }">
-            <div class="hub-icon-glow absolute inset-0"
-                 :style="{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.25) 0%, transparent 60%)' }"></div>
-            <component :is="currentCategory?.icon || LayoutGrid" class="w-7 h-7 relative z-10" :stroke-width="1.75" />
-          </div>
-          <div>
-            <h1 class="text-[26px] font-bold text-slate-800 tracking-tight leading-none" style="font-family: 'Noto Serif SC', serif">{{ title }}</h1>
-            <p class="text-sm text-slate-500 font-medium mt-1.5">{{ subtitle }} · {{ greeting }}，{{ username }}</p>
-          </div>
-        </div>
-        <div class="hub-underline h-[3px] w-24 rounded-full relative overflow-hidden"
-             :style="{ background: gradSoft(currentTheme.primary) }">
-          <div class="underline-shine absolute inset-0"
-               :style="{ background: gradShine(currentTheme.primary) }"></div>
-        </div>
-      </div>
+    <!-- ===== 组合 E · 深壳中继 + 浅芯概览（与首页"深壳 Hero + 浅芯面板"同构） ===== -->
+    <div v-if="currentCategory" class="hc-wrap relative z-10">
 
-      <!-- 实时概览（真实后端数据，仅首页显示） -->
-      <div v-if="!currentGroup" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="stat-glass rounded-2xl p-5 relative overflow-hidden">
-          <div class="stat-icon w-9 h-9 rounded-xl flex items-center justify-center mb-3" :style="{ background: currentTheme.soft, color: currentTheme.primary }">
-            <Flame class="w-4.5 h-4.5" :size="18" stroke-width="1.75" />
-          </div>
-          <p class="text-xs text-slate-500">今日摄入</p>
-          <p class="text-2xl font-bold mt-1 tabular" :style="{ color: currentTheme.primary }">{{ overview.todayKcal ?? '—' }}<span v-if="overview.todayKcal != null" class="text-sm font-normal text-slate-400"> kcal</span></p>
-          <p class="text-xs text-slate-400 mt-1">{{ overview.todayKcal == null ? '今日暂无饮食记录' : '已记录' }}</p>
+      <!-- ===== 深壳星轨带（上半 · 承接首页深壳 Hero） ===== -->
+      <div class="hc-band" ref="bandRef">
+        <div class="hc-glow hc-glow--1" aria-hidden="true"></div>
+        <div class="hc-glow hc-glow--2" aria-hidden="true"></div>
+
+        <!-- 星座面包屑 -->
+        <div class="hc-crumbs" data-anim>
+          <button class="hc-crumb-home" @click="go('/dashboard/home')">
+            <LayoutGrid class="hc-crumb-ic" :stroke-width="1.75" />
+            <span>首页</span>
+          </button>
+          <ChevronRight class="hc-crumb-sep" />
+          <b>{{ currentCategory.title }}</b>
         </div>
-        <div class="stat-glass rounded-2xl p-5 relative overflow-hidden">
-          <div class="stat-icon w-9 h-9 rounded-xl flex items-center justify-center mb-3" :style="{ background: currentTheme.soft, color: currentTheme.primary }">
-            <Activity class="w-4.5 h-4.5" :size="18" stroke-width="1.75" />
-          </div>
-          <p class="text-xs text-slate-500">BMI</p>
-          <p class="text-2xl font-bold text-slate-700 mt-1 tabular">{{ overview.bmi ?? '—' }}</p>
-          <p class="text-xs mt-1" :class="bmiClass">{{ overview.bmiText }}</p>
-        </div>
-        <div class="stat-glass rounded-2xl p-5 relative overflow-hidden">
-          <div class="stat-icon w-9 h-9 rounded-xl flex items-center justify-center mb-3" :style="{ background: currentTheme.soft, color: currentTheme.primary }">
-            <Scale class="w-4.5 h-4.5" :size="18" stroke-width="1.75" />
-          </div>
-          <p class="text-xs text-slate-500">当前体重</p>
-          <p class="text-2xl font-bold text-slate-700 mt-1 tabular">{{ overview.weight ?? '—' }}<span v-if="overview.weight" class="text-sm font-normal text-slate-400"> kg</span></p>
-          <p class="text-xs text-slate-400 mt-1">基础代谢 BMR {{ overview.bmr ?? '—' }} kcal</p>
-        </div>
-        <div class="stat-glass rounded-2xl p-5 relative overflow-hidden">
-          <div class="stat-icon w-9 h-9 rounded-xl flex items-center justify-center mb-3" :style="{ background: currentTheme.soft, color: currentTheme.primary }">
-            <FileText class="w-4.5 h-4.5" :size="18" stroke-width="1.75" />
-          </div>
-          <p class="text-xs text-slate-500">健康报告</p>
-          <p class="text-2xl font-bold text-slate-700 mt-1 tabular">{{ overview.reportCount ?? 0 }}<span class="text-sm font-normal text-slate-400"> 份</span></p>
-          <p class="text-xs text-slate-400 mt-1">周报/月报累计</p>
-        </div>
-      </div>
 
-      <!-- 首页：一级功能卡片（5 个大分类） -->
-      <div v-if="!currentGroup" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div
-          v-for="(group, idx) in allGroups" :key="group.key"
-          class="feature-card group cursor-pointer p-6 rounded-2xl text-left relative overflow-hidden"
-          :style="cardStyle(group, idx)"
-          @click="goGroup(group)"
-          @mouseenter="hoveredGroup = group.key"
-          @mouseleave="hoveredGroup = null"
-        >
-          <!-- 卡片顶部渐变光条 -->
-          <div class="card-top-bar" :style="{ background: topBarGrad(group.key) }"></div>
+        <!-- 星轨带：核心恒星 + 功能站点 -->
+        <div class="hc-const" data-anim>
+          <svg class="hc-line" viewBox="0 0 1200 128" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M 150 64 C 300 8, 440 8, 560 64 S 830 120, 960 64 S 1130 10, 1200 64" />
+          </svg>
 
-          <!-- 背景装饰图标 -->
-          <div class="card-bg-icon absolute -right-4 -bottom-4 pointer-events-none" :style="getGroupBgIconStyle(group, idx)">
-            <component :is="group.icon" class="w-32 h-32" :stroke-width="1" />
-          </div>
-
-          <!-- 背景光晕 -->
-          <div class="card-glow"
-               :style="hoveredGroup === group.key ? { background: glowGrad(group.key) } : {}"></div>
-
-          <div class="relative z-10">
-            <div class="card-icon-wrap w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300"
-                 :style="getGroupIconStyle(group)">
-              <component :is="group.icon" class="w-7 h-7" :stroke-width="1.75" />
-            </div>
-
-            <div class="card-label font-bold text-[19px] text-slate-800 transition-colors duration-300 tracking-tight leading-tight"
-                 :style="hoveredGroup === group.key ? { color: groupTheme(group.key).primary } : {}">
-              {{ group.title }}
-            </div>
-            <div class="card-desc text-sm text-slate-500 mt-2 leading-relaxed">
-              {{ group.desc }}
-            </div>
-            <div class="mt-4 flex items-center gap-2 text-xs font-medium">
-              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ group.items.length }} 个功能</span>
-              <span class="card-action flex items-center text-xs font-semibold"
-                    :style="hoveredGroup === group.key ? { color: groupTheme(group.key).primary } : { color: '#94a3b8' }">
-                进入
-                <component :is="ArrowRight" class="w-3.5 h-3.5 ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-              </span>
+          <!-- 核心恒星（当前分组） -->
+          <div class="hc-core-wrap">
+            <div class="hc-core">
+              <div class="hc-star">
+                <component :is="currentCategory.icon" class="hc-star-ic" :stroke-width="1.75" />
+              </div>
+              <div class="hc-core-tt">
+                <b class="serif">{{ currentCategory.title }}</b>
+                <span>{{ enName }}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 二级：分类内功能卡片 -->
-      <div v-else v-for="group in visibleGroups" :key="group.key" class="mb-8">
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <!-- 功能站点（替代原入口卡片） -->
           <div
-            v-for="(f, idx) in group.items" :key="f.to"
-            class="feature-card group cursor-pointer p-6 rounded-2xl text-left relative overflow-hidden"
-            :style="cardStyle(group, idx)"
-            @click="go(f.to)"
-            @mouseenter="hoveredCard = f.to"
-            @mouseleave="hoveredCard = null"
+            v-for="(f, i) in currentCategory.items"
+            :key="f.to"
+            class="hc-station-wrap"
+            :style="{ left: stationLeft(i) + '%', ...stationFloatStyle(i) }"
           >
-            <!-- 卡片顶部渐变光条 -->
-            <div class="card-top-bar" :style="{ background: topBarGrad(group.key) }"></div>
-
-            <!-- 背景装饰图标 -->
-            <div class="card-bg-icon absolute -right-4 -bottom-4 pointer-events-none" :style="getBgIconStyle(f, group.key, idx)">
-              <component :is="f.icon" class="w-28 h-28" :stroke-width="1" />
-            </div>
-
-            <!-- 背景光晕 -->
-            <div class="card-glow"
-                 :style="hoveredCard === f.to ? { background: glowGrad(group.key) } : {}"></div>
-
-            <div class="relative z-10">
-              <div class="card-icon-wrap w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all duration-300"
-                   :style="getCardIconStyle(f, group.key)">
-                <component :is="f.icon" class="w-6 h-6" :stroke-width="1.75" />
-              </div>
-
-              <div class="card-label font-bold text-[17px] text-slate-800 transition-colors duration-300 tracking-tight leading-tight"
-                   :style="hoveredCard === f.to ? { color: groupTheme(group.key).primary } : {}">
-                {{ f.name }}
-              </div>
-              <div class="card-desc text-sm text-slate-500 mt-2 leading-relaxed">
-                {{ f.desc }}
-              </div>
-              <div class="card-action mt-5 flex items-center text-xs font-semibold transition-all duration-300"
-                   :style="hoveredCard === f.to ? { color: groupTheme(group.key).primary } : { color: '#94a3b8' }">
-                <span class="font-medium">进入功能</span>
-                <component :is="ArrowRight" class="w-3.5 h-3.5 ml-1.5 transition-transform duration-300 group-hover:translate-x-2" />
-              </div>
+            <div class="hc-station-float">
+              <button class="hc-station" @click="go(f.to)" :aria-label="f.name">
+                <component :is="f.icon" class="hc-station-ic" :stroke-width="1.75" />
+                <span class="nm">{{ f.name }}</span>
+                <span class="ds">{{ f.desc }}</span>
+              </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ===== 浅芯概览工作区（下半 · 与首页暖纸面板同源） ===== -->
+      <div class="hc-paper" ref="paperRef">
+        <div class="sec-t" data-anim>分组实时概览 · 与首页浅芯面板同源</div>
+
+        <div class="hc-grid4">
+          <button class="hc-cell" data-anim @click="go('/dashboard/food-input')">
+            <span class="hc-cell-label"><Flame class="w-3.5 h-3.5" style="color:#E07A3F" /> 今日摄入</span>
+            <b class="serif">{{ overview.todayKcal ?? '—' }}<i v-if="overview.todayKcal != null">kcal</i></b>
+            <span class="hc-cell-sub">{{ overview.todayKcal == null ? '今日暂无饮食记录' : '已记录三餐数据' }}</span>
+          </button>
+          <button class="hc-cell" data-anim @click="go('/dashboard/health-archive?tab=metrics')">
+            <span class="hc-cell-label"><Activity class="w-3.5 h-3.5" style="color:#B8863B" /> BMI</span>
+            <b class="serif" :class="bmiClass">{{ overview.bmi ?? '—' }}</b>
+            <span class="hc-cell-sub">{{ overview.bmiText }}</span>
+          </button>
+          <button class="hc-cell" data-anim @click="go('/dashboard/health-archive?tab=metrics')">
+            <span class="hc-cell-label"><Scale class="w-3.5 h-3.5" style="color:#6C8FBE" /> 当前体重</span>
+            <b class="serif">{{ overview.weight ?? '—' }}<i v-if="overview.weight">kg</i></b>
+            <span class="hc-cell-sub">{{ overview.bmr ? '基础代谢 BMR ' + overview.bmr + ' kcal' : '暂无代谢数据' }}</span>
+          </button>
+          <button class="hc-cell" data-anim @click="go('/dashboard/health-report')">
+            <span class="hc-cell-label"><FileText class="w-3.5 h-3.5" style="color:#B8863B" /> 健康报告</span>
+            <b class="serif">{{ overview.reportCount }}<i>份</i></b>
+            <span class="hc-cell-sub">周报/月报累计</span>
+          </button>
+        </div>
+
+        <div class="hc-row" data-anim>
+          <Sparkles class="hc-row-ic" :stroke-width="1.75" />
+          <span>{{ snapshotText }}</span>
         </div>
       </div>
     </div>
@@ -155,212 +92,129 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+import { gsap } from 'gsap'
 import { api } from '@/api'
 import {
   User, Users, Activity, FileText, UsersRound,
   Utensils, PlusCircle, PieChart, Search,
   HeartPulse, BarChart3, Dumbbell,
   BookOpen, Newspaper, MessageCircle, ClipboardList, ChefHat,
-  Flame, Scale, LayoutGrid, ArrowRight
+  Flame, Scale, LayoutGrid, ChevronRight, Sparkles
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
-const username = computed(() => userStore.user?.username || '朋友')
 const today = new Date().toISOString().slice(0, 10)
 
-// 当前分组（来自 URL ?group=xxx）
+// 当前分组（来自 URL ?group=xxx）；无分组时回首页（首页轨道即一级导航）
 const currentGroup = computed(() => (route.query.group as string) || '')
-
-const greeting = computed(() => {
-  const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 12) return '早上好'
-  if (h < 14) return '中午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
-})
-
-const title = computed(() => {
-  const g = allGroups.find(x => x.key === currentGroup.value)
-  return g ? g.title : '首页'
-})
-const subtitle = computed(() => {
-  const g = allGroups.find(x => x.key === currentGroup.value)
-  return g ? g.desc : '欢迎回来，从这里开始管理你的健康生活'
-})
-
-// 当前分组元信息（图标）
-const currentCategory = computed(() => {
-  const g = allGroups.find(x => x.key === currentGroup.value)
-  return g || null
-})
-
-// 分组主题色（延续 morandi 墨绿/琥珀设计系统；每个分组一个主题，hover 时高亮）
-interface GroupTheme { primary: string; soft: string }
-const groupThemes: Record<string, GroupTheme> = {
-  user: { primary: '#2F5D4A', soft: '#E4EDE7' },
-  diet: { primary: '#2F5D4A', soft: '#E4EDE7' },
-  health: { primary: '#2F5D4A', soft: '#E4EDE7' },
-  knowledge: { primary: '#2F5D4A', soft: '#E4EDE7' },
-  recipe: { primary: '#E07A3F', soft: '#FBE9DC' },
-}
-function groupTheme(key: string): GroupTheme {
-  return groupThemes[key] || groupThemes.user
-}
-const currentTheme = computed<GroupTheme>(() => groupTheme(currentGroup.value || 'user'))
-
-// 渐变辅助
-function grad(primary: string): string {
-  return 'linear-gradient(135deg, ' + primary + ' 0%, ' + primary + 'dd 100%)'
-}
-function gradSoft(primary: string): string {
-  return 'linear-gradient(90deg, ' + primary + ' 0%, ' + primary + '20 100%)'
-}
-function gradShine(primary: string): string {
-  return 'linear-gradient(90deg, transparent, ' + primary + '60, transparent)'
-}
-function topBarGrad(groupKey: string): string {
-  const p = groupTheme(groupKey).primary
-  return 'linear-gradient(90deg, ' + p + '00 0%, ' + p + ' 50%, ' + p + '00 100%)'
-}
-function glowGrad(groupKey: string): string {
-  const p = groupTheme(groupKey).primary
-  return 'radial-gradient(ellipse at 75% 25%, ' + p + '18 0%, transparent 60%)'
-}
-
-// 全部功能分组（与侧边栏 5 组对应）
 const allGroups = [
-  { key: 'user', title: '用户中心', desc: '个人资料与健康档案', icon: Users, items: [
-    { to: '/dashboard/profile', icon: User, name: '个人中心', desc: '资料、身高体重、人群设定' },
-    { to: '/dashboard/metrics-history', icon: Activity, name: '指标历史', desc: '体重/BMI 趋势曲线与预测' },
-    { to: '/dashboard/health-history', icon: FileText, name: '健康档案', desc: '历次健康快照回顾' },
-    { to: '/dashboard/family-relation', icon: UsersRound, name: '亲属管理', desc: '监护关系与代操作' },
+  { key: 'user', title: '用户中心', en: 'USER HUB', icon: Users, items: [
+    { to: '/dashboard/profile', icon: User, name: '个人中心', desc: '资料 · 身高体重 · 人群设定' },
+    { to: '/dashboard/health-archive?tab=metrics', icon: Activity, name: '指标历史', desc: '体重 / BMI 趋势与预测' },
+    { to: '/dashboard/health-archive?tab=records', icon: FileText, name: '健康档案', desc: '历次健康快照回顾' },
+    { to: '/dashboard/family', icon: UsersRound, name: '亲属管理', desc: '监护关系与代操作' },
   ]},
-  { key: 'diet', title: '饮食管理', desc: '记录与分析每日饮食', icon: Utensils, items: [
+  { key: 'diet', title: '饮食管理', en: 'DIET HUB', icon: Utensils, items: [
     { to: '/dashboard/food-input', icon: Utensils, name: '饮食记录', desc: '按餐次记录三餐与加餐' },
-    { to: '/dashboard/nutrition', icon: PieChart, name: '营养分析', desc: '热量/蛋白质/微量元素达标' },
-    { to: '/dashboard/food-search', icon: Search, name: '食物搜索', desc: '查询营养成分与 GI 值' },
-    { to: '/dashboard/food-add', icon: PlusCircle, name: '添加食材', desc: '录入新食材到库' },
-    { to: '/dashboard/family-input', icon: Users, name: '亲属代录', desc: '替家人记录饮食' },
+    { to: '/dashboard/nutrition', icon: PieChart, name: '营养分析', desc: '热量 / 蛋白质 / 微量元素' },
+    { to: '/dashboard/food-input?tab=search', icon: Search, name: '食物搜索', desc: '查询营养成分与 GI 值' },
+    { to: '/dashboard/food-input?tab=add', icon: PlusCircle, name: '添加食材', desc: '录入新食材到库' },
+    { to: '/dashboard/family?tab=input', icon: Users, name: '亲属代录', desc: '替家人记录饮食' },
   ]},
-  { key: 'health', title: '健康监测', desc: '报告与运动', icon: HeartPulse, items: [
-    { to: '/dashboard/health-report', icon: BarChart3, name: '健康报告', desc: '周报/月报健康回顾' },
-    { to: '/dashboard/muscle-chart', icon: Dumbbell, name: '运动管理', desc: '训练记录与围度变化' },
+  { key: 'health', title: '健康监测', en: 'HEALTH HUB', icon: HeartPulse, items: [
+    { to: '/dashboard/health-report', icon: BarChart3, name: '健康报告', desc: '周报 / 月报健康回顾' },
+    { to: '/dashboard/muscle-chart?tab=chart', icon: Dumbbell, name: '运动管理', desc: '训练记录与围度变化' },
+    { to: '/dashboard/health-archive', icon: FileText, name: '健康档案', desc: '身体指标与健康记录' },
   ]},
-  { key: 'knowledge', title: '知识中心', desc: '科普与智能助手', icon: BookOpen, items: [
+  { key: 'knowledge', title: '知识中心', en: 'KNOWLEDGE HUB', icon: BookOpen, items: [
     { to: '/dashboard/articles', icon: Newspaper, name: '科普文章', desc: '循证营养学主题阅读' },
-    { to: '/dashboard/ai-consult', icon: MessageCircle, name: 'AI 咨询', desc: '饮食/慢病/运动问答' },
-    { to: '/dashboard/training-plan', icon: HeartPulse, name: '训练计划', desc: '个性化运动方案' },
+    { to: '/dashboard/ai-consult', icon: MessageCircle, name: 'AI 咨询', desc: '饮食 / 慢病 / 运动问答' },
+    { to: '/dashboard/muscle-chart?tab=training', icon: HeartPulse, name: '训练计划', desc: '个性化运动方案' },
   ]},
-  { key: 'recipe', title: '菜谱美食', desc: '菜谱与饮食偏好', icon: ChefHat, items: [
+  { key: 'recipe', title: '菜谱美食', en: 'RECIPE HUB', icon: ChefHat, items: [
     { to: '/dashboard/recipe-library', icon: ChefHat, name: '菜谱库', desc: '根据档案推荐菜谱' },
-    { to: '/dashboard/dietary-profile', icon: ClipboardList, name: '饮食档案', desc: '过敏/忌口/口味偏好' },
+    { to: '/dashboard/profile?tab=dietary', icon: ClipboardList, name: '饮食档案', desc: '过敏 / 忌口 / 口味偏好' },
   ]},
 ]
+const currentCategory = computed(() => allGroups.find(x => x.key === currentGroup.value) || null)
+const enName = computed(() => currentCategory.value?.en || '')
 
-// 按分组过滤（无分组显示全部）
-const visibleGroups = computed(() => {
-  if (currentGroup.value) return allGroups.filter(g => g.key === currentGroup.value)
-  return allGroups
+// 无分组或分组非法 → 回首页（首页恒星轨道即一级导航，中转页只承担分组内直达）
+watchEffect(() => {
+  if (!currentCategory.value) router.replace({ path: '/dashboard/home' })
 })
 
-const hoveredCard = ref<string | null>(null)
-const hoveredGroup = ref<string | null>(null)
-
-const cardStyle = (group: any, idx: number) => {
-  const theme = groupTheme(group.key)
+// 站点沿星轨分布（自核心恒星向右延伸 28% ~ 92%；双站点缩短延伸距离）
+function stationLeft(i: number): number {
+  const n = currentCategory.value?.items.length || 1
+  if (n === 1) return 60
+  // 仅 2 个站点时紧随核心恒星自然向右延伸，不铺满全轨
+  if (n === 2) return Math.round(28 + i * 20)
+  return Math.round(28 + i * (64 / (n - 1)))
+}
+// 每颗站点各自漂浮节奏（周期/相位错开）
+function stationFloatStyle(i: number): Record<string, string> {
   return {
-    '--theme-color': theme.primary,
-    '--delay': (idx * 80) + 'ms'
-  } as Record<string, string>
-}
-
-// 一级卡片：点击进入分类
-function goGroup(group: any) {
-  router.push({ path: '/dashboard/hub', query: { group: group.key } })
-}
-
-// 一级卡片背景装饰图标
-const getGroupBgIconStyle = (group: any, idx: number) => {
-  const theme = groupTheme(group.key)
-  const rotations = [-8, 6, -12, 10, -5]
-  const rotation = rotations[idx % rotations.length]
-  const isHovered = hoveredGroup.value === group.key
-  return {
-    color: theme.primary,
-    opacity: isHovered ? 0.1 : 0.05,
-    transform: 'rotate(' + (isHovered ? rotation + 5 : rotation) + 'deg) ' + (isHovered ? 'scale(1.12)' : 'scale(1)'),
-    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+    animationDuration: (4.6 + (i % 4) * 0.45) + 's',
+    animationDelay: -(i * 0.9) + 's'
   }
 }
 
-// 一级卡片图标
-const getGroupIconStyle = (group: any) => {
-  const theme = groupTheme(group.key)
-  const isHovered = hoveredGroup.value === group.key
-  if (isHovered) {
-    return {
-      background: 'linear-gradient(135deg, ' + theme.primary + ' 0%, ' + theme.primary + 'cc 100%)',
-      color: '#fff',
-      boxShadow: '0 10px 24px ' + theme.primary + '45'
-    }
-  }
-  return {
-    background: theme.primary + '10',
-    color: theme.primary,
-    border: '1px solid ' + theme.primary + '18'
-  }
-}
+function go(to: string) { router.push(to) }
 
-const getBgIconStyle = (card: any, groupKey: string, idx: number) => {
-  const theme = groupTheme(groupKey)
-  const rotations = [-8, 6, -12, 10, -5]
-  const rotation = rotations[idx % rotations.length]
-  const isHovered = hoveredCard.value === card.to
-  return {
-    color: theme.primary,
-    opacity: isHovered ? 0.1 : 0.05,
-    transform: 'rotate(' + (isHovered ? rotation + 5 : rotation) + 'deg) ' + (isHovered ? 'scale(1.12)' : 'scale(1)'),
-    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-  }
-}
-
-const getCardIconStyle = (card: any, groupKey: string) => {
-  const theme = groupTheme(groupKey)
-  const isHovered = hoveredCard.value === card.to
-  if (isHovered) {
-    return {
-      background: 'linear-gradient(135deg, ' + theme.primary + ' 0%, ' + theme.primary + 'cc 100%)',
-      color: '#fff',
-      boxShadow: '0 10px 24px ' + theme.primary + '45'
-    }
-  }
-  return {
-    background: theme.primary + '10',
-    color: theme.primary,
-    border: '1px solid ' + theme.primary + '18'
-  }
-}
-
+// ===== 分组实时概览（与首页浅芯面板同源的真实数据） =====
 const overview = ref<{ todayKcal: number | null; bmi: number | null; bmiText: string; weight: number | null; bmr: number | null; reportCount: number }>({
   todayKcal: null, bmi: null, bmiText: '—', weight: null, bmr: null, reportCount: 0
 })
 const bmiClass = computed(() => {
   const b = overview.value.bmi
-  if (b == null) return 'text-slate-400'
-  if (b < 18.5) return 'text-amber-500'
-  if (b < 24) return 'text-emerald-600'
-  return 'text-red-500'
+  if (b == null) return ''
+  if (b < 18.5) return 'is-warn'
+  if (b < 24) return 'is-good'
+  return 'is-bad'
 })
 
-function go(to: string) { router.push(to) }
+const snapshotText = computed(() => {
+  const o = overview.value
+  if (o.weight == null && o.bmi == null && o.bmr == null) {
+    return '暂无健康快照 · 可在「健康档案 → 身体指标」中记录一条'
+  }
+  const parts: string[] = []
+  if (o.weight != null) parts.push(`体重 ${o.weight}kg`)
+  if (o.bmi != null) parts.push(`BMI ${o.bmi}`)
+  if (o.bmr != null) parts.push(`BMR ${o.bmr} kcal`)
+  const dateText = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+  return `最近快照 · ${dateText}：${parts.join('，')}`
+})
+
+// ===== 入场动效（与首页同节奏：深壳先入 → 站点亮起 → 浅芯浮起） =====
+const bandRef = ref<HTMLElement | null>(null)
+const paperRef = ref<HTMLElement | null>(null)
+
+function animateEntrance() {
+  const band = bandRef.value
+  const paper = paperRef.value
+  if (band) {
+    gsap.fromTo(band.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.7, stagger: 0.1, ease: 'power3.out' })
+    // 站点沿星轨依次点亮
+    gsap.fromTo(band.querySelectorAll('.hc-station-wrap'),
+      { scale: 0, opacity: 0 },
+      { scale: 1, opacity: 1, duration: 0.5, stagger: 0.08, delay: 0.3, ease: 'back.out(1.7)', clearProps: 'opacity,transform' })
+  }
+  if (paper) {
+    gsap.fromTo(paper.querySelectorAll('[data-anim]'),
+      { opacity: 0, y: 26 },
+      { opacity: 1, y: 0, duration: 0.75, stagger: 0.08, delay: 0.3, ease: 'power3.out' })
+  }
+}
 
 onMounted(async () => {
+  animateEntrance()
   const [diet, snap, reports] = await Promise.allSettled([
     api.diet.getByDate(today),
     api.profile.snapshot(),
@@ -399,150 +253,335 @@ onMounted(async () => {
 .feature-hub {
   min-height: calc(100vh - 64px);
 }
-
-/* 标题动画 */
-.hub-header {
-  animation: hubFadeIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.hub-icon-wrap {
-  animation: hubFadeIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.hub-icon-wrap:hover {
-  transform: scale(1.05) rotate(-2deg);
-}
-@keyframes hubFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.hub-icon-glow {
-  pointer-events: none;
+.hc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-/* 下划线 */
-.hub-underline {
+/* ========== 深壳星轨带（与首页 dk-hero 同色系） ========== */
+.hc-band {
   position: relative;
+  padding: 20px 30px 14px;
+  border-radius: 24px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% 24%, rgba(232, 185, 115, 0.1) 0%, transparent 44%),
+    radial-gradient(circle at 88% 88%, rgba(179, 107, 42, 0.08) 0%, transparent 46%),
+    linear-gradient(180deg, #14110C 0%, #0E0C0A 100%);
+  border: 1px solid rgba(232, 185, 115, 0.14);
+  color: #F6EAD6;
 }
-.underline-shine {
-  animation: shine 3s ease-in-out infinite;
+.hc-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
 }
-@keyframes shine {
-  0%, 100% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
+.hc-glow--1 {
+  width: 220px; height: 220px;
+  right: -60px; top: -110px;
+  background: rgba(232, 185, 115, 0.12);
+  animation: hcGlowFloat 9s ease-in-out infinite alternate;
+}
+.hc-glow--2 {
+  width: 180px; height: 180px;
+  left: -70px; bottom: -100px;
+  background: rgba(179, 107, 42, 0.1);
+  animation: hcGlowFloat 11s ease-in-out infinite alternate-reverse;
+}
+@keyframes hcGlowFloat {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(18px, 12px, 0) scale(1.12); }
 }
 
-/* 概览卡片 */
-.stat-glass {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 2px 10px rgba(31, 42, 36, 0.05);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+/* ---- 星座面包屑 ---- */
+.hc-crumbs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #8C7A5E;
+  letter-spacing: 0.08em;
 }
-.stat-glass:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px -8px rgba(47, 93, 74, 0.18);
+.hc-crumb-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #8C7A5E;
+  letter-spacing: 0.08em;
+  transition: color 0.25s ease;
+}
+.hc-crumb-home:hover { color: #E8B973; }
+.hc-crumb-ic { width: 13px; height: 13px; }
+.hc-crumb-sep { width: 11px; height: 11px; color: rgba(140, 122, 94, 0.6); }
+.hc-crumbs b {
+  color: #E8B973;
+  font-weight: 600;
+  font-size: 12px;
 }
 
-/* 功能卡片（参考 health1 卡片设计） */
-.feature-card {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 20px;
+/* ---- 星轨带 ---- */
+.hc-const {
+  position: relative;
+  z-index: 1;
+  height: 128px;
+  margin-top: 10px;
+}
+.hc-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.hc-line path {
+  fill: none;
+  stroke: rgba(217, 162, 74, 0.35);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 6;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---- 核心恒星 ---- */
+.hc-core-wrap {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  margin-top: -32px;
+  z-index: 2;
+}
+.hc-core {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: hcFloat 6.4s ease-in-out infinite alternate;
+  animation-delay: -0.6s;
+}
+.hc-star {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #3A2E1B, #1A140C 72%);
+  border: 1px solid rgba(232, 185, 115, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E8B973;
+  box-shadow: 0 0 30px rgba(217, 162, 74, 0.4);
+  animation: hcBreath 3.2s ease-in-out infinite;
+}
+@keyframes hcBreath {
+  0%, 100% { box-shadow: 0 0 22px rgba(217, 162, 74, 0.32); }
+  50% { box-shadow: 0 0 42px rgba(217, 162, 74, 0.55); }
+}
+.hc-star-ic { width: 24px; height: 24px; }
+.hc-core-tt b {
+  display: block;
+  font-size: 15px;
+  color: #F6EAD6;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.hc-core-tt span {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #9A8A6C;
+  letter-spacing: 0.14em;
+}
+
+/* ---- 功能站点（替代原入口卡片） ---- */
+.hc-station-wrap {
+  position: absolute;
+  top: 50%;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  z-index: 3;
+}
+.hc-station-float {
+  width: 100%;
+  height: 100%;
+  animation: hcFloat 4.6s ease-in-out infinite alternate;
+}
+@keyframes hcFloat {
+  from { transform: translateY(4px); }
+  to   { transform: translateY(-8px); }
+}
+.hc-station {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(24, 19, 12, 0.95);
+  border: 1px solid rgba(217, 162, 74, 0.45);
+  color: #E8B973;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.5, 0.5, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.hc-station-ic { width: 18px; height: 18px; }
+.hc-station .nm {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  color: #F0E2C4;
+  white-space: nowrap;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  transition: opacity 0.3s ease, color 0.3s ease;
+}
+.hc-station .ds {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  font-size: 10px;
+  color: #F6EAD6;
+  background: rgba(24, 19, 12, 0.95);
+  border: 1px solid rgba(217, 162, 74, 0.4);
+  padding: 3px 10px;
+  border-radius: 999px;
   opacity: 0;
-  transform: translateY(20px) scale(0.97);
-  animation: cardIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  animation-delay: var(--delay, 0s);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.4s ease,
-              background 0.4s ease;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  pointer-events: none;
+}
+.hc-station:hover {
+  transform: scale(1.14);
+  border-color: #E8B973;
+  box-shadow: 0 0 0 6px rgba(217, 162, 74, 0.14), 0 12px 30px rgba(217, 162, 74, 0.32);
+}
+.hc-station:hover .ds {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.hc-station:hover .nm {
+  opacity: 1;
+  color: #E8B973;
 }
 
-/* 渐变边框 */
-.feature-card::before {
+/* ========== 浅芯概览工作区（与首页暖纸面板同源） ========== */
+.hc-paper {
+  position: relative;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(184, 134, 59, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 86% 100%, rgba(201, 143, 62, 0.06) 0%, transparent 44%),
+    linear-gradient(180deg, #F8F4EA 0%, #F2EBDC 100%);
+  border: 1px solid rgba(232, 185, 115, 0.24);
+  border-radius: 24px;
+  padding: 20px 24px 24px;
+  box-shadow: 0 30px 60px -34px rgba(90, 70, 40, 0.28);
+}
+.sec-t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2A2620;
+  letter-spacing: 0.02em;
+}
+.sec-t::before {
   content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.8;
+  width: 3px;
+  height: 14px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, #E8B973, #B8863B);
 }
 
-.feature-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.15),
-              0 10px 25px -5px rgba(15, 23, 42, 0.08),
-              0 0 0 1px var(--theme-color, #10b981)30;
+/* ---- 概览 4 格 ---- */
+.hc-grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.hc-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(184, 134, 59, 0.16);
+  border-radius: 16px;
+  padding: 14px 18px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.hc-cell:hover {
+  transform: translateY(-3px);
+  border-color: rgba(184, 134, 59, 0.45);
+  box-shadow: 0 20px 38px -20px rgba(90, 70, 40, 0.28);
+}
+.hc-cell-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(42, 38, 32, 0.55);
+}
+.hc-cell b {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 24px;
+  font-weight: 900;
+  color: #2A2620;
+  line-height: 1.2;
+}
+.hc-cell b i {
+  font-style: normal;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(42, 38, 32, 0.45);
+  margin-left: 5px;
+}
+.hc-cell b.is-good { color: #4E8D6E; }
+.hc-cell b.is-warn { color: #B8863B; }
+.hc-cell b.is-bad { color: #B36B2A; }
+.hc-cell-sub {
+  font-size: 11px;
+  color: rgba(42, 38, 32, 0.45);
 }
 
-/* 顶部光条 */
-.card-top-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  opacity: 0;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: opacity 0.4s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+/* ---- 最近快照行 ---- */
+.hc-row {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(184, 134, 59, 0.14);
+  border-radius: 14px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: #6E6350;
 }
-.feature-card:hover .card-top-bar {
-  opacity: 1;
-  transform: scaleX(1);
-}
-
-@keyframes cardIn {
-  0% {
-    opacity: 0;
-    transform: translateY(24px) scale(0.94);
-  }
-  60% {
-    transform: translateY(-4px) scale(1.01);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.hc-row-ic {
+  width: 13px;
+  height: 13px;
+  color: #B8863B;
+  flex-shrink: 0;
 }
 
-.card-bg-icon {
-  z-index: 0;
+/* ---- 响应式 ---- */
+@media (max-width: 1100px) {
+  .hc-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-.card-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  z-index: 0;
-}
-.feature-card:hover .card-glow {
-  opacity: 1;
-}
-
-.card-icon-wrap {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.feature-card:hover .card-icon-wrap {
-  transform: scale(1.06);
-}
-
-/* 底部进入功能 */
-.card-action {
-  opacity: 0.85;
-  transition: opacity 0.3s ease;
+@media (max-width: 560px) {
+  .hc-grid4 { grid-template-columns: 1fr; }
 }
 </style>

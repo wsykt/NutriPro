@@ -35,7 +35,8 @@ async def knowledge_stats():
     返回 ChromaDB 向量知识库 + SQLite 食物数据库的完整统计信息，
     所有数据均来自实际存储，无静态占位数据。
     """
-    import sqlite3, os
+    import os
+    from utils.sqlite_utils import get_conn
 
     # ---- 1. ChromaDB 向量知识库统计 ----
     kb_stats = get_knowledge_stats()
@@ -58,7 +59,7 @@ async def knowledge_stats():
                 break
     if db_path:
         try:
-            conn = sqlite3.connect(db_path)
+            conn = get_conn(db_path)
             cur = conn.cursor()
             # 查表名
             cur.execute("SELECT name FROM sqlite_master WHERE type='table'")

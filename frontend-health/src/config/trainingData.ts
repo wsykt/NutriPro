@@ -3,6 +3,7 @@ export interface TrainingExercise {
   level: '入门' | '入门 - 中级' | '中级' | '中高级' | '高级'
   description: string
   met: number
+  sets?: string
 }
 
 export interface TrainingMuscleGroup {

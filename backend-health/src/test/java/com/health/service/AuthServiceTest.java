@@ -197,12 +197,14 @@ class AuthServiceTest {
     void resetPassword_Success() {
         ResetPasswordRequest req = new ResetPasswordRequest();
         req.setUsername("testuser");
+        req.setOldPassword("oldpass123");
         req.setNewPassword("newpass123");
 
         User user = new User("testuser", "$2a$old");
         user.setUserId(1);
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("oldpass123", "$2a$old")).thenReturn(true);
         when(passwordEncoder.encode("newpass123")).thenReturn("$2a$newencoded");
 
         Map<String, Object> result = authService.resetPassword(req);
