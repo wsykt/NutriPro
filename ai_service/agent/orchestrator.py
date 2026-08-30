@@ -476,6 +476,10 @@ class AgentOrchestrator:
 
     def _stage_nlu_parse(self, message: str) -> str:
         """Stage 4: NLU 饮食解析（检测到饮食相关内容时自动触发）"""
+        # 仅对短饮食记录触发：长文本（如食谱生成请求，含"克/蛋白质克数"等词）会误命中关键词
+        # 却无法解析出有效餐次，白白消耗一次本地 LLM 调用
+        if len(message) > 200:
+            return ""
         diet_keywords = ["吃了", "早餐", "午餐", "晚餐", "加餐", "喝了", "个", "碗", "杯", "g", "克"]
         if not any(kw in message for kw in diet_keywords):
             return ""

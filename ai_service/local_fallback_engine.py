@@ -397,6 +397,29 @@ class LocalFallbackEngine:
         if not items:
             items = [{"food_name": text[:10], "quantity": "1份"}]
 
+        # 补充克重估算（复用语音解析的量词/食物默认重量表，保证兜底结果也可直接录入）
+        from constants.food_units import FOOD_DEFAULT_WEIGHT, MEASURE_WORDS_MAP, UNIT_TO_GRAMS
+        for item in items:
+            if item.get("weight") is not None:
+                continue
+            food_name = item.get("food_name", "")
+            w = None
+            for k, v in FOOD_DEFAULT_WEIGHT.items():
+                if k in food_name:
+                    w = v
+                    break
+            if w is None:
+                for m, v in MEASURE_WORDS_MAP.items():
+                    if m in text and (food_name in text or any(k in text for k in FOOD_DEFAULT_WEIGHT)):
+                        w = v
+                        break
+            if w is None:
+                for u, g in UNIT_TO_GRAMS.items():
+                    if u in text:
+                        w = g
+                        break
+            item["weight"] = w or 100
+
         return {"items": items}
 
 

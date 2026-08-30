@@ -78,7 +78,7 @@ class RetrieveJudgeAgent(BaseAgent):
 
         messages = [
             {"role": "system", "content": "你是一个问题拆分专家。只输出JSON。"},
-            {"role": "user", "content": QUESTION_SPLIT_PROMPT + "\n\n用户问题：" + query},
+            {"role": "user", "content": QUESTION_SPLIT_PROMPT + "\n\n用户问题：" + query[:200]},
         ]
 
         try:
@@ -135,7 +135,7 @@ class RetrieveJudgeAgent(BaseAgent):
         try:
             messages = [
                 {"role": "system", "content": "你是一个检索判定专家。只输出JSON。"},
-                {"role": "user", "content": RETRIEVE_JUDGE_PROMPT + "\n\n用户问题：" + query},
+                {"role": "user", "content": RETRIEVE_JUDGE_PROMPT + "\n\n用户问题：" + query[:200]},
             ]
 
             result = RetrieveJudgeAgent.chat(messages)

@@ -201,7 +201,6 @@ import {
 } from 'lucide-vue-next'
 import { useUserStore, type User as UserInfo } from '@/stores/user'
 import { api } from '@/api'
-import { useReportCache } from '@/composables/useReportCache'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -211,7 +210,15 @@ const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 
 const userInfo = computed(() => userStore.user || ({} as UserInfo))
-const crowdTypeText = computed(() => (userInfo.value as any).crowdType || '普通人')
+// 人群标签：user.crowd_type 存短名（普通人/健身/老年/...），文章 audience 存长名（普通人群/健身人群/老年人/...）
+const CROWD_LABEL_MAP: Record<string, string> = {
+  '普通人': '普通人群', '健身': '健身人群', '老年': '老年人',
+  '孕妇': '孕妇', '青少年': '青少年', '糖尿病': '糖尿病患者',
+}
+const crowdTypeText = computed(() => {
+  const raw = (userInfo.value as any).crowd_type || (userInfo.value as any).crowdType || '普通人'
+  return CROWD_LABEL_MAP[raw] || raw || '普通人群'
+})
 
 const bmi = computed(() => {
   const h = Number(userInfo.value.height)
@@ -288,7 +295,14 @@ function calcBmr(u: any): number {
   return Math.round(g === '女' ? 10 * w + 6.25 * h - 5 * (a || 0) - 161 : 10 * w + 6.25 * h - 5 * (a || 0) + 5)
 }
 
-const reportCache = useReportCache<any>('health-report-v5')
+const loadAll = async () => {
+  loading.value = true
+  try {
+    // 周报/月报每次进入直接拉取真实数据，不使用 useReportCache：
+    // fetchReport 无返回值会缓存 undefined，导致二次加载命中"空缓存"跳过请求，页面显示全空
+    await fetchReport()
+  } finally { loading.value = false }
+}
 
 async function fetchReport() {
   const days = reportType.value === 'weekly' ? 7 : 30
@@ -375,14 +389,13 @@ async function fetchReport() {
   const overList = R.nutrients.filter(n => n.avg > 0 && n.avg / n.targetMax > 1.05)
   const lowList = R.nutrients.filter(n => n.avg > 0 && n.avg / n.targetMin < 0.85)
   const keyword = (overList[0] || lowList[0])?.name
-  let matched = (articlesList?.list || articlesList || []).find((a: any) =>
+  // 人群匹配优先：先取当前用户人群的文章，其次营养关键词匹配，最后回退最新文章
+  const articleArr = articlesList?.list || articlesList || []
+  const crowdRecs = articleArr.filter((a: any) => String(a.audience || '') === crowdTypeText.value)
+  const kwMatch = (list: any[]) => list.find((a: any) =>
     keyword && (String(a.title || '').includes(keyword) || String(a.summary || '').includes(keyword) || String(a.topic || '').includes(keyword))
   )
-  if (!matched) {
-    matched = (articlesList?.list || articlesList || []).find((a: any) =>
-      String(a.targetCrowd || a.target_crowd || a.persona || '').includes(crowdTypeText.value)
-    ) || (articlesList?.list || articlesList || [])[0]
-  }
+  let matched = kwMatch(crowdRecs) || crowdRecs[0] || kwMatch(articleArr) || articleArr[0]
   if (matched) {
     R.articleRec = {
       id: Number(matched.id),
@@ -465,18 +478,6 @@ function fmtNutrientPct(n: any, kind: 'over' | 'low') {
   return Math.round(n.avg / n.targetMin * 100)
 }
 
-const loadAll = async () => {
-  loading.value = true
-  try {
-    const key = {
-      user: userStore.actAsUserId ?? (userInfo.value as any)?.user_id ?? (userInfo.value as any)?.userId ?? (userInfo.value as any)?.id ?? 'self',
-      type: reportType.value,
-      date: new Date().toISOString().slice(0, 10),
-    }
-    await reportCache.load(key, fetchReport)
-  } finally { loading.value = false }
-}
-
 onMounted(() => {
   loadAll()
   // GSAP 入场
@@ -503,10 +504,11 @@ watch(reportType, () => {
 /* -------------------- 视图计算 -------------------- */
 const weekHeatCells = computed(() => {
   const today = new Date()
-  const dow = (today.getDay() + 6) % 7
   const arr: { date: string; checked: boolean }[] = []
+  // 最近 7 天（与 fetchReport 的 dates 一致），原实现多减了 dow 导致日期前移一周
+  // 与 checkinSet 几乎不重叠，打卡格子显示 1 天/0 天
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(today.getDate() - i - dow)
+    const d = new Date(today); d.setDate(today.getDate() - i)
     const ds = fmtDate(d)
     arr.push({ date: ds, checked: R.checkinSet.has(ds) })
   }
@@ -674,7 +676,22 @@ const adviceList = computed(() => {
 /* 操作 */
 function switchTab(t: 'weekly' | 'monthly') { reportType.value = t }
 function go(url: string) { router.push(url) }
-function saveReport() { /* useReportCache 已缓存 */ }
+function saveReport() {
+  // 直接导出当前报告数据快照（JSON），供离线保存/分享
+  const snapshot = {
+    type: reportType.value,
+    generatedAt: new Date().toISOString().slice(0, 10),
+    user: userInfo.value,
+    report: JSON.parse(JSON.stringify(R)),
+  }
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `健康报告_${reportType.value}_${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 function doPrint() { window.print() }
 
 /* ---- AI 分析 ---- */

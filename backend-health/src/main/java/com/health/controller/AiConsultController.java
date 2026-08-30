@@ -104,8 +104,15 @@ public class AiConsultController {
         }
 
         String question = null;
-        if (body != null && body.get("question") != null) {
-            question = String.valueOf(body.get("question")).trim();
+        boolean highPerformance = false;
+        if (body != null) {
+            if (body.get("question") != null) {
+                question = String.valueOf(body.get("question")).trim();
+            }
+            // 前端统一传 high_performance（蛇形）；兼容历史 highPerformance（驼峰）
+            Object hp = body.get("high_performance");
+            if (hp == null) hp = body.get("highPerformance");
+            highPerformance = hp != null && Boolean.parseBoolean(String.valueOf(hp));
         }
         if (question == null || question.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -113,7 +120,7 @@ public class AiConsultController {
         }
 
         try {
-            Map<String, Object> result = aiConsultService.consult(targetId, question);
+            Map<String, Object> result = aiConsultService.consult(targetId, question, highPerformance);
             return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -157,7 +164,8 @@ public class AiConsultController {
             if (body.get("question") != null) {
                 question = String.valueOf(body.get("question")).trim();
             }
-            Object hp = body.get("highPerformance");
+            Object hp = body.get("high_performance");
+            if (hp == null) hp = body.get("highPerformance");
             highPerformance = hp != null && Boolean.parseBoolean(String.valueOf(hp));
         }
         if (question == null || question.isEmpty()) {

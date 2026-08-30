@@ -61,6 +61,25 @@ def repair_common_issues(text: str) -> str:
     text = re.sub(r'(?i)\bnull\b', 'null', text)
     text = re.sub(r'(?i)\bnone\b', 'null', text)
 
+    # 6. 修复未加引号的裸值（"amount": 2个 / "calories": 1800kcal 等本地模型常见错误）
+    #    已是合法字符串/数字/布尔/null/对象/数组的值跳过，其余裸值统一加双引号。
+    #    值正则排除引号/逗号/花括号/方括号，天然不触碰已加引号的字符串与嵌套结构。
+    def _wrap_bare_value(m):
+        key_part = m.group(1)
+        val = m.group(2).strip()
+        # 值为空（如冒号后紧跟引号/花括号前的空格）→ 原样保留
+        if not val:
+            return m.group(0)
+        if val.startswith('"') or val.startswith('{') or val.startswith('['):
+            return m.group(0)
+        if val in ('true', 'false', 'null'):
+            return m.group(0)
+        if re.fullmatch(r'-?\d+(?:\.\d+)?', val):
+            return m.group(0)
+        return f'{key_part}"{val}"'
+
+    text = re.sub(r'("(?:[^"\\]|\\.)*"\s*:\s*)([^",\[{\]}]+)', _wrap_bare_value, text)
+
     return text
 
 

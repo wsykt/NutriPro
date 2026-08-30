@@ -58,7 +58,31 @@
       </div>
 
       <div style="max-height: 58vh; overflow-y: auto; padding-right: 4px;">
-        <div class="ad-grid2">
+        <!-- 生成新文章：只需主题 + 目标人群，标题/分类/摘要/内容/标签由 AI 自动生成 -->
+        <div v-if="!editingArticle" class="ad-grid2">
+          <div style="grid-column: 1 / -1;">
+            <label class="ad-label">文章主题 *</label>
+            <input v-model="articleForm.topic" placeholder="请输入文章主题，如：孕期叶酸补充" class="ad-input" style="width: 100%;" />
+            <div style="font-size: 12px; color: #8a94a6; margin-top: 6px; line-height: 1.5;">
+              标题、分类、摘要、正文与标签均由 AI 自动生成（约 2~3 分钟）
+            </div>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label class="ad-label">目标人群</label>
+            <select v-model="articleForm.audience" class="ad-select" style="width: 100%;">
+              <option value="">请选择人群</option>
+              <option value="普通人群">普通人群</option>
+              <option value="老年人">老年人</option>
+              <option value="孕妇">孕妇</option>
+              <option value="青少年">青少年</option>
+              <option value="糖尿病">糖尿病</option>
+              <option value="健身">健身</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 编辑已有文章：完整字段 -->
+        <div v-else class="ad-grid2">
           <div style="grid-column: 1 / -1;">
             <label class="ad-label">文章标题 *</label>
             <input v-model="articleForm.title" placeholder="请输入文章标题" class="ad-input" style="width: 100%;" />
@@ -117,7 +141,7 @@
         <div style="display: flex; gap: 10px;">
           <button class="ad-btn" @click="closeArticleModal">取消</button>
           <button class="ad-btn solid" :disabled="articleModalSaving" @click="saveArticle">
-            {{ articleModalSaving ? '保存中...' : (editingArticle ? '保存修改' : '生成文章') }}
+            {{ articleModalSaving ? (editingArticle ? '保存中...' : '生成中...') : (editingArticle ? '保存修改' : '生成文章') }}
           </button>
         </div>
       </div>
@@ -198,14 +222,14 @@ const deleteArticle = async (article: any) => {
 }
 
 const saveArticle = async () => {
-  if (!articleForm.title.trim()) {
-    articleModalError.value = '请输入文章标题'
-    return
-  }
   articleModalSaving.value = true
   articleModalError.value = ''
   try {
     if (editingArticle.value) {
+      if (!articleForm.title.trim()) {
+        articleModalError.value = '请输入文章标题'
+        return
+      }
       await api.article.update(editingArticle.value.id, {
         title: articleForm.title.trim(),
         topic: articleForm.topic.trim(),
@@ -217,17 +241,23 @@ const saveArticle = async () => {
       })
       alert('保存成功')
     } else {
-      await api.article.create({
-        title: articleForm.title.trim(),
-        topic: articleForm.topic.trim(),
-        content: articleForm.content.trim(),
-        summary: articleForm.summary.trim(),
-        tags: articleForm.tags.trim(),
-        category: articleForm.category.trim(),
-        audience: articleForm.audience.trim(),
-        status: 'published'
-      })
-      alert('生成成功')
+      // 生成新文章：只填主题 + 目标人群，标题/分类/摘要/内容/标签由 AI 自动生成
+      if (!articleForm.topic.trim()) {
+        articleModalError.value = '请输入文章主题'
+        return
+      }
+      const res: any = await api.article.generate(
+        articleForm.topic.trim(),
+        articleForm.audience.trim() || '普通人群'
+      )
+      const data = Array.isArray(res?.articles) ? res : (res?.data || res || {})
+      const list: any[] = Array.isArray(data?.articles) ? data.articles : []
+      const score = data?.qualityScore
+      alert(
+        `生成完成：共 ${list.length} 篇` +
+        (score != null ? `，质量分 ${score}` : '') +
+        (data?.passed === false ? '，存在质量问题需人工复核' : '')
+      )
     }
     closeArticleModal()
     loadArticles()

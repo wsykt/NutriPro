@@ -170,10 +170,15 @@ export const api = {
   },
   // AI 健康咨询
   ai: {
-    consult: (question: string) => instance.post<AiResult, AiResult>('/ai/consult', { question }),
+    consult: (question: string, highPerformance?: boolean) =>
+      instance.post<AiResult, AiResult>(
+        '/ai/consult',
+        { question, high_performance: highPerformance ?? false },
+        { timeout: 300000 }
+      ),
     // 本地知识库检索：按营养问题检索知识卡片，供 AI 分析注入提示词
     knowledgeRetrieve: (data: { query: string; top_k?: number; target_crowd?: string }) =>
-      instance.post<any, any>('/ai/knowledge/retrieve', data),
+      instance.post<any, any>('/ai/knowledge/retrieve', data, { timeout: 300000 }),
     // SSE 流式咨询：fetch 原生实现，支持 thinking/delta/done/error 事件回调
     consultStream: (
       question: string,
@@ -254,26 +259,30 @@ export const api = {
     },
     generateRecipe: (prompt: string) => instance.post<any, any>('/ai/generate-recipe', { prompt }, { timeout: 300000 }),
     // 营养分析
-    nutritionAnalyze: () => instance.post<any, any>('/ai/nutrition/analyze'),
+    nutritionAnalyze: () => instance.post<any, any>('/ai/nutrition/analyze', {}, { timeout: 300000 }),
     // 食物审核
-    foodAudit: (foodData: any) => instance.post<any, any>('/ai/food/audit', foodData),
+    foodAudit: (foodData: any) => instance.post<any, any>('/ai/food/audit', foodData, { timeout: 300000 }),
     // 语音文本解析
-    voiceParse: (text: string) => instance.post<any, any>('/ai/voice/parse', { text }),
+    voiceParse: (text: string) => instance.post<any, any>('/ai/voice/parse', { text }, { timeout: 300000 }),
     // 周报生成
-    weeklyReport: () => instance.post<any, any>('/ai/report/weekly'),
+    weeklyReport: () => instance.post<any, any>('/ai/report/weekly', {}, { timeout: 300000 }),
     // 文章生成
-    articleGenerate: (topic: string, targetCrowd?: string) => instance.post<any, any>('/ai/article/generate', { topic, target_crowd: targetCrowd || '' }),
+    articleGenerate: (topic: string, targetCrowd?: string) => instance.post<any, any>('/ai/article/generate', { topic, target_crowd: targetCrowd || '' }, { timeout: 300000 }),
     // 膳食计划
-    dietPlan: (goal?: string) => instance.post<any, any>('/ai/diet/plan', { goal: goal || '' }),
+    dietPlan: (goal?: string) => instance.post<any, any>('/ai/diet/plan', { goal: goal || '' }, { timeout: 300000 }),
     // 菜谱推荐
     recipeRecommend: (ingredients: string[], crowdType?: string, goal?: string) =>
-      instance.post<any, any>('/ai/recipe/recommend', { ingredients, crowd_type: crowdType || '普通人', goal: goal || '健康饮食' }),
+      instance.post<any, any>('/ai/recipe/recommend', { ingredients, crowd_type: crowdType || '普通人', goal: goal || '健康饮食' }, { timeout: 300000 }),
     // 运动建议
-    exerciseAdvice: (goal?: string, preferences?: string) =>
-      instance.post<any, any>('/ai/exercise/advice', { goal: goal || '保持健康', preferences: preferences || '' }),
+    exerciseAdvice: (goal?: string, preferences?: string, highPerformance?: boolean) =>
+      instance.post<any, any>(
+        '/ai/exercise/advice',
+        { goal: goal || '保持健康', preferences: preferences || '', high_performance: highPerformance ?? false },
+        { timeout: 300000 }
+      ),
     // NLU 饮食解析
     mealParse: (text: string, mealType?: string) =>
-      instance.post<any, any>('/ai/meal/parse', { text, meal_type: mealType || '' }),
+      instance.post<any, any>('/ai/meal/parse', { text, meal_type: mealType || '' }, { timeout: 300000 }),
   },
   // 菜谱管理
   recipe: {

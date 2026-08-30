@@ -293,6 +293,9 @@ public class AiChatClientService {
             Map<String, Object> requestBody = new LinkedHashMap<>();
             requestBody.put("message", systemPrompt + "\n\n" + userQuestion);
             requestBody.put("user_id", 0);
+            // 标记为食谱生成请求：AI 服务 /chat 走 JSON 直出通道（recipe_direct），
+            // 避免通用 qa 管线强制 Markdown 输出破坏食谱 JSON 结构
+            requestBody.put("_recipe", true);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -308,7 +311,15 @@ public class AiChatClientService {
             }
 
             Map<String, Object> responseMap = objectMapper.readValue(response.getBody(), Map.class);
+            // AI 服务统一响应结构：{success, code, message, data:{response,...}}，正文在 data.response
             String content = (String) responseMap.get("response");
+            if (content == null) {
+                Object dataObj = responseMap.get("data");
+                if (dataObj instanceof Map) {
+                    Object resp = ((Map<?, ?>) dataObj).get("response");
+                    content = resp != null ? String.valueOf(resp) : null;
+                }
+            }
             circuitBreaker.recordSuccess();
             return content != null ? content : "未返回有效内容";
 
@@ -328,7 +339,8 @@ public class AiChatClientService {
      * AI 服务 /chat 不读取该字段，其内部 orchestrator 自行完成知识库检索与
      * 系统提示词组装（health_snapshot 已携带全部用户上下文）。
      */
-    public String callAiService(Integer userId, String question, Map<String, Object> healthSnapshot) {
+    public String callAiService(Integer userId, String question, Map<String, Object> healthSnapshot,
+                                boolean highPerformance) {
         // 断路器检查：熔断时快速失败
         if (circuitBreaker.isOpen()) {
             log.warn("AI服务熔断保护中，跳过健康咨询调用");
@@ -340,6 +352,7 @@ public class AiChatClientService {
             requestBody.put("message", question);
             requestBody.put("user_id", userId);
             requestBody.put("health_snapshot", healthSnapshot);
+            requestBody.put("high_performance", highPerformance);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

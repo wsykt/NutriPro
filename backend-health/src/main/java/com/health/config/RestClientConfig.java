@@ -21,11 +21,28 @@ public class RestClientConfig {
     private String apiPrefix;
 
     /**
-     * AI 服务专用 RestTemplate Bean。
-     * 5s 连接超时，30s 读取超时，适合 AI 长响应场景。
+     * AI 服务专用 RestTemplate Bean（普通模式）。
+     * 普通模式走本地大模型（Ollama qwen2.5-7b），生成慢，需 300s 读取超时；
+     * 5s 连接超时，300s 读取超时。
      */
     @Bean("aiRestTemplate")
     public RestTemplate aiRestTemplate() {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(5000)
+                .setSocketTimeout(300000)
+                .build();
+        CloseableHttpClient httpClient = HttpClientBuilder.create()
+                .setDefaultRequestConfig(requestConfig)
+                .build();
+        return new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
+    }
+
+    /**
+     * 高性能模式专用 RestTemplate（云端 DeepSeek，速度快）。
+     * 5s 连接超时，30s 读取超时。
+     */
+    @Bean("aiRestTemplateFast")
+    public RestTemplate aiRestTemplateFast() {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(5000)
                 .setSocketTimeout(30000)

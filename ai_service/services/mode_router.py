@@ -141,6 +141,15 @@ def _validate_qa(result: str, chronic_diseases: List[str] = None) -> Tuple[bool,
         issues.append("回答过短或为空")
         return False, issues
 
+    # 结构化输出（食谱/计划等，以 { 开头）必须是合法 JSON：
+    # 本地模型偶发产出 `"amount": 2个` 等非严格 JSON，修复失败时在此拦截并回退 C 方案。
+    stripped = result.strip()
+    if stripped.startswith("{"):
+        try:
+            json.loads(stripped)
+        except Exception:
+            issues.append("输出以JSON对象开头但非合法JSON")
+
     # 慢病场景：高血压要点检查
     text = result
     cd = chronic_diseases or []
@@ -552,6 +561,22 @@ class ModeRouter:
                 output = self._llm.chat(messages, max_retries=1, mode="local")
             else:
                 output = self._llm.chat_json(messages, max_retries=1, mode="local")
+
+            # 食谱等结构化需求：本地模型常输出 `"amount": 2个` 这类非严格 JSON。
+            # qa 分支返回文本，若形如 JSON 对象则尝试校验并修复，避免非法 JSON 一路透传到前端。
+            if func_type == "qa" and isinstance(output, str):
+                stripped = output.strip()
+                if stripped.startswith("{"):
+                    try:
+                        json.loads(stripped)
+                    except Exception:
+                        from utils.json_utils import repair_common_issues
+                        repaired = repair_common_issues(stripped)
+                        try:
+                            json.loads(repaired)
+                            output = repaired
+                        except Exception:
+                            pass  # 修复失败保持原样，由下游 _validate_qa 判定后回退 C 方案
 
             # 结构化校验：确保 JSON 不为空
             if func_type != "qa" and (not output or not isinstance(output, dict)):

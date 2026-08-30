@@ -65,8 +65,9 @@ public class AiConsultService {
 
     /**
      * AI 健康咨询（同步完整链路）。
+     * @param highPerformance 高性能模式开关（true=云端直连快速生成，false=普通模式完整链路）
      */
-    public Map<String, Object> consult(Integer userId, String question) {
+    public Map<String, Object> consult(Integer userId, String question, boolean highPerformance) {
         log.info("开始AI健康咨询, userId={}, question={}", userId,
                 question != null && question.length() > 50 ? question.substring(0, 50) + "..." : question);
         User user = userRepository.findById(userId).orElse(null);
@@ -89,7 +90,7 @@ public class AiConsultService {
         //    后端只负责组装健康快照并透传，避免两端各做一次检索造成阈值与上下文漂移。
 
         // 3. 调用 AI 服务（仅透传健康快照，AI 内部完成 RAG + 提示词组装）
-        String reply = aiChatClient.callAiService(userId, question, snapshot);
+        String reply = aiChatClient.callAiService(userId, question, snapshot, highPerformance);
 
         // 5. 后端拼接固定尾部温馨提示（不由 AI 生成）
         reply = reply + FIXED_DISCLAIMER;
@@ -154,8 +155,8 @@ public class AiConsultService {
                 conn.setRequestMethod("POST");
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(5000);
-                // 长报告（周/月综合分析）生成耗时可能超过 60s，放宽至 180s
-                conn.setReadTimeout(180000);
+                // 普通模式本地大模型生成慢，读取超时放宽至 300s（流式边生成边转发，实际首包很快）
+                conn.setReadTimeout(300000);
                 conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 conn.setRequestProperty("Accept", "text/event-stream");
 

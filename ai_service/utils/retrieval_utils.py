@@ -32,6 +32,7 @@ class BM25Retriever:
         self._avgdl: float = 0
         self._doc_freq: Dict[str, int] = {}
         self._doc_len: List[int] = []
+        self._doc_tf: List[Counter] = []  # 每篇文档的词频 Counter（索引时预计算，避免检索重复分词）
         self._total_docs: int = 0
         self._is_indexed = False
 
@@ -62,10 +63,13 @@ class BM25Retriever:
         self._avgdl = 0
 
         total_length = 0
+        self._doc_tf = []
         for doc in documents:
             tokens = self._tokenize(doc)
             self._doc_len.append(len(tokens))
             total_length += len(tokens)
+            # 预计算词频：避免 search 时对每个查询词重复分词整篇文档（长查询下 O(文档×词×文档长) 性能灾难）
+            self._doc_tf.append(Counter(tokens))
             for token in set(tokens):
                 self._doc_freq[token] += 1
 
@@ -86,13 +90,14 @@ class BM25Retriever:
         for idx in range(self._total_docs):
             score = 0
             doc_len = self._doc_len[idx]
+            tf_counter = self._doc_tf[idx] if idx < len(self._doc_tf) else Counter()
             for token in query_tokens:
                 if token not in self._doc_freq:
                     continue
                 df = self._doc_freq[token]
                 idf = math.log((self._total_docs - df + 0.5) / (df + 0.5) + 1.0)
-                # 计算词频
-                tf = self._tokenize(self._documents[idx]).count(token)
+                # 词频直接查预计算 Counter（原来对每个查询词重复分词整篇文档）
+                tf = tf_counter.get(token, 0)
                 tf = tf / max(doc_len, 1) * self._avgdl
                 score += idf * (tf * (self.k1 + 1)) / (tf + self.k1 * (1 - self.b + self.b * doc_len / max(self._avgdl, 1)))
             scores.append(score)

@@ -116,7 +116,7 @@ class AiChatServiceTest {
 
         // consult 在用户不存在时直接抛出 RuntimeException
         try {
-            aiConsultService.consult(888, "测试问题");
+            aiConsultService.consult(888, "测试问题", false);
             fail("应该抛出运行时异常");
         } catch (RuntimeException e) {
             assertTrue(e.getMessage().contains("用户不存在"),

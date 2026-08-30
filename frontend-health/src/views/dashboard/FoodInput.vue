@@ -1,6 +1,6 @@
 <template>
   <div class="diet-page">
-    <!-- ===== 深壳星轨带（与首页/中转页同构 · 四餐站点上下浮动） ===== -->
+    <!-- ===== 深壳星轨带（四餐站点上下浮动） ===== -->
     <div class="db-band" ref="bandRef">
       <div class="db-glow db-glow--1" aria-hidden="true"></div>
       <div class="db-glow db-glow--2" aria-hidden="true"></div>
@@ -63,10 +63,10 @@
       </div>
     </div>
 
-    <!-- ===== 浅芯工作区（7:5 · 与首页浅芯面板同源） ===== -->
+    <!-- ===== 浅芯工作区（7:5） ===== -->
     <div class="db-paper" ref="paperRef">
       <div class="db-head" data-anim>
-        <div class="sec-t">{{ currentMealLabel }}工作区 · 与首页浅芯面板同源</div>
+        <div class="sec-t">{{ currentMealLabel }}工作区</div>
         <div class="db-pills">
           <span class="pill"><Flame :size="11" />今日 <b>{{ totalCalories }}</b> kcal</span>
           <span class="pill">蛋白 <b>{{ totalProtein }}g</b></span>
@@ -108,6 +108,10 @@
             <button class="ghost-add" @click="openAddDialog(currentMeal)"><Plus :size="13" />添加食物</button>
             <button class="ghost-add solid" @click="toggleVoiceInput"><Mic :size="13" />语音报餐</button>
           </div>
+          <div v-if="voiceParsing || voiceNote" class="voice-note" :class="{ busy: voiceParsing }">
+            <template v-if="voiceParsing">语音识别并解析中…</template>
+            <template v-else>{{ voiceNote }}</template>
+          </div>
         </div>
 
         <!-- 右：今日小结 -->
@@ -132,6 +136,46 @@
         </div>
       </div>
     </div>
+
+    <!-- ===== 语音报餐弹窗 ===== -->
+    <teleport to="body">
+      <div v-if="voiceActive" class="voice-mask" @click.self="dismissVoice">
+        <div class="voice-dialog" :class="{ rec: isRecording }">
+          <div class="vd-head">
+            <b>语音报餐</b>
+            <span class="vd-sub">说出食物即可自动添加</span>
+            <button class="vd-close" @click="onCloseVoice" title="关闭"><X :size="16" /></button>
+          </div>
+
+          <button class="vd-mic" :class="{ on: isRecording }" @click="toggleVoiceInput" :title="isRecording ? '停止聆听' : '开始聆听'">
+            <Mic :size="34" :class="{ pulse: isRecording }" />
+            <span>{{ isRecording ? '点击停止' : '点击开始聆听' }}</span>
+          </button>
+
+          <div class="vd-status">
+            <template v-if="isRecording">正在聆听… 请说出食物（例：一碗米饭、两个鸡蛋）</template>
+            <template v-else-if="voiceParsing">AI 解析中，正在识别食物与克重…</template>
+            <template v-else-if="voiceError">{{ voiceError }}</template>
+            <template v-else-if="voiceItems.length">识别到「{{ voiceResult }}」→ 解析出 {{ voiceItems.length }} 项，请核对克重后确认添加</template>
+            <template v-else-if="voiceResult">{{ voiceResult }}<template v-if="voiceNote"> · {{ voiceNote }}</template></template>
+            <template v-else>{{ voiceNote || '点击麦克风开始语音报餐' }}</template>
+          </div>
+
+          <!-- AI 解析结果：待确认列表（食物 + 克重 + 匹配状态） -->
+          <div v-if="!isRecording && voiceItems.length" class="vd-items">
+            <div v-for="(it, i) in voiceItems" :key="i" class="vd-item" :class="{ miss: !it.foodId }">
+              <span class="nm">{{ it.foodName }}</span>
+              <span class="w">{{ it.weight }} g</span>
+              <span class="st">{{ it.foodId ? '已匹配' : '库内未匹配' }}</span>
+            </div>
+          </div>
+
+          <button v-if="!isRecording && voiceItems.length && !voiceParsing" class="vd-primary" :disabled="saving" @click="confirmVoiceAdd">
+            {{ saving ? '添加中…' : '确认添加（' + voiceItems.filter(i => i.foodId).length + ' 项）' }}
+          </button>
+        </div>
+      </div>
+    </teleport>
 
     <!-- ===== 气泡弹窗（无灰遮罩 · 气泡弹出） ===== -->
     <div v-if="dialogOpen" class="pop-mask" @click.self="closeAddDialog">
@@ -295,6 +339,14 @@ function defaultMeal(): string {
 
 const isRecording = ref(false)
 const voiceResult = ref('')
+const voiceNote = ref('')
+const voiceParsing = ref(false)
+const voiceError = ref('')
+// AI 解析出的待确认项：{ foodName, weight, foodId }（foodId 为 null 表示库内未匹配）
+const voiceItems = ref<Array<{ foodName: string; weight: number; foodId: number | null }>>([])
+
+// 语音浮窗是否可见：聆听中 / 解析中 / 有结果或错误 任一态即可见，保证点语音后有明确反馈
+const voiceActive = computed(() => isRecording.value || voiceParsing.value || !!voiceNote.value || !!voiceError.value || !!voiceResult.value)
 
 const isDiabetes = computed(() => {
   const c = userStore.user?.crowdType || userStore.user?.crowd_type || ''
@@ -499,6 +551,9 @@ async function handleDeleteMeal(mealId: number) {
 }
 
 // ---- 语音录入功能 ----
+// 全局保存当前识别实例：startRecording 创建的实例必须可被 stopRecording 关闭（原代码在 stopRecording 里 new 了一个未启动的实例去调 stop，根本停不掉正在录制的识别器）
+let activeRecognition: any = null
+
 const toggleVoiceInput = () => {
   if (isRecording.value) {
     stopRecording()
@@ -508,55 +563,192 @@ const toggleVoiceInput = () => {
 }
 
 const startRecording = () => {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    errorMessage.value = '您的浏览器不支持语音识别功能'
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  voiceError.value = ''
+  const unsupported = '当前浏览器不支持语音识别（SpeechRecognition 仅 Chrome / Edge 支持）。请更换浏览器，或在搜索框输入食物名称'
+  if (!SpeechRecognition) {
+    errorMessage.value = unsupported
+    voiceError.value = unsupported
+    return
+  }
+  // 语音识别仅在"安全上下文"（https 或 localhost/127.0.0.1）可用；通过局域网 IP 访问会静默失败，提前给出提示
+  const isSecure = window.isSecureContext === true
+  if (!isSecure) {
+    const secMsg = '语音识别需要安全连接：请用 http://localhost:5173 访问本页面（当前非 localhost 打开，麦克风不可用）。或直接在搜索框输入食物名称'
+    errorMessage.value = secMsg
+    voiceError.value = secMsg
     return
   }
 
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-  const recognition = new SpeechRecognition()
+  // 切换 / 错误后确保上一次实例释放，避免重复 start 抛 InvalidStateError
+  if (activeRecognition) { try { activeRecognition.abort() } catch (e) {} activeRecognition = null }
+
+  let recognition: any
+  try {
+    recognition = new SpeechRecognition()
+  } catch (e) {
+    const initErr = '语音识别初始化失败。请更换浏览器，或直接在搜索框输入食物名称'
+    errorMessage.value = initErr
+    voiceError.value = initErr
+    return
+  }
+  activeRecognition = recognition
 
   recognition.lang = 'zh-CN'
   recognition.continuous = false
   recognition.interimResults = false
 
+  // start 可能同步抛异常（无效状态/权限/环境），必须捕获并给出反馈，否则点按钮会"毫无反应"
+  recognition.onstart = () => {
+    isRecording.value = true
+    voiceError.value = ''
+  }
+
   recognition.onresult = (event: any) => {
-    const transcript = event.results[0][0].transcript
-    voiceResult.value = transcript
+    const transcript = event.results[0][0]?.transcript
+    if (transcript) {
+      isRecording.value = false
+      voiceResult.value = transcript
+      handleVoiceText(transcript)
+    }
   }
 
   recognition.onerror = () => {
-    errorMessage.value = '语音识别失败，请重试'
+    const msg = '语音识别失败（未检测到声音或浏览器无麦克风权限）。请重试，或直接在搜索框输入食物名称'
+    errorMessage.value = msg
+    voiceError.value = msg
     isRecording.value = false
+    activeRecognition = null
   }
 
   recognition.onend = () => {
     isRecording.value = false
   }
 
-  recognition.start()
-  isRecording.value = true
+  // start 抛异常时给出反馈而不是静默失败
+  try {
+    recognition.start()
+  } catch (e: any) {
+    const startErr = '无法开启麦克风（可能被系统拦截或当前环境不支持）。请检查浏览器麦克风权限，或直接在搜索框输入食物名称'
+    errorMessage.value = startErr
+    voiceError.value = startErr
+    isRecording.value = false
+    activeRecognition = null
+    return
+  }
   errorMessage.value = ''
 }
 
 const stopRecording = () => {
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-  const recognition = new SpeechRecognition()
-  recognition.stop()
+  if (activeRecognition) {
+    try { activeRecognition.stop() } catch (e) {}
+    try { activeRecognition.abort() } catch (e) {}
+    activeRecognition = null
+  }
+  isRecording.value = false
 }
 
+// 手动关闭语音浮窗反馈（不打断识别；若在聆听中由 toggle 处理停止）
+const dismissVoice = () => {
+  voiceNote.value = ''
+  voiceError.value = ''
+  voiceResult.value = ''
+  voiceItems.value = []
+}
+
+// 关闭语音弹窗：若正在聆听则先停止，再清空反馈
+const onCloseVoice = () => {
+  if (isRecording.value) stopRecording()
+  dismissVoice()
+}
+
+// 重新解析已识别的文本（搜索框场景的「使用」按钮）
 const applyVoiceResult = () => {
-  if (voiceResult.value) {
-    keyword.value = voiceResult.value
-    clearVoiceResult()
-  }
+  const t = voiceResult.value
+  if (t) handleVoiceText(t)
 }
 
 const clearVoiceResult = () => {
   voiceResult.value = ''
 }
 
-// ===== 入场动效（与首页/中转页同节奏：面包屑点亮 → 站点弹出 → 浅芯浮起） =====
+// 在食物库 foods.value 中按名称把 AI 解析出的食材匹配到具体 foodId
+function matchFoodByName(rawName: string): any {
+  const name = String(rawName || '').trim()
+  if (!name) return null
+  // 去掉（熟）（生）等状态后缀，提升"米饭（熟）"对"米饭"的命中
+  const norm = name.replace(/[（(].*?[)）]/g, '').replace(/\s+/g, '')
+  if (!norm) return null
+  let best: any = null
+  let bestScore = -1
+  for (const f of foods.value) {
+    const fnNorm = String(f?.foodName || '').replace(/[（(].*?[)）]/g, '').replace(/\s+/g, '')
+    if (!fnNorm) continue
+    if (fnNorm === norm) return f
+    if (fnNorm.includes(norm) || norm.includes(fnNorm)) {
+      const score = Math.min(fnNorm.length, norm.length)
+      if (score > bestScore) { best = f; bestScore = score }
+    }
+  }
+  return best
+}
+
+// 语音报餐核心：浏览器识别文本 → 调用 AI /ai/voice/parse（口语量词→克重）→ 匹配食物库 → 在弹窗内展示待确认列表
+async function handleVoiceText(text: string) {
+  const t = String(text || '').trim()
+  if (!t || voiceParsing.value) return
+  voiceParsing.value = true
+  voiceNote.value = ''
+  voiceItems.value = []
+  try {
+    const resp: any = await api.ai.voiceParse(t)
+    const items = Array.isArray(resp?.items) ? resp.items : []
+    if (!items.length) throw new Error('EMPTY')
+    const parsed: Array<{ foodName: string; weight: number; foodId: number | null }> = []
+    for (const it of items) {
+      const food = matchFoodByName(it?.food_name)
+      const w = Math.max(1, Number(it?.weight) || 0)
+      parsed.push({ foodName: String(it?.food_name || '未知食物'), weight: w, foodId: food?.foodId ?? null })
+    }
+    voiceItems.value = parsed
+  } catch (e: any) {
+    // AI 解析暂不可用 → 退化为手动搜索
+    keyword.value = t
+    voiceNote.value = 'AI 解析暂不可用，已填入搜索框，请手动选择'
+    clearVoiceResult()
+  } finally {
+    voiceParsing.value = false
+  }
+}
+
+// 确认添加：把弹窗内待确认的解析结果批量写入当前餐次
+async function confirmVoiceAdd() {
+  const matched = voiceItems.value.filter((it) => it.foodId != null)
+  const missed = voiceItems.value.filter((it) => it.foodId == null)
+  if (!matched.length) {
+    voiceNote.value = '解析结果均未匹配到库内食材，请在搜索框手动选择'
+    return
+  }
+  saving.value = true
+  try {
+    await dietStore.addMeal({
+      eatDate: form.value.date,
+      mealType: currentMeal.value,
+      remark: '语音报餐',
+      items: matched.map((it) => ({ foodId: it.foodId as number, eatWeight: it.weight }))
+    })
+    await dietStore.fetchTodayMeals(form.value.date)
+    voiceNote.value = `已通过语音添加 ${matched.length} 项` + (missed.length ? ` · 未匹配：${missed.map((m) => m.foodName).join('、')}` : '')
+    voiceItems.value = []
+    clearVoiceResult()
+  } catch (e: any) {
+    voiceError.value = e?.response?.data?.message || e?.message || '添加失败'
+  } finally {
+    saving.value = false
+  }
+}
+
+// ===== 入场动效（面包屑点亮 → 站点弹出 → 浅芯浮起） =====
 const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 const mainRef = ref<HTMLElement | null>(null)
@@ -918,6 +1110,86 @@ button.crumb-node:hover { color: #E8B973; }
 }
 .ghost-add:hover { background: rgba(217, 162, 74, 0.1); border-color: #B8863B; }
 .ghost-add.solid { border-style: solid; }
+
+/* 语音报餐反馈 */
+.voice-note {
+  margin-top: 10px; font-size: 12px; color: #2F7D5D; font-weight: 600;
+  background: rgba(47, 125, 93, 0.07); border-radius: 8px; padding: 7px 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.voice-note.busy { color: #B8863B; background: rgba(184, 134, 59, 0.08); }
+
+/* ---- 语音报餐弹窗 ---- */
+.voice-mask {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(26, 24, 22, 0.42);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.voice-dialog {
+  width: min(360px, 90vw);
+  background: #fffdf7;
+  border-radius: 18px;
+  padding: 20px 22px 22px;
+  box-shadow: 0 12px 40px rgba(40, 32, 20, 0.22);
+  border: 1px solid rgba(184, 134, 59, 0.2);
+  animation: vd-in 0.25s ease;
+}
+@keyframes vd-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.voice-dialog.rec { border-color: #E8B973; }
+.vd-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.vd-head b { font-size: 15px; color: #2A2620; letter-spacing: 0.02em; }
+.vd-sub { font-size: 11px; color: #9A8F7F; font-weight: 400; }
+.vd-close {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+  border: none; background: rgba(184, 134, 59, 0.08); color: #8A7a62;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+}
+.vd-close:hover { background: rgba(184, 134, 59, 0.18); color: #2A2620; }
+.vd-mic {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 88px; height: 88px; margin: 0 auto 14px; border-radius: 50%;
+  border: 2px dashed rgba(184, 134, 59, 0.4); background: rgba(232, 185, 115, 0.08);
+  color: #B8863B; cursor: pointer; transition: 0.25s;
+}
+.vd-mic span { font-size: 11px; color: #9A8F7F; margin-top: 2px; }
+.vd-mic.on { border-style: solid; border-color: #E8B973; background: rgba(232, 185, 115, 0.18); }
+.vd-mic .pulse { animation: vpulse 1.4s infinite; }
+@keyframes vpulse { 0% { transform: scale(0.94); opacity: 0.7; } 50% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(0.94); opacity: 0.7; } }
+.vd-status {
+  margin-top: 14px; font-size: 13px; line-height: 1.6; color: #4A4438;
+  min-height: 44px; text-align: center;
+  background: rgba(184, 134, 59, 0.06); border-radius: 10px; padding: 9px 12px;
+}
+.vd-primary {
+  width: 100%; margin-top: 14px; padding: 10px;
+  background: linear-gradient(135deg, #DCA14B, #B8863B); border: none; border-radius: 10px;
+  color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.05em; cursor: pointer; transition: 0.25s;
+}
+.vd-primary:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.vd-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.vd-items {
+  margin-top: 12px;
+  border: 1px solid rgba(184, 134, 59, 0.2);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.vd-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; font-size: 12.5px; color: #2A2620;
+  border-bottom: 1px dashed rgba(184, 134, 59, 0.18);
+}
+.vd-item:last-child { border-bottom: none; }
+.vd-item .nm { font-weight: 700; }
+.vd-item .w { color: #B8863B; font-weight: 700; }
+.vd-item .st {
+  margin-left: auto; font-size: 10px; padding: 2px 8px; border-radius: 99px;
+  background: rgba(127, 174, 142, 0.16); color: #2F7D5B;
+}
+.vd-item.miss .st { background: rgba(201, 110, 80, 0.14); color: #C0522F; }
 
 /* ---- 今日小结 ---- */
 .db-side-head {

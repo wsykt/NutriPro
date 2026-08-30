@@ -1,6 +1,6 @@
 <template>
   <div class="nutri-page" ref="rootRef">
-    <!-- ===== 深壳星轨带（与首页/中转页/记录页同构 · 宏量素星球上下浮动） ===== -->
+    <!-- ===== 深壳星轨带（宏量素星球上下浮动） ===== -->
     <div class="db-band" ref="bandRef">
       <div class="db-glow db-glow--1" aria-hidden="true"></div>
       <div class="db-glow db-glow--2" aria-hidden="true"></div>
@@ -431,7 +431,7 @@ async function loadAnalysis() {
   }
 }
 
-// ---- 入场动效（与首页/记录页同节奏） ----
+// ---- 入场动效 ----
 const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 

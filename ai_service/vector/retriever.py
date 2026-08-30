@@ -57,7 +57,12 @@ class ChromaRetriever:
     # 语义去重窗口：仅对排名靠前的少量结果做两两 BGE 判重（避免 O(n²) 本地推理）
     DEDUP_TOP_WINDOW = 5
     # 轻量文本签名粗筛阈值（字符集 Jaccard ≥ 该值才调用 BGE 精确判重）
-    LIGHT_SIMILARITY_PRE_FILTER = 0.5
+    # 注意：模板卡片同人群结构相似，字符集 Jaccard 普遍 0.6~0.9，阈值过低（如0.5）
+    # 会触发大量无效 BGE 判重（CPU 单次约 0.7s），导致检索慢 5~10s。阈值提高后
+    # 仅对真正近乎逐字重复的文本触发 BGE（去重阈值为 BGE 余弦 ≥ 0.95）。
+    LIGHT_SIMILARITY_PRE_FILTER = 0.9
+    # 长度比例上限：两条文本长度相差超过该比例时不可能近乎逐字重复，直接跳过 BGE 判重
+    LENGTH_RATIO_SKIP = 1.3
 
     def __init__(self):
         self.client = chromadb.PersistentClient(
@@ -200,6 +205,10 @@ class ChromaRetriever:
             # 2) 轻量粗筛：只与窗口内最近保留的结果做字符集比对
             for seen_sig, seen_content in seen[-self.DEDUP_TOP_WINDOW:]:
                 if self._light_signature_similarity(sig, seen_sig) >= self.LIGHT_SIMILARITY_PRE_FILTER:
+                    # 长度比例悬殊 → 不可能近乎逐字重复，跳过 BGE 判重
+                    l1, l2 = len(content), len(seen_content)
+                    if l1 > 0 and l2 > 0 and max(l1, l2) / min(l1, l2) > self.LENGTH_RATIO_SKIP:
+                        continue
                     # 3) 疑似重复 → BGE 向量精确判重（窗口内最多 DEDUP_TOP_WINDOW 次编码）
                     if self._content_similarity(content, seen_content) >= self.DUPLICATE_SIMILARITY_THRESHOLD:
                         is_duplicate = True
@@ -226,13 +235,27 @@ class ChromaRetriever:
         union = sig1 | sig2
         return len(sig1 & sig2) / len(union) if union else 0.0
 
+    # BGE 编码结果缓存：去重判重时同一文本会与多条候选比较，避免同一文本重复 CPU 推理
+    _EMBED_CACHE = {}
+    _EMBED_CACHE_MAX = 64
+
+    def _cached_encode(self, text_key):
+        """按文本（截断后）缓存 BGE 向量（有界缓存，超出后简单清空重建）"""
+        vec = self._EMBED_CACHE.get(text_key)
+        if vec is None:
+            vec = embedder.encode([text_key])[0]
+            if len(self._EMBED_CACHE) >= self._EMBED_CACHE_MAX:
+                self._EMBED_CACHE.clear()
+            self._EMBED_CACHE[text_key] = vec
+        return vec
+
     def _content_similarity(self, text1, text2):
         """基于 BGE 向量的余弦相似度（替代脆弱的 Jaccard 字符集方法）"""
         if not text1 or not text2:
             return 0.0
         try:
-            vecs = embedder.encode([text1[:500], text2[:500]])
-            v1, v2 = vecs[0], vecs[1]
+            v1 = self._cached_encode(text1[:500])
+            v2 = self._cached_encode(text2[:500])
             dot = float(np.dot(v1, v2))
             norm1 = float(np.linalg.norm(v1))
             norm2 = float(np.linalg.norm(v2))
@@ -249,12 +272,15 @@ class ChromaRetriever:
             all_chars = set(t1) | set(t2)
             return len(common) / len(all_chars) if all_chars else 0.0
 
-    def hybrid_retrieve(self, query, top_k=5, target_crowd=None, collections=None, doc_level=None):
+    def hybrid_retrieve(self, query, top_k=5, target_crowd=None, collections=None, doc_level=None,
+                        use_rerank=True):
         """BM25 + 向量双路融合检索（五库隔离：可指定 collections 并行多库检索）
 
         doc_level: document/paragraph/fact 三级检索粒度过滤（None → 不限）
         融合后用本地 bge-reranker 做交叉编码精排（候选集放大 RERANKER_CANDIDATE_MULTIPLIER 倍，
         模型缺失 / 推理失败自动降级为融合原排序）。
+        use_rerank=False 时跳过本次交叉编码精排（用于多库并行场景：各库先不重排，
+        由调用方合并后统一精排一次，避免 CPU 交叉编码器被反复调用）。
         """
         # 检索前合并重建各集合 BM25 索引（批量摄入后仅在此处重建一次）
         self._rebuild_bm25_if_dirty()
@@ -282,7 +308,8 @@ class ChromaRetriever:
             results = vector_search_fn(query, candidate_k)
 
         # 本地 reranker 精排（不可用时原样返回，此处统一截断到 top_k）
-        results = reranker.rerank(query, results, top_k=top_k)
+        if use_rerank:
+            results = reranker.rerank(query, results, top_k=top_k)
         return results[:top_k]
 
     def dynamic_retrieve(self, query, target_crowd=None, default_top_k=5):

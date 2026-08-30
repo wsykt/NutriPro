@@ -1,6 +1,6 @@
 <template>
   <div class="diet-page">
-    <!-- ===== 深壳星轨带（与首页/记录页同构 · 分类星球上下浮动） ===== -->
+    <!-- ===== 深壳星轨带（分类星球上下浮动） ===== -->
     <div class="db-band" ref="bandRef">
       <div class="db-glow db-glow--1" aria-hidden="true"></div>
       <div class="db-glow db-glow--2" aria-hidden="true"></div>
@@ -60,7 +60,7 @@
       </div>
     </div>
 
-    <!-- ===== 浅芯工作区（7:5 · 与首页浅芯面板同源） ===== -->
+    <!-- ===== 浅芯工作区（7:5） ===== -->
     <div class="db-paper" ref="paperRef">
       <div class="db-head" data-anim>
         <div class="sec-t">营养速查 · 每一种食材都是一颗星</div>
@@ -320,7 +320,7 @@ const giLevel = computed(() => {
   return { cls: 'lv-high', label: '高 GI' }
 })
 
-// ===== 入场动效（与首页/记录页同节奏：面包屑点亮 → 星球弹出 → 浅芯浮起） =====
+// ===== 入场动效（面包屑点亮 → 星球弹出 → 浅芯浮起） =====
 const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 const sideRef = ref<HTMLElement | null>(null)

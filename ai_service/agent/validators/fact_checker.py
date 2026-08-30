@@ -145,11 +145,10 @@ class FactChecker:
             "\"message\":\"...\"}], \"passed\": true/false}\n\n"
             f"【知识库参考】{kb_context[:600]}\n\n【待核查回答】{text[:1000]}\n"
         )
+        original_mode = getattr(self.llm, "_mode", "cloud")
         try:
-            original_mode = getattr(self.llm, "_mode", "cloud")
             self.llm._mode = "local"
             result = self.llm.chat_json(prompt, temperature=0.1)
-            self.llm._mode = original_mode
             if isinstance(result, dict):
                 issues = result.get("issues", []) or []
                 passed = result.get("passed", True)
@@ -159,6 +158,10 @@ class FactChecker:
                         "stats": {"chars": len(text), "llm_checked": True}}
         except Exception as e:
             logger.debug(f"[FactChecker LLM校验失败] {e}")
+        finally:
+            # 关键：无论成功/失败都必须恢复全局 LLM 模式，否则 _mode 被永久污染成 local
+            # （曾导致后续所有调用走 Ollama，JSON 解析失败返回空 items）
+            self.llm._mode = original_mode
         return {"passed": True, "issues": [], "severity": "low",
                 "note": "LLM校验失败，默认通过"}
 

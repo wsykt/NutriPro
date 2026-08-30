@@ -216,6 +216,7 @@ class KnowledgeRouter:
                     hits = retriever.hybrid_retrieve(
                         query, top_k=per_k, target_crowd=crowd,
                         collections=[col_name], doc_level=level,
+                        use_rerank=False,  # 各库先不做交叉编码精排，合并后统一精排一次（省 CPU）
                     )
                 else:
                     hits = retriever.search(
@@ -230,24 +231,40 @@ class KnowledgeRouter:
 
         # 跨库合并：先按相似度，再保各库代表性（避免单库垄断）
         merged.sort(key=lambda x: -x.get("similarity", 0))
+        # 统一精排：只对合并后头部候选池做一次交叉编码（避免每库重复 CPU 推理）。
+        # 候选池上限 top_k×2：长 prompt 下单对交叉编码可达数百 token，必须严格控制规模。
+        pool = merged[: top_k * 2]
+        if len(pool) > 1 and use_hybrid:
+            try:
+                from vector.reranker import reranker
+                pool = reranker.rerank(query, pool, top_k=top_k * 2)
+            except Exception as e:
+                _logger.warning(f"统一精排失败，降级为融合排序: {e}")
         # 简单交叉合并：轮询各集合取最相关，保证多库都有结果
-        final = self._round_robin_merge(merged, top_k)
+        final = self._round_robin_merge(pool, top_k)
         return final
 
     @staticmethod
     def _round_robin_merge(merged: List[Dict], top_k: int) -> List[Dict]:
-        """轮询合并：按集合轮流取当前最相关结果，保证多库覆盖"""
+        """轮询合并：按集合轮流取当前最相关结果，保证多库覆盖
+
+        语义：top_k 是结果上限而非目标量——候选总数不足 top_k 时有多少取多少。
+        防御性：每轮记录是否产生进展（追加结果或清空集合），候选耗尽仍无进展时
+        立即退出，杜绝死循环（候选被 used_ids 标记但未从 items 删除的场景）。
+        """
         by_col: Dict[str, List[Dict]] = {}
         for h in merged:
             by_col.setdefault(h.get("_collection", ""), []).append(h)
         final = []
         used_ids = set()
         while len(final) < top_k and by_col:
+            progressed = False
             for col, items in list(by_col.items()):
                 if len(final) >= top_k:
                     break
                 if not items:
                     by_col.pop(col, None)
+                    progressed = True
                     continue
                 # 取该库当前最相关且未使用的结果
                 candidate = None
@@ -258,6 +275,10 @@ class KnowledgeRouter:
                 if candidate:
                     final.append(candidate)
                     used_ids.add(id(candidate))
+                    progressed = True
+            if not progressed:
+                # 候选已全部耗尽（items 仍有残留但无未用结果）→ 防止死循环
+                break
         return final[:top_k]
 
 

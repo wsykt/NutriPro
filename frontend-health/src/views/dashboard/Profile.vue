@@ -1,6 +1,6 @@
 <template>
   <div class="user-page">
-    <!-- ===== 深壳星轨带（与首页/饮食页同构 · 四颗数据星球上下浮动） ===== -->
+    <!-- ===== 深壳星轨带（四颗数据星球上下浮动） ===== -->
     <div class="db-band" ref="bandRef">
       <div class="db-glow db-glow--1" aria-hidden="true"></div>
       <div class="db-glow db-glow--2" aria-hidden="true"></div>

@@ -88,6 +88,36 @@ async def chat(data: dict):
             "high_performance": False,
         })
 
+    # 食谱生成透传：后端已携带完整系统提示词+JSON schema（message 内含"请严格按以下JSON格式输出"）。
+    # 若走通用 qa 管线，CLOUD_PROMPTS["qa"] 会强制 Markdown 输出（"不要代码块包裹"），
+    # 导致模型返回 Markdown 食谱而非 JSON，前端解析失败 → 生成结果为空。
+    # 这里直接交 LLM JSON 模式生成（chat_json 自动启用 json_object 约束），保证可被前端解析。
+    if data.get("_recipe", False):
+        _lr = get_logger("recipe")
+        messages = [
+            {"role": "system", "content": "你是专业注册营养师。严格按照用户要求的 JSON 结构输出一份完整食谱，只输出合法 JSON，不要包含 markdown 代码块标记、解释文字或任何额外内容。"},
+            {"role": "user", "content": message},
+        ]
+        try:
+            recipe_obj = await run_in_thread(
+                llm.chat_json, messages, max_retries=2,
+                timeout=settings.LLM_TIMEOUT_HIGH_PERF,
+            )
+        except Exception as e:
+            _lr.error(f"食谱JSON生成异常: {e}")
+            return error_response(message=f"LLM 调用失败: {e}", code=502, detail="RECIPE_LLM_ERROR")
+        if not recipe_obj or not isinstance(recipe_obj, dict):
+            _lr.warning("食谱JSON生成返回空对象")
+            return error_response(message="食谱生成失败，模型未返回合法 JSON", code=502, detail="RECIPE_INVALID_JSON")
+        _lr.info(f"食谱JSON生成成功 keys={list(recipe_obj.keys())} len={len(json.dumps(recipe_obj, ensure_ascii=False))}")
+        return success_response(data={
+            "response": json.dumps(recipe_obj, ensure_ascii=False),
+            "provider": "deepseek",
+            "mode": "recipe_direct",
+            "route": "recipe_direct",
+            "high_performance": False,
+        })
+
     result = await run_in_thread(
         orchestrator.chat,
         user_id=user_id,

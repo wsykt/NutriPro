@@ -92,6 +92,10 @@ class VoiceTextParseAgent(BaseAgent):
 
         parsed = VoiceTextParseAgent.chat_json(messages)
         items = parsed.get("items", [])
+        if not items:
+            # LLM 未识别出食物项（网络/解析失败被 chat_json 吞掉）→ 抛异常交给
+            # orchestrator 走本地兜底引擎，避免"空结果"被持久化缓存污染后续请求
+            raise ValueError("语音解析未识别到食物项")
         items = VoiceTextParseAgent._fill_weight_by_quantity(text, items)
 
         return {"items": items}

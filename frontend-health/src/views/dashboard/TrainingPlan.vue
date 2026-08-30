@@ -303,7 +303,7 @@ async function getExerciseAdvice(goal: string) {
   adviceLoading.value = goal
   exerciseAdviceResult.value = ''
   try {
-    const res: any = await api.ai.exerciseAdvice(goal)
+    const res: any = await api.ai.exerciseAdvice(goal, undefined, userStore.highPerformance)
     const content = res?.content || res?.response || res?.answer || (typeof res === 'string' ? res : '')
     exerciseAdviceResult.value = String(content || '未获取到建议，请稍后重试')
   } catch (e: any) {
@@ -417,7 +417,7 @@ async function askQuick(question: string) {
   await scrollToBottom()
   try {
     const prompt = buildPrompt(question)
-    const raw: any = await api.ai.consult(prompt)
+    const raw: any = await api.ai.consult(prompt, userStore.highPerformance)
     const reply = raw?.reply || (typeof raw === 'string' ? raw : '未返回内容，请稍后再试')
     chatMessages.value.push({ role: 'ai', content: reply })
   } catch {

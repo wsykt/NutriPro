@@ -1,6 +1,6 @@
 <template>
   <div class="feature-hub min-h-full relative">
-    <!-- ===== 组合 E · 深壳中继 + 浅芯概览（与首页"深壳 Hero + 浅芯面板"同构） ===== -->
+    <!-- ===== 组合 E · 深壳中继 + 浅芯概览 ===== -->
     <div v-if="currentCategory" class="hc-wrap relative z-10">
 
       <!-- ===== 深壳星轨带（上半 · 承接首页深壳 Hero） ===== -->
@@ -55,9 +55,9 @@
         </div>
       </div>
 
-      <!-- ===== 浅芯概览工作区（下半 · 与首页暖纸面板同源） ===== -->
+      <!-- ===== 浅芯概览工作区（下半） ===== -->
       <div class="hc-paper" ref="paperRef">
-        <div class="sec-t" data-anim>分组实时概览 · 与首页浅芯面板同源</div>
+        <div class="sec-t" data-anim>分组实时概览</div>
 
         <div class="hc-grid4">
           <button class="hc-cell" data-anim @click="go('/dashboard/food-input')">
@@ -165,7 +165,7 @@ function stationFloatStyle(i: number): Record<string, string> {
 
 function go(to: string) { router.push(to) }
 
-// ===== 分组实时概览（与首页浅芯面板同源的真实数据） =====
+// ===== 分组实时概览（真实数据） =====
 const overview = ref<{ todayKcal: number | null; bmi: number | null; bmiText: string; weight: number | null; bmr: number | null; reportCount: number }>({
   todayKcal: null, bmi: null, bmiText: '—', weight: null, bmr: null, reportCount: 0
 })
@@ -190,7 +190,7 @@ const snapshotText = computed(() => {
   return `最近快照 · ${dateText}：${parts.join('，')}`
 })
 
-// ===== 入场动效（与首页同节奏：深壳先入 → 站点亮起 → 浅芯浮起） =====
+// ===== 入场动效（深壳先入 → 站点亮起 → 浅芯浮起） =====
 const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 
@@ -225,9 +225,13 @@ onMounted(async () => {
     const meals = Array.isArray(d) ? d : []
     let kcal = 0, has = false
     for (const m of meals) {
-      const items = m?.foods ?? m?.items ?? []
-      for (const it of items) { const c = Number(it?.calories_kcal ?? it?.calories ?? it?.cal ?? 0); if (c) { kcal += c; has = true } }
-      if (m?.meal_calories_kcal) { kcal += Number(m.meal_calories_kcal); has = true }
+      const items = m?.items ?? m?.foods ?? []
+      for (const it of items) {
+        // 与首页一致：后端 item 的 calorie/protein 等均为「每100克」值，需按实际食用重量 eatWeight 折算
+        const factor = Number(it?.eatWeight ?? it?.quantity ?? 0) / 100
+        const c = Number(it?.calorie ?? it?.calories ?? 0) * factor
+        kcal += c; if (c) has = true
+      }
     }
     overview.value.todayKcal = has ? Math.round(kcal) : null
   }
@@ -259,7 +263,7 @@ onMounted(async () => {
   gap: 16px;
 }
 
-/* ========== 深壳星轨带（与首页 dk-hero 同色系） ========== */
+/* ========== 深壳星轨带 ========== */
 .hc-band {
   position: relative;
   padding: 20px 30px 14px;
@@ -470,7 +474,7 @@ onMounted(async () => {
   color: #E8B973;
 }
 
-/* ========== 浅芯概览工作区（与首页暖纸面板同源） ========== */
+/* ========== 浅芯概览工作区 ========== */
 .hc-paper {
   position: relative;
   background:

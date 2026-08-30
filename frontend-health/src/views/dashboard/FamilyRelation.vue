@@ -1,6 +1,6 @@
 <template>
   <div class="diet-page">
-    <!-- ===== 深壳星轨带（与首页/代录星链同构 · 亲缘星球上下浮动） ===== -->
+    <!-- ===== 深壳星轨带（亲缘星球上下浮动） ===== -->
     <div class="db-band" ref="bandRef">
       <div class="db-glow db-glow--1" aria-hidden="true"></div>
       <div class="db-glow db-glow--2" aria-hidden="true"></div>
@@ -342,7 +342,7 @@ function floatStyle(i: number): Record<string, string> {
   }
 }
 
-// ===== 入场动效（与首页/代录星链同节奏：面包屑点亮 → 星球弹出 → 浅芯浮起） =====
+// ===== 入场动效（面包屑点亮 → 星球弹出 → 浅芯浮起） =====
 const bandRef = ref<HTMLElement | null>(null)
 const paperRef = ref<HTMLElement | null>(null)
 

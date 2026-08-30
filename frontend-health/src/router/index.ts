@@ -22,8 +22,8 @@ const routes: Array<RouteRecordRaw> = [
     redirect: '/dashboard/home',
     children: [
       { path: 'hub', component: () => import('@/views/dashboard/FeatureHub.vue') },
-      // 首页（原 demo 命名，已更名 home；保留旧路径重定向兼容历史链接）
-      { path: 'home', component: () => import('@/views/dashboard/DashboardDemo.vue') },
+      // 首页（组件命名：HomePageDashboard）
+      { path: 'home', component: () => import('@/views/dashboard/HomePageDashboard.vue') },
       { path: 'demo', redirect: '/dashboard/home' },
 
       // ===== 个人中心（Tab：个人资料 / 饮食偏好） =====

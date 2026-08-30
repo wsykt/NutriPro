@@ -66,6 +66,10 @@ public class AiExerciseService {
         requestBody.put("today_diet_total", snapshot.get("today_diet_total"));
         requestBody.put("body_metrics_trend", snapshot.get("body_metrics_trend"));
         requestBody.put("diet_reference", snapshot.get("diet_reference"));
+        // 高性能模式透传（true=云端直连快速生成，false=普通模式完整链路）
+        Object hp = body.get("high_performance");
+        if (hp == null) hp = body.get("highPerformance");
+        requestBody.put("high_performance", hp != null && Boolean.parseBoolean(String.valueOf(hp)));
 
         return aiChatClient.postForMapLong("/exercise/advice", requestBody, "运动建议生成");
     }
