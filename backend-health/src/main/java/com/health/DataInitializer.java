@@ -86,12 +86,12 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    /** 交付要求：管理员账号固定口令 admin/admin123（演示环境），每次启动幂等重置，保证交付包可直接登录。 */
+    /** 演示要求：管理员账号固定口令 admin/admin123（演示环境），每次启动幂等重置，保证克隆后可直接登录。 */
     private void initAdminUser() {
         upsertAdmin("admin123", true);
     }
 
-    /** 创建或重置 admin 账号（无条件按给定口令重置，保证演示账号口令始终与交付文档一致）。 */
+    /** 创建或重置 admin 账号（无条件按给定口令重置，保证演示账号口令始终与 README 一致）。 */
     private void upsertAdmin(String rawPassword, boolean passwordFromEnv) {
         User admin = userRepository.findByUsername("admin").orElse(null);
         if (admin == null) {
