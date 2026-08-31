@@ -36,6 +36,7 @@ target/
 # 后端业务库：health.db 为参赛演示数据，随仓库分发；仅排除备份/日志
 backend-health/data/*.bak*
 backend-health/data/*.db-*
+backend-health/data/*backup*.db
 backend-health/data/server.err
 backend-health/data/server.log
 backend-health/data/server.out
