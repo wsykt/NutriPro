@@ -18,9 +18,10 @@ health/
 
 1. **准备环境**：JDK 8、Node.js 18+、Python 3.10+（详见配置说明）
 2. **下载向量模型**：将 `bge-base-zh-v1.5` 放入 `ai_service/models/`（必装，维度 768，与随包知识库匹配）
-3. **安装依赖**：`ai_service` 用 pip、`frontend-health` 用 npm、`backend-health` 用 Maven
-4. **启动服务**（顺序）：AI 服务 → 后端 → 前端
-5. **访问系统**：http://localhost:5173
+3. **配置 Ollama 本地大模型（可选但推荐）**：安装 Ollama → `ollama pull qwen2.5:7b-instruct-q4_K_M` → 在 `ai_service/` 下执行 `ollama create qwen2.5-7b-local -f Modelfile.health_framework`（详见配置说明第四节；不装则科普文章本地框架能力自动降级）
+4. **安装依赖**：`ai_service` 用 pip、`frontend-health` 用 npm、`backend-health` 用 Maven
+5. **启动服务**（顺序）：AI 服务 → 后端 → 前端
+6. **访问系统**：http://localhost:5173
 
 ## 端口一览
 
