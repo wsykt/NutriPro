@@ -1,3 +1,0 @@
-# CBM 图谱索引排除项
-# 旧 Windows 副本（health_wsl 符号链接已指向 WSL /root/health，同一份代码由它提供）
-health/

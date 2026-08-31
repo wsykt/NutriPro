@@ -126,6 +126,34 @@ frontend-health/*.bat
 # 其他临时
 start_services.py
 test_substitution.py
+
+# ---------- 参赛交付：GitHub 仓库不含的开发文档/脚本（本地保留，不入库） ----------
+/dsh-routing-suite/
+/start_*.ps1
+/update_cbm_index.ps1
+/wsl_*.sh
+/WSL*.md
+/batch_generate_articles.py
+/export_cbm_report.py
+/cbm-architecture.md
+/cbm-graph.json
+/.cbmignore
+/CBM使用指南.md
+/DOCKER_DEPLOY.md
+/docker-compose.yml
+/启动*.bat
+/启动说明.md
+/AI模块架构设计文档.md
+/优化后项目架构说明.md
+/前端应用架构设计文档.md
+/功能实现详解.md
+/后端系统架构设计文档.md
+/提示词文档_v3.2.md
+/数据库设计说明.md
+/架构与功能说明.md
+/项目当前架构说明.md
+ai_service/start_ai.bat
+frontend-health/public/autologin.html
 =======
 # Compiled class file
 *.class
